@@ -1,0 +1,31 @@
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables
+.env.local
+.env.*.local
+
+# Database & Docker storage
+pgdata/
+*.sqlite3
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Frontend (nếu thêm sau này)
+node_modules/
+.next/
+dist/
+out/
+build/
