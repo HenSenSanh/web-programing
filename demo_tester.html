@@ -20,9 +20,6 @@
           ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         font-size: 12px;
       }
-      .revenue-bar {
-        transition: width 0.5s ease;
-      }
     </style>
   </head>
 
@@ -91,8 +88,9 @@
             </h2>
             <span
               class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono"
-              >Bàn 01</span
             >
+              Bàn 01
+            </span>
           </div>
 
           <!-- MỞ BÀN -->
@@ -138,8 +136,9 @@
               <span
                 id="wsStatus"
                 class="text-[10px] bg-slate-200 px-2 py-0.5 rounded"
-                >WS: Chưa nối</span
               >
+                WS: Chưa nối
+              </span>
             </div>
 
             <div class="grid grid-cols-2 gap-2 pt-1">
@@ -267,8 +266,9 @@
             </h2>
             <span
               class="text-[11px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded font-mono"
-              >OLAP Schema</span
             >
+              OLAP Schema
+            </span>
           </div>
 
           <!-- TV4: GỢI Ý MÓN -->
@@ -292,106 +292,103 @@
             </div>
           </div>
 
-          <!-- TV5: BI DASHBOARD -->
-          <div
-            class="bg-slate-50 p-3 rounded-lg border text-xs space-y-3 flex-1 flex flex-col"
-          >
-            <div class="flex items-center justify-between">
-              <div>
-                <h3 class="font-bold text-slate-800">BI Dashboard</h3>
-                <p class="text-[10px] text-slate-500">
-                  Menu Engineering & Revenue Analytics
-                </p>
-              </div>
+          <!-- TV5: DASHBOARD SUMMARY -->
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="bg-blue-50 border border-blue-100 rounded-lg p-3">
+              <p class="text-slate-500">Tổng doanh thu</p>
+              <p id="biRevenue" class="text-lg font-bold text-blue-700">
+                Đang tải...
+              </p>
+            </div>
 
-              <button
-                onclick="loadMenuMatrix()"
-                class="px-3 py-1.5 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+              <p class="text-slate-500">Số lượng món bán</p>
+              <p id="biSold" class="text-lg font-bold text-emerald-700">
+                Đang tải...
+              </p>
+            </div>
+
+            <div class="bg-violet-50 border border-violet-100 rounded-lg p-3">
+              <p class="text-slate-500">Phiên mua hàng</p>
+              <p id="biPurchases" class="text-lg font-bold text-violet-700">
+                Đang tải...
+              </p>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
+              <p class="text-slate-500">Tỷ lệ chuyển đổi</p>
+              <p id="biConversion" class="text-lg font-bold text-amber-700">
+                Đang tải...
+              </p>
+            </div>
+          </div>
+
+          <!-- TV5: REVENUE OVER TIME -->
+          <div class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-700"
+                >Doanh thu theo ngày</span
               >
-                <i class="fa-solid fa-rotate mr-1"></i> Cập nhật
+              <button
+                onclick="loadRevenueChart()"
+                class="text-[10px] text-indigo-600 hover:underline"
+              >
+                Cập nhật
               </button>
             </div>
 
-            <!-- KPI -->
-            <div class="grid grid-cols-3 gap-2">
-              <div class="bg-white border rounded-lg p-2">
-                <div class="text-[10px] text-slate-500">Tổng lượt xem</div>
-                <div id="biTotalViews" class="text-sm font-bold text-blue-600">
-                  0
-                </div>
-              </div>
-
-              <div class="bg-white border rounded-lg p-2">
-                <div class="text-[10px] text-slate-500">Tổng đã bán</div>
-                <div
-                  id="biTotalSold"
-                  class="text-sm font-bold text-emerald-600"
-                >
-                  0
-                </div>
-              </div>
-
-              <div class="bg-white border rounded-lg p-2">
-                <div class="text-[10px] text-slate-500">Tổng doanh thu</div>
-                <div
-                  id="biTotalRevenue"
-                  class="text-sm font-bold text-indigo-600"
-                >
-                  0đ
-                </div>
-              </div>
+            <div
+              id="revenueChart"
+              class="flex items-end gap-1 h-36 overflow-x-auto border-b border-l rounded bg-white p-2"
+            >
+              <p class="text-slate-400">Đang tải dữ liệu...</p>
             </div>
 
-            <!-- BIỂU ĐỒ DOANH THU -->
-            <div class="bg-white border rounded-lg p-3 space-y-3">
-              <div class="font-semibold text-slate-700">
-                <i class="fa-solid fa-chart-column text-indigo-500 mr-1"></i>
-                Doanh thu theo món
-              </div>
+            <div class="text-right text-[10px] text-slate-500">
+              Đơn vị: triệu VNĐ
+            </div>
+          </div>
 
-              <div id="revenueChart" class="space-y-2">
-                <p class="text-slate-400 italic">Chưa có dữ liệu biểu đồ...</p>
-              </div>
+          <!-- TV5: MENU ENGINEERING MATRIX -->
+          <div
+            class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2 flex-1 flex flex-col"
+          >
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-700"
+                >Ma Trận Menu Engineering (TV5)</span
+              >
+              <button
+                onclick="loadMenuMatrix()"
+                class="text-[10px] text-indigo-600 hover:underline"
+              >
+                Cập nhật
+              </button>
             </div>
 
-            <!-- BẢNG MENU ENGINEERING -->
-            <div class="space-y-2">
-              <div class="font-semibold text-slate-700">
-                <i class="fa-solid fa-table-list text-teal-600 mr-1"></i>
-                Chi tiết hiệu quả thực đơn
-              </div>
+            <div class="overflow-y-auto max-h-48 border rounded bg-white">
+              <table class="w-full text-left text-[11px]">
+                <thead class="bg-slate-50 text-slate-500 border-b">
+                  <tr>
+                    <th class="p-1.5">Tên Món</th>
+                    <th class="p-1.5 text-right">Xem</th>
+                    <th class="p-1.5 text-right">Bán</th>
+                    <th class="p-1.5 text-right">Doanh Thu</th>
+                    <th class="p-1.5 text-right">Chuyển đổi</th>
+                  </tr>
+                </thead>
 
-              <div class="overflow-y-auto max-h-64 border rounded bg-white">
-                <table class="w-full text-left text-[11px]">
-                  <thead
-                    class="bg-slate-100 text-slate-500 border-b sticky top-0"
-                  >
-                    <tr>
-                      <th class="p-2">Tên món</th>
-                      <th class="p-2 text-right">Xem</th>
-                      <th class="p-2 text-right">Bán</th>
-                      <th class="p-2 text-right">Doanh thu</th>
-                    </tr>
-                  </thead>
-
-                  <tbody id="matrixTableBody" class="divide-y divide-slate-100">
-                    <tr>
-                      <td
-                        colspan="4"
-                        class="p-2 text-center text-slate-400 italic"
-                      >
-                        Chưa tải dữ liệu...
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                <tbody id="matrixTableBody" class="divide-y divide-slate-100">
+                  <tr>
+                    <td
+                      colspan="5"
+                      class="p-2 text-center text-slate-400 italic"
+                    >
+                      Chưa tải dữ liệu...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-
-            <p class="text-[10px] text-slate-400 italic">
-              * Dữ liệu được lấy trực tiếp từ API OLAP. Số liệu hiện tại là dữ
-              liệu mẫu.
-            </p>
           </div>
         </div>
       </div>
@@ -403,11 +400,10 @@
         <div
           class="flex items-center justify-between text-xs text-slate-400 mb-1 border-b border-slate-800 pb-1"
         >
-          <span>
-            <i class="fa-solid fa-terminal mr-1"></i>
-            Nhật ký Tương tác Trực tiếp (Event Log)
-          </span>
-
+          <span
+            ><i class="fa-solid fa-terminal mr-1"></i> Nhật ký Tương tác Trực
+            tiếp (Event Log)</span
+          >
           <button
             onclick="document.getElementById('logContainer').innerHTML = ''"
             class="hover:text-white text-[10px]"
@@ -447,7 +443,6 @@
         const time = new Date().toLocaleTimeString();
 
         let color = "text-slate-300";
-
         if (type === "success") color = "text-emerald-400";
         if (type === "warn") color = "text-amber-400";
         if (type === "error") color = "text-rose-400";
@@ -483,7 +478,7 @@
         }
       }
 
-      // MỞ PHIÊN BÀN
+      // TV1: MỞ PHIÊN BÀN
       async function openTableSession() {
         const url = getBaseUrl();
 
@@ -514,7 +509,7 @@
         }
       }
 
-      // WEBSOCKET GIỎ HÀNG
+      // TV2: KẾT NỐI WEBSOCKET
       function connectCartWs(token) {
         if (!token) return;
 
@@ -560,7 +555,7 @@
         }
       }
 
-      // GỬI SỰ KIỆN VIEW ITEM
+      // TV4: GỬI CLICKSTREAM EVENT
       async function viewItem(itemId) {
         if (!currentSessionId) {
           log("Vui lòng bấm 'Tạo Phiên Bàn' trước!", "warn");
@@ -587,7 +582,7 @@
         }
       }
 
-      // THÊM VÀO GIỎ HÀNG
+      // TV2: THÊM MÓN VÀO GIỎ HÀNG
       function addToCart(id, name, price) {
         if (!ws || ws.readyState !== WebSocket.OPEN) {
           log("WebSocket chưa kết nối! Hãy bấm 'Tạo Phiên Bàn' trước.", "warn");
@@ -621,7 +616,7 @@
         renderCart();
       }
 
-      // HIỂN THỊ GIỎ HÀNG
+      // TV2: HIỂN THỊ GIỎ HÀNG
       function renderCart() {
         const list = document.getElementById("cartItemsList");
 
@@ -644,7 +639,7 @@
           .join("");
       }
 
-      // ĐẶT MÓN
+      // TV2: GỬI ĐƠN HÀNG
       async function submitOrder() {
         if (!currentSessionToken) {
           log("Chưa có phiên bàn!", "warn");
@@ -687,12 +682,13 @@
         }
       }
 
-      // HIỂN THỊ MÓN Ở BẾP
+      // TV3: HIỂN THỊ MÓN TRÊN KDS
       function renderKitchenItem(orderId, orderItemId = 1) {
         const box = document.getElementById("kitchenItemList");
 
         box.innerHTML = `
         <div class="p-3 bg-white border rounded shadow-sm space-y-2 border-amber-200">
+
           <div class="flex items-center justify-between font-bold text-slate-800">
             <span>Đơn #${orderId} - Món #${orderItemId}: Mì Cay Hải Sản</span>
             <span id="kdsStatusBadge"
@@ -720,7 +716,7 @@
       `;
       }
 
-      // CẬP NHẬT TRẠNG THÁI BẾP
+      // TV3: CẬP NHẬT TRẠNG THÁI MÓN
       async function updateKitchenStatus(orderItemId, status) {
         try {
           const res = await fetch(
@@ -742,6 +738,7 @@
 
           if (badge) {
             badge.textContent = status;
+
             badge.className =
               status === "COMPLETED"
                 ? "px-2 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800"
@@ -757,7 +754,7 @@
         }
       }
 
-      // THANH TOÁN
+      // TV3: THANH TOÁN VÀ ĐÓNG BÀN
       async function checkoutSession() {
         if (!currentSessionId) {
           log("Chưa có phiên bàn nào mở để thanh toán!", "warn");
@@ -767,14 +764,17 @@
         try {
           const res = await fetch(
             `${getBaseUrl()}/api/v1/staff/pos/checkout/${currentSessionId}`,
-            { method: "POST" },
+            {
+              method: "POST",
+            },
           );
 
           const data = await res.json();
 
           document.getElementById("checkoutResult").innerHTML = `
           <div class="p-2 bg-emerald-50 text-emerald-800 rounded border border-emerald-200 mt-2">
-            ✅ Đã thanh toán: <b>${data.total_amount?.toLocaleString() || 0} VNĐ</b><br>
+            ✅ Đã thanh toán:
+            <b>${data.total_amount?.toLocaleString() || 0} VNĐ</b><br>
             🚀 ETL Background đã tự động đẩy sang Star Schema OLAP.
           </div>
         `;
@@ -784,7 +784,10 @@
             "success",
           );
 
+          // TV5: Tải lại toàn bộ dữ liệu BI sau thanh toán
           setTimeout(() => {
+            loadDashboardSummary();
+            loadRevenueChart();
             loadMenuMatrix();
           }, 1200);
         } catch (e) {
@@ -792,7 +795,7 @@
         }
       }
 
-      // TV4: GỢI Ý MÓN ĂN
+      // TV4: GỢI Ý MÓN HAY GỌI KÈM
       async function loadRecommendations(itemId) {
         try {
           const res = await fetch(
@@ -818,7 +821,9 @@
               (item, idx) => `
           <div class="flex items-center justify-between p-1.5 bg-white border rounded">
             <div>
-              <span class="font-semibold text-slate-800">${idx + 1}. ${item.name}</span>
+              <span class="font-semibold text-slate-800">
+                ${idx + 1}. ${item.name}
+              </span>
               <div class="text-[10px] text-slate-500">
                 ${item.current_price?.toLocaleString()}đ
               </div>
@@ -838,14 +843,116 @@
         }
       }
 
-      // TV5: BI DASHBOARD & REVENUE ANALYTICS
-      async function loadMenuMatrix() {
-        const tbody = document.getElementById("matrixTableBody");
+      // =====================================================
+      // TV5: DASHBOARD SUMMARY
+      // API: GET /api/v1/bi/dashboard-summary
+      // =====================================================
+      async function loadDashboardSummary() {
+        try {
+          const res = await fetch(
+            `${getBaseUrl()}/api/v1/bi/dashboard-summary`,
+          );
+
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+          }
+
+          const data = await res.json();
+
+          document.getElementById("biRevenue").textContent =
+            (data.total_revenue || 0).toLocaleString("vi-VN") + " đ";
+
+          document.getElementById("biSold").textContent = (
+            data.total_sold || 0
+          ).toLocaleString("vi-VN");
+
+          document.getElementById("biPurchases").textContent = (
+            data.purchase_sessions || 0
+          ).toLocaleString("vi-VN");
+
+          document.getElementById("biConversion").textContent =
+            (data.conversion_rate || 0) + "%";
+
+          log("Đã tải Dashboard Summary của TV5!", "success");
+        } catch (e) {
+          log("Lỗi tải Dashboard Summary: " + e.message, "error");
+        }
+      }
+
+      // =====================================================
+      // TV5: REVENUE OVER TIME
+      // API: GET /api/v1/bi/revenue-over-time
+      // =====================================================
+      async function loadRevenueChart() {
         const chart = document.getElementById("revenueChart");
 
         try {
-          log("Đang tải dữ liệu BI từ OLAP...", "info");
+          const res = await fetch(
+            `${getBaseUrl()}/api/v1/bi/revenue-over-time`,
+          );
 
+          if (!res.ok) {
+            throw new Error("HTTP " + res.status);
+          }
+
+          const rows = await res.json();
+
+          if (!rows.length) {
+            chart.innerHTML = `
+            <p class="text-slate-400">Chưa có dữ liệu doanh thu.</p>
+          `;
+            return;
+          }
+
+          const maxRevenue = Math.max(
+            ...rows.map((row) => Number(row.revenue) || 0),
+            1,
+          );
+
+          chart.innerHTML = rows
+            .map((row) => {
+              const revenue = Number(row.revenue) || 0;
+              const height = Math.max((revenue / maxRevenue) * 100, 3);
+              const dateLabel = String(row.date).slice(5);
+
+              return `
+            <div
+              class="flex flex-col items-center justify-end h-full min-w-[25px] flex-1"
+              title="${row.date}: ${revenue.toLocaleString("vi-VN")} VNĐ">
+
+              <span class="text-[8px] text-slate-500 mb-1">
+                ${(revenue / 1000000).toFixed(1)}
+              </span>
+
+              <div
+                class="w-full rounded-t bg-indigo-500 hover:bg-indigo-700"
+                style="height:${height}%">
+              </div>
+
+              <span class="text-[8px] text-slate-500 mt-1">
+                ${dateLabel}
+              </span>
+            </div>
+          `;
+            })
+            .join("");
+
+          log("Đã tải biểu đồ doanh thu theo ngày!", "success");
+        } catch (e) {
+          chart.innerHTML = `
+          <p class="text-rose-500">Không tải được biểu đồ.</p>
+        `;
+
+          log("Lỗi tải doanh thu theo ngày: " + e.message, "error");
+        }
+      }
+
+      // =====================================================
+      // TV5: MENU ENGINEERING MATRIX
+      // API: GET /api/v1/bi/menu-engineering-matrix
+      // =====================================================
+      async function loadMenuMatrix() {
+        try {
           const res = await fetch(
             `${getBaseUrl()}/api/v1/bi/menu-engineering-matrix`,
           );
@@ -855,131 +962,60 @@
           }
 
           const items = await res.json();
+          const tbody = document.getElementById("matrixTableBody");
 
-          if (!Array.isArray(items) || items.length === 0) {
-            throw new Error("API chưa có dữ liệu thực đơn.");
-          }
-
-          // TÍNH TỔNG KPI
-          const totalViews = items.reduce(
-            (sum, item) => sum + Number(item.views || 0),
-            0,
-          );
-
-          const totalSold = items.reduce(
-            (sum, item) => sum + Number(item.total_sold || 0),
-            0,
-          );
-
-          const totalRevenue = items.reduce(
-            (sum, item) => sum + Number(item.total_revenue || 0),
-            0,
-          );
-
-          // CẬP NHẬT KPI
-          document.getElementById("biTotalViews").textContent =
-            totalViews.toLocaleString("vi-VN");
-
-          document.getElementById("biTotalSold").textContent =
-            totalSold.toLocaleString("vi-VN");
-
-          document.getElementById("biTotalRevenue").textContent =
-            totalRevenue.toLocaleString("vi-VN") + "đ";
-
-          // SẮP XẾP THEO DOANH THU
-          const sortedItems = [...items].sort(
-            (a, b) =>
-              Number(b.total_revenue || 0) - Number(a.total_revenue || 0),
-          );
-
-          // VẼ BIỂU ĐỒ DOANH THU
-          const maxRevenue = Math.max(
-            ...sortedItems.map((item) => Number(item.total_revenue || 0)),
-            1,
-          );
-
-          chart.innerHTML = sortedItems
-            .map((item) => {
-              const revenue = Number(item.total_revenue || 0);
-              const percentage = (revenue / maxRevenue) * 100;
-
-              return `
-            <div class="space-y-1">
-              <div class="flex justify-between gap-2">
-                <span class="text-[10px] font-medium text-slate-700 truncate"
-                  title="${item.name}">
-                  ${item.name}
-                </span>
-
-                <span class="text-[10px] font-semibold text-indigo-600 whitespace-nowrap">
-                  ${revenue.toLocaleString("vi-VN")}đ
-                </span>
-              </div>
-
-              <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                <div class="revenue-bar h-2 bg-indigo-500 rounded-full"
-                  style="width: ${percentage}%">
-                </div>
-              </div>
-            </div>
-          `;
-            })
-            .join("");
-
-          // CẬP NHẬT BẢNG CHI TIẾT
-          tbody.innerHTML = sortedItems
+          // Hiển thị toàn bộ món, không giới hạn 6 món
+          tbody.innerHTML = items
             .map(
-              (item, index) => `
+              (item) => `
           <tr class="hover:bg-slate-50">
-            <td class="p-2">
-              <div class="font-medium text-slate-800">
-                ${index + 1}. ${item.name}
-              </div>
+
+            <td class="p-1.5 font-medium text-slate-800">
+              ${item.name}
             </td>
 
-            <td class="p-2 text-right font-mono text-blue-600">
-              ${Number(item.views || 0).toLocaleString("vi-VN")}
+            <td class="p-1.5 text-right font-mono text-slate-600">
+              ${item.views}
             </td>
 
-            <td class="p-2 text-right font-mono text-emerald-600">
-              ${Number(item.total_sold || 0).toLocaleString("vi-VN")}
+            <td class="p-1.5 text-right font-mono text-slate-600">
+              ${item.total_sold}
             </td>
 
-            <td class="p-2 text-right font-mono font-semibold text-indigo-700 whitespace-nowrap">
-              ${Number(item.total_revenue || 0).toLocaleString("vi-VN")}đ
+            <td class="p-1.5 text-right font-mono font-semibold text-emerald-700">
+              ${(item.total_revenue || 0).toLocaleString("vi-VN")} đ
             </td>
+
+            <td class="p-1.5 text-right font-mono text-indigo-700">
+              ${item.conversion_rate}%
+            </td>
+
           </tr>
         `,
             )
             .join("");
 
           log(
-            `Cập nhật BI thành công: ${items.length} món, ${totalViews.toLocaleString("vi-VN")} lượt xem, ${totalRevenue.toLocaleString("vi-VN")}đ doanh thu.`,
+            `Đã cập nhật Ma trận Menu Engineering (${items.length} món)!`,
             "success",
           );
         } catch (e) {
-          tbody.innerHTML = `
-          <tr>
-            <td colspan="4" class="p-3 text-center text-rose-500">
-              Không thể tải dữ liệu: ${e.message}
-            </td>
-          </tr>
-        `;
-
-          chart.innerHTML = `
-          <p class="text-rose-500 italic">
-            Không thể tải dữ liệu biểu đồ.
-          </p>
-        `;
-
-          log("Lỗi tải BI Dashboard: " + e.message, "error");
+          log("Lỗi tải ma trận BI: " + e.message, "error");
         }
       }
 
-      // TỰ ĐỘNG CHẠY KHI MỞ TRANG
+      // =====================================================
+      // TỰ ĐỘNG TẢI DỮ LIỆU KHI MỞ TRANG
+      // =====================================================
       window.onload = () => {
         checkHealth();
+
+        // TV4
         loadRecommendations(1);
+
+        // TV5
+        loadDashboardSummary();
+        loadRevenueChart();
         loadMenuMatrix();
       };
     </script>
