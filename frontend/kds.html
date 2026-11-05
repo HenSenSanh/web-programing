@@ -3,16 +3,40 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Màn hình Bếp KDS</title>
+  <title>Màn Hình Điều Phối Bếp (KDS)</title>
+  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 </head>
 <body class="bg-light">
   <div class="container py-4">
-    <h2 class="mb-4 text-center">👨‍🍳 Màn Hình Điều Phối Bếp (KDS)</h2>
-    <div id="kds-container" class="row row-cols-1 row-cols-md-3 g-3">
-      <!-- Món ăn sẽ tự động tải vào đây -->
+    <!-- Header & Bộ lọc -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-3 border-bottom">
+      <h2 class="fw-bold text-dark mb-3 mb-md-0">
+        👨‍🍳 Màn Hình Điều Phối Bếp (KDS)
+      </h2>
+      
+      <!-- Thanh nút lọc trạng thái -->
+      <div class="btn-group shadow-sm" role="group" aria-label="KDS Filter">
+        <button id="filter-all" type="button" class="btn btn-outline-dark filter-btn active" onclick="setFilter('ALL')">
+          <i class="bi bi-list-task"></i> Tất cả
+        </button>
+        <button id="filter-pending" type="button" class="btn btn-outline-warning filter-btn text-dark fw-semibold" onclick="setFilter('PENDING')">
+          <i class="bi bi-hourglass-split"></i> Chờ nấu
+        </button>
+        <button id="filter-cooking" type="button" class="btn btn-outline-primary filter-btn fw-semibold" onclick="setFilter('COOKING')">
+          <i class="bi bi-fire"></i> Đang nấu
+        </button>
+      </div>
+    </div>
+
+    <!-- Danh sách thẻ món ăn -->
+    <div id="kds-container" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+      <!-- JS sẽ render các thẻ món ở đây -->
     </div>
   </div>
+
   <script src="js/kds.js"></script>
 </body>
 </html>
