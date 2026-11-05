@@ -55,7 +55,7 @@ def run_seeder():
         db.flush()
 
         menu_items = [
-            MenuItem(category_id=cat_main.id, name="Mì Cay Hải Sản Cấp Độ 7", price=65000, is_hot=True),
+            MenuItem(category_id=cat_main.id, name="Mì Cay Hải Sản Cấp Độ 7", price=650000000, is_hot=True),
             MenuItem(category_id=cat_main.id, name="Lẩu Thái Tomyum Bò Mỹ", price=189000, is_hot=True),
             MenuItem(category_id=cat_main.id, name="Cơm Trộn Hàn Quốc Bibimbap", price=55000, is_hot=False),
             MenuItem(category_id=cat_side.id, name="Khoai Tây Chiên Phô Mai", price=35000, is_hot=True),
