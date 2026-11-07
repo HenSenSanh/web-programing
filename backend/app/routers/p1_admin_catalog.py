@@ -39,7 +39,7 @@ def open_table_session(table_id: int, db: Session = Depends(get_db)):
     return {
         "session_id": new_session.id,
         "session_token": token,
-        "qr_url": f"http://localhost:3000/menu?table={table.id}&token={token}"
+        "qr_url": f"http://localhost:8000/frontend/menu/index.html?table={table.id}&token={token}"
     }
 
 @router.get("/menu-items")
@@ -86,3 +86,32 @@ def toggle_item_availability(item_id: int, is_available: bool, db: Session = Dep
     item.is_available = is_available
     db.commit()
     return {"item_id": item.id, "is_available": item.is_available}
+
+@router.patch("/toppings/{topping_id}/toggle-availability")
+def toggle_topping_availability(topping_id: int, is_available: bool, db: Session = Depends(get_db)):
+    """[TV1] Nút gạt 'Báo hết Topping' tức thời"""
+    top = db.query(Topping).filter(Topping.id == topping_id).first()
+    if not top:
+        raise HTTPException(status_code=404, detail="Không tìm thấy topping")
+    top.is_available = is_available
+    db.commit()
+    return {"topping_id": top.id, "is_available": top.is_available}
+
+@router.post("/menu-items", status_code=201)
+def create_menu_item(payload: MenuItemCreate, db: Session = Depends(get_db)):
+    """[TV1] Thêm món ăn mới vào thực đơn"""
+    cat = db.query(Category).filter(Category.id == payload.category_id).first()
+    if not cat:
+        raise HTTPException(status_code=400, detail="Danh mục không tồn tại")
+    new_item = MenuItem(
+        category_id=payload.category_id,
+        name=payload.name,
+        price=payload.price,
+        description=payload.description,
+        image_url=payload.image_url,
+        is_available=payload.is_available
+    )
+    db.add(new_item)
+    db.commit()
+    db.refresh(new_item)
+    return {"status": "created", "item_id": new_item.id, "name": new_item.name}
