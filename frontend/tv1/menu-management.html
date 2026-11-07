@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý Menu - DINEFLOW</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h1 { color: #333; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 20px; font-size: 14px; }
+
+        .nav-link {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+        .nav-link:hover { background: #5568d3; }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-refresh { background: #667eea; color: white; }
+        .btn-refresh:hover { background: #5568d3; }
+
+        .stats {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            min-width: 150px;
+        }
+        .stat-total { background: #667eea; }
+        .stat-available { background: #4CAF50; }
+        .stat-unavailable { background: #f44336; }
+
+        /* ===== TOPPINGS SECTION ===== */
+        .toppings-section {
+            background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .toppings-title {
+            font-size: 20px;
+            color: #856404;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toppings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 15px;
+        }
+
+        .topping-card {
+            background: white;
+            border: 2px solid #ffe082;
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .topping-card.available { border-color: #4CAF50; }
+        .topping-card.unavailable { border-color: #f44336; opacity: 0.7; }
+        .topping-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        .topping-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            min-height: 44px; /* Ép chiều cao tiêu đề cố định */
+        }
+
+        .topping-name { 
+            font-size: 15px; 
+            color: #333; 
+            font-weight: 600; 
+            flex: 1; 
+            padding-right: 10px;
+            line-height: 1.3;
+        }
+        .topping-price { font-size: 15px; color: #f5576c; font-weight: bold; white-space: nowrap; }
+
+        /* ===== MENU SECTION ===== */
+        .category-section { margin-bottom: 35px; }
+
+        .category-title {
+            font-size: 22px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 3px solid #f5576c;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .category-count {
+            background: #f5576c;
+            color: white;
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .menu-card {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            transition: all 0.3s;
+            background: white;
+            position: relative;
+        }
+
+        .menu-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .menu-card.available { border-color: #4CAF50; }
+        .menu-card.unavailable { border-color: #f44336; opacity: 0.75; }
+
+        .hot-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff4444;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            z-index: 2;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .menu-image {
+            width: 100%;
+            height: 160px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 50px;
+            color: white;
+        }
+
+        .menu-image img { width: 100%; height: 100%; object-fit: cover; }
+        .menu-content { padding: 15px; }
+
+        .menu-name { font-size: 17px; font-weight: bold; color: #333; margin-bottom: 8px; }
+        .menu-price { font-size: 18px; color: #f5576c; font-weight: bold; margin-bottom: 10px; }
+        .menu-description { color: #666; font-size: 13px; margin-bottom: 15px; min-height: 20px; font-style: italic; }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            margin-top: auto;
+        }
+
+        .toggle-label { font-size: 13px; font-weight: bold; }
+        .toggle-label.available { color: #4CAF50; }
+        .toggle-label.unavailable { color: #f44336; }
+
+        .switch { position: relative; display: inline-block; width: 55px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 28px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider { background-color: #4CAF50; }
+        input:checked + .slider:before { transform: translateX(27px); }
+
+        .switch.loading .slider { opacity: 0.5; cursor: wait; }
+        .loading { text-align: center; padding: 40px; color: #666; font-size: 18px; grid-column: 1 / -1; }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        .toast.error { background: #f44336; }
+
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🍽️ Quản lý Menu</h1>
+            <a href="table-management.html" class="nav-link">📋 Quay lại Quản lý Bàn</a>
+        </div>
+        <p class="subtitle">Hệ thống DINEFLOW - Bật/Tắt trạng thái còn món hay hết món</p>
+
+        <div class="toolbar">
+            <button class="btn btn-refresh" onclick="loadMenu()">🔄 Tải lại Menu</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card stat-total">Tổng mục: <span id="total-count">0</span></div>
+            <div class="stat-card stat-available">Đang bật: <span id="available-count">0</span></div>
+            <div class="stat-card stat-unavailable">Đang tắt: <span id="unavailable-count">0</span></div>
+        </div>
+
+        <div id="toppings-container"></div>
+        <div id="menu-container">
+            <div class="loading">Đang tải danh sách món ăn...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+        let categoriesData = [];
+        let globalToppingsData = [];
+
+        // 📸 Từ điển ánh xạ ID món ăn với link ảnh
+        const foodImages = {
+            1: "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=500&q=80", // Mì cay / Món nước
+            2: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=500&q=80", // Pizza
+            3: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80", // Burger
+            4: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500&q=80", // Salad / Món nhẹ
+            5: "https://images.unsplash.com/photo-1551024601-bec78aea704b?w=500&q=80", // Tráng miệng
+            6: "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=500&q=80", // Đồ chiên
+            7: "https://images.unsplash.com/photo-1555126634-323283e090fa?w=500&q=80", // Cơm / Set ăn
+            8: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=500&q=80", // Món rau
+            9: "https://images.unsplash.com/photo-1551782450-a2132b4ba21d?w=500&q=80", // Burger khác
+            10: "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=500&q=80" // Cà phê / Đồ uống
+        };
+
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${isError ? 'error' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadMenu() {
+            const container = document.getElementById('menu-container');
+            container.innerHTML = '<div class="loading">Đang tải danh sách món ăn...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/menu-items`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const data = await response.json();
+                categoriesData = data.categories || [];
+                globalToppingsData = data.available_toppings || [];
+                
+                renderToppings(globalToppingsData);
+                renderMenu(categoriesData);
+                updateStats();
+                
+            } catch (error) {
+                console.error('❌ Lỗi khi tải menu:', error);
+                container.innerHTML = `<div class="loading">❌ Không thể tải menu: ${error.message}</div>`;
+            }
+        }
+
+        function renderToppings(toppings) {
+            const container = document.getElementById('toppings-container');
+            container.innerHTML = '';
+
+            if (!toppings || toppings.length === 0) return;
+
+            const section = document.createElement('div');
+            section.className = 'toppings-section';
+            section.innerHTML = `
+                <h2 class="toppings-title">🧀 Topping & Phụ kiện</h2>
+                <div class="toppings-grid" id="toppings-global-grid"></div>
+            `;
+            container.appendChild(section);
+
+            const grid = section.querySelector('.toppings-grid');
+            toppings.forEach(topping => {
+                const isAvailable = topping.is_available !== undefined ? topping.is_available : true;
+                const price = topping.extra_price || topping.price || 0;
+
+                const card = document.createElement('div');
+                card.className = `topping-card ${isAvailable ? 'available' : 'unavailable'}`;
+                card.id = `topping-${topping.id}`;
+
+                card.innerHTML = `
+                    <div class="topping-header">
+                        <span class="topping-name">+ ${topping.name}</span>
+                        <span class="topping-price">+${price.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                    <div class="toggle-container">
+                        <span class="toggle-label ${isAvailable ? 'available' : 'unavailable'}">
+                            ${isAvailable ? '✅ Còn' : '❌ Hết'}
+                        </span>
+                        <label class="switch">
+                            <input type="checkbox" ${isAvailable ? 'checked' : ''} 
+                                   onchange="handleToggle(event, ${topping.id}, this.checked, 'topping')">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function renderMenu(categories) {
+            const container = document.getElementById('menu-container');
+            container.innerHTML = '';
+
+            if (categories.length === 0) {
+                container.innerHTML = '<div class="loading">Không có món ăn nào</div>';
+                return;
+            }
+
+            const sortedCategories = [...categories].sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+
+            sortedCategories.forEach(category => {
+                const items = category.items || [];
+                if (items.length === 0) return;
+
+                const section = document.createElement('div');
+                section.className = 'category-section';
+                section.innerHTML = `
+                    <h2 class="category-title">
+                        ${category.name}
+                        <span class="category-count">${items.length} món</span>
+                    </h2>
+                    <div class="menu-grid" id="category-${category.id}"></div>
+                `;
+                container.appendChild(section);
+
+                const grid = section.querySelector('.menu-grid');
+                items.forEach(item => {
+                    grid.appendChild(createMenuItemCard(item));
+                });
+            });
+        }
+
+        function createMenuItemCard(item) {
+            const card = document.createElement('div');
+            const isAvailable = item.is_available;
+            card.className = `menu-card ${isAvailable ? 'available' : 'unavailable'}`;
+            card.id = `menu-item-${item.id}`;
+
+            // 📸 LOGIC CHỌN ẢNH: Ưu tiên ảnh từ API -> Nếu không có thì lấy từ từ điển -> Cuối cùng là emoji
+            let imageUrl = item.image_url; 
+            if (!imageUrl && foodImages[item.id]) {
+                imageUrl = foodImages[item.id]; 
+            }
+
+            let imageHTML;
+            if (imageUrl) {
+                imageHTML = `<img src="${imageUrl}" alt="${item.name}" onerror="this.parentElement.innerHTML='🍽️'">`;
+            } else {
+                imageHTML = '🍽️';
+            }
+
+            const hotBadge = item.is_hot ? '<div class="hot-badge">🔥 HOT</div>' : '';
+
+
+            card.innerHTML = `
+                ${hotBadge}
+                <div class="menu-image">${imageHTML}</div>
+                <div class="menu-content">
+                    <div class="menu-name">${item.name}</div>
+                    <div class="menu-price">${item.price.toLocaleString('vi-VN')}đ</div>
+                    <div class="menu-description">${item.description || 'Không có mô tả'}</div>
+                    <div class="toggle-container">
+                        <span class="toggle-label ${isAvailable ? 'available' : 'unavailable'}">
+                            ${isAvailable ? '✅ Còn món' : '❌ Hết món'}
+                        </span>
+                        <label class="switch">
+                            <input type="checkbox" ${isAvailable ? 'checked' : ''} 
+                                   onchange="handleToggle(event, ${item.id}, this.checked, 'menu')">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        function getAllItems() {
+            const menuItems = categoriesData.flatMap(cat => cat.items || []);
+            return [...menuItems, ...globalToppingsData];
+        }
+
+        function updateStats() {
+            const allItems = getAllItems();
+            const total = allItems.length;
+            const available = allItems.filter(i => i.is_available).length;
+            const unavailable = total - available;
+            
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('available-count').textContent = available;
+            document.getElementById('unavailable-count').textContent = unavailable;
+        }
+
+        // ===== HÀM XỬ LÝ TOGGLE (ĐÃ SỬA TRIỆT ĐỂ) =====
+        async function handleToggle(event, itemId, newStatus, type) {
+            const checkbox = event.target;
+            const card = checkbox.closest(type === 'topping' ? '.topping-card' : '.menu-card');
+            const label = card.querySelector('.toggle-label');
+            
+            console.log(`[TOGGLE] Type: ${type}, ID: ${itemId}, New Status: ${newStatus}`);
+
+            try {
+                const url = `${API_BASE}/admin/menu-items/${itemId}/toggle-availability?is_available=${newStatus}`;
+                const response = await fetch(url, { method: 'PATCH', headers: { 'Accept': 'application/json' } });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(Array.isArray(errorData.detail) ? errorData.detail[0].msg : (errorData.detail || `Lỗi HTTP: ${response.status}`));
+                }
+
+                const data = await response.json().catch(() => ({}));
+                const actualStatus = (data.is_available !== undefined) ? data.is_available : newStatus;
+
+                console.log(`[TOGGLE SUCCESS] Actual Status: ${actualStatus}`);
+
+                // ✅ CẬP NHẬT UI TRỰC TIẾP TRÊN CARD VỪA BẤM
+                card.classList.remove('available', 'unavailable');
+                card.classList.add(actualStatus ? 'available' : 'unavailable');
+
+                label.classList.remove('available', 'unavailable');
+                label.classList.add(actualStatus ? 'available' : 'unavailable');
+
+                if (type === 'topping') {
+                    label.textContent = actualStatus ? '✅ Còn' : '❌ Hết';
+                } else {
+                    label.textContent = actualStatus ? '✅ Còn món' : '❌ Hết món';
+                }
+
+                checkbox.checked = actualStatus;
+
+                // Cập nhật data trong memory
+                if (type === 'topping') {
+                    const topping = globalToppingsData.find(t => t.id === itemId);
+                    if (topping) topping.is_available = actualStatus;
+                } else {
+                    categoriesData.forEach(cat => {
+                        const item = cat.items?.find(i => i.id === itemId);
+                        if (item) item.is_available = actualStatus;
+                    });
+                }
+
+                updateStats();
+                showToast(`✅ Đã ${actualStatus ? 'bật' : 'tắt'} thành công!`);
+                
+            } catch (error) {
+                console.error('❌ Lỗi khi toggle:', error);
+                showToast(`❌ Lỗi: ${error.message}`, true);
+                // Rollback checkbox về trạng thái cũ
+                checkbox.checked = !newStatus;
+                // Reload lại toàn bộ menu để đồng bộ
+                setTimeout(() => loadMenu(), 1000);
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', loadMenu);
+    </script>
+</body>
+</html>
