@@ -77,7 +77,7 @@ function renderKdsUI() {
   container.innerHTML = filteredItems.map(item => {
     const itemName = item.item_name || item.name || item.menu_item_name || 'Món ăn';
     const itemId = item.order_item_id || item.id;
-    const tableNo = item.table_number || item.table_no || (item.session_id ? `Bàn ${item.session_id}` : 'Bàn --');
+    const tableNo = item.table_number || item.table_no || item.table_name || (item.session_id ? `Bàn ${item.session_id}` : 'Bàn 01');
     const quantity = item.quantity || 1;
     const note = item.note || 'Không có';
     const isPending = item.status === 'PENDING';
