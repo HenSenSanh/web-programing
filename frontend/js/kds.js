@@ -126,7 +126,7 @@ function renderKdsUI() {
   }).join('');
 }
 
-// 5. Cập nhật trạng thái món lên Backend
+// 5. Cập nhật trạng thái món lên Backend (Đã khớp đúng Schema: new_status và chef_id)
 async function updateItemStatus(orderItemId, status) {
   try {
     const parsedId = !isNaN(orderItemId) ? parseInt(orderItemId, 10) : orderItemId;
@@ -136,13 +136,13 @@ async function updateItemStatus(orderItemId, status) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         order_item_id: parsedId, 
-        chef_id: 3,
-        new_status: status
+        chef_id: 1,             // Mặc định chef_id = 1 (do TV1/TV2 chưa xong phân quyền)
+        new_status: status       // Đổi tên trường thành new_status theo yêu cầu Backend
       })
     });
 
     if (res.ok) {
-      fetchKdsItems();
+      fetchKdsItems(); // Tải lại danh sách sau khi cập nhật thành công
     } else {
       const errData = await res.json();
       let errorMsg = 'Lỗi không xác định';
@@ -151,6 +151,7 @@ async function updateItemStatus(orderItemId, status) {
       } else if (typeof errData.detail === 'string') {
         errorMsg = errData.detail;
       }
+
       alert(`⚠️ Không thể cập nhật:\n${errorMsg}`);
     }
   } catch (err) {

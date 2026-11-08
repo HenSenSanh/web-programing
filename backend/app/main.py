@@ -40,6 +40,16 @@ def root():
     return RedirectResponse(url="/docs")
 
 
+@app.get("/demo", include_in_schema=False)
+def demo_page():
+    """Giao diện mô phỏng kiểm thử E2E tương tác trực quan"""
+    demo_file = os.path.join(BASE_DIR, "demo_tester.html")
+    if os.path.exists(demo_file):
+        with open(demo_file, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    return HTMLResponse("<h3>demo_tester.html không tìm thấy</h3>", status_code=404)
+
+
 @app.get("/tv4", include_in_schema=False)
 def tv4_control_center():
     """[TV4 - Bạn] Chuyển hướng tới giao diện Điều phối Luồng Đơn Hàng & Gợi Ý Món Thực Tế"""

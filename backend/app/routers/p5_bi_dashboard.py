@@ -9,6 +9,7 @@ router = APIRouter(
 )
 
 
+# 1. DASHBOARD SUMMARY
 @router.get("/dashboard-summary")
 def get_dashboard_summary(db: Session = Depends(get_db)):
     """[TV5] Tổng hợp chỉ số KPI toàn quán: Doanh thu, Lượt xem, Tỷ lệ chuyển đổi"""
@@ -55,9 +56,11 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         CROSS JOIN purchase_stats p
         CROSS JOIN conversion_stats v;
     """)
+
     return db.execute(sql).mappings().one()
 
 
+# 2. REVENUE OVER TIME
 @router.get("/revenue-over-time")
 def get_revenue_over_time(db: Session = Depends(get_db)):
     """[TV5] Chuỗi thời gian doanh thu & sản lượng bán theo từng ngày"""
@@ -72,9 +75,11 @@ def get_revenue_over_time(db: Session = Depends(get_db)):
         GROUP BY t.full_date
         ORDER BY t.full_date;
     """)
+
     return db.execute(sql).mappings().all()
 
 
+# 3. MENU ENGINEERING MATRIX
 @router.get("/menu-engineering-matrix")
 def get_menu_engineering_matrix(db: Session = Depends(get_db)):
     """[TV5] Ma trận Phân tích Thực đơn: So sánh Lượt xem (Clickstream) vs Lượt mua thực tế"""
@@ -88,6 +93,7 @@ def get_menu_engineering_matrix(db: Session = Depends(get_db)):
             WHERE event_type = 'VIEW_ITEM'
             GROUP BY oltp_item_id
         ),
+
         sales AS (
             SELECT
                 d.oltp_item_id,
@@ -98,6 +104,7 @@ def get_menu_engineering_matrix(db: Session = Depends(get_db)):
                 ON f.item_key = d.item_key
             GROUP BY d.oltp_item_id
         ),
+
         conversion_stats AS (
             SELECT
                 c.oltp_item_id,
@@ -111,6 +118,7 @@ def get_menu_engineering_matrix(db: Session = Depends(get_db)):
             WHERE c.event_type = 'VIEW_ITEM'
             GROUP BY c.oltp_item_id
         )
+
         SELECT
             d.oltp_item_id,
             d.name,
@@ -118,7 +126,8 @@ def get_menu_engineering_matrix(db: Session = Depends(get_db)):
             COALESCE(cs.view_sessions, 0) AS view_sessions,
             COALESCE(s.total_sold, 0) AS total_sold,
             COALESCE(s.total_revenue, 0) AS total_revenue,
-            COALESCE(cv.converted_sessions, 0) AS converted_sessions,
+            COALESCE(cv.converted_sessions, 0)
+                AS converted_sessions,
             CASE
                 WHEN COALESCE(cs.view_sessions, 0) = 0 THEN 0
                 ELSE ROUND(
@@ -135,4 +144,5 @@ def get_menu_engineering_matrix(db: Session = Depends(get_db)):
             ON d.oltp_item_id = cv.oltp_item_id
         ORDER BY total_revenue DESC;
     """)
+
     return db.execute(sql).mappings().all()
