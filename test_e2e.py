@@ -96,13 +96,28 @@ def run_tests():
         time.sleep(1)
 
         # 7. TV4 & TV5 - Kiểm tra BI & Gợi ý
-        print("\n📊 [KẾT QUẢ PHÂN TÍCH BI & REVIEWS]:")
+        print("\n📊 [KẾT QUẢ PHÂN TÍCH DATA ENGINEERING (TV4) & BI (TV5)]:")
+        r_status = client.get("/api/v1/data/pipeline-status")
+        if r_status.status_code == 200:
+            st = r_status.json()
+            print(f"   ⚡ Trạng thái Data Warehouse: {st['status']} | FactOrderItem: {st['olap_star_schema_stats']['fact_order_items']} dòng | FactClickstream: {st['olap_star_schema_stats']['fact_clickstream']} dòng")
+
         r_rec = client.get("/api/v1/data/recommendations/1")
         if r_rec.status_code == 200:
             recs = r_rec.json().get("recommendations", [])
-            print("   💡 Top món gợi ý mua kèm với Món số 1 (Mì Cay):")
+            print("   💡 Top món gợi ý mua kèm với Món số 1 (Thuật toán Apriori):")
             for idx, item in enumerate(recs, 1):
-                print(f"      {idx}. {item['name']} - Giá: {item['current_price']:,.0f} VNĐ (Số lần gọi chung: {item['pair_count']})")
+                print(
+                    f"      {idx}. {item['name']} - Giá: {item['current_price']:,.0f} VNĐ "
+                    f"(Đi chung: {item['pair_count']} | Support: {item.get('support_pct')}% | Confidence: {item.get('confidence_pct')}% | Lift: {item.get('lift')}x)"
+                )
+
+        r_sla = client.get("/api/v1/data/sla-analytics")
+        if r_sla.status_code == 200:
+            chefs = r_sla.json().get("chef_performance", [])
+            print("\n   ⏱️ Phân tích SLA Bếp (Ngưỡng 15 phút):")
+            for c in chefs[:2]:
+                print(f"      • {c['chef_name']}: Đã nấu {c['total_dishes_cooked']} món | TB: {c['avg_prep_minutes']} phút | Vi phạm SLA: {c['sla_violation_rate_pct']}%")
 
         r_bi = client.get("/api/v1/bi/menu-engineering-matrix")
         if r_bi.status_code == 200:

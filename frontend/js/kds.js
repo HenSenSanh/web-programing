@@ -145,7 +145,6 @@ async function updateItemStatus(orderItemId, status) {
       fetchKdsItems(); // Tải lại danh sách sau khi cập nhật thành công
     } else {
       const errData = await res.json();
-      
       let errorMsg = 'Lỗi không xác định';
       if (Array.isArray(errData.detail)) {
         errorMsg = errData.detail.map(e => `${e.loc ? e.loc.join(' -> ') : ''}: ${e.msg}`).join('\n');

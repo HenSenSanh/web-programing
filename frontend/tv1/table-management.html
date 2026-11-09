@@ -300,11 +300,8 @@
                 if (isAvailable) {
                     actionHTML = `<button class="btn-open" onclick="openTable(${tableId})">Mở bàn & Tạo QR</button>`;
                 } else {
-                    // 🎯 TẠO URL CHỨA SESSION TOKEN ĐỂ KHÁCH QUÉT
-                    // Giả sử trang Order của TV2 sẽ chạy ở cổng 5500 (Live Server) hoặc 3000 (React)
-                    // Bạn cần hỏi TV2 xem trang Order của họ chạy ở địa chỉ nào, sau đó thay vào đây.
-                    // Tạm thời mình để link demo của hệ thống:
-                    const orderPageUrl = `http://localhost:8000/demo?token=${table.current_session_token}`;
+                    // 🎯 TẠO URL CHỨA SESSION TOKEN ĐỂ KHÁCH QUÉT (Mở trực tiếp từ thư mục frontend/menu đã gộp)
+                    const orderPageUrl = new URL(`../menu/index.html?table=${tableId}&token=${table.current_session_token}`, window.location.href).href;
                     
                     // 📸 TẠO LINK ẢNH QR CODE TỰ ĐỘNG
                     const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(orderPageUrl)}`;
@@ -312,10 +309,17 @@
                     actionHTML = `
                         <div class="session-info" style="text-align: center;">
                             <strong style="color: #4CAF50;">📱 QR Code cho khách quét:</strong><br>
-                            <img src="${qrCodeImageUrl}" 
-                                alt="QR Code" 
-                                style="margin: 10px auto; border: 2px solid #ddd; border-radius: 8px; padding: 5px; background: white;"
-                                width="150" height="150">
+                            <a href="${orderPageUrl}" target="_blank" title="Bấm vào ảnh QR để mở Menu khách">
+                                <img src="${qrCodeImageUrl}" 
+                                    alt="QR Code" 
+                                    style="margin: 10px auto; border: 2px solid #4CAF50; border-radius: 8px; padding: 5px; background: white; cursor: pointer;"
+                                    width="150" height="150">
+                            </a>
+                            <div style="margin: 6px 0;">
+                                <a href="${orderPageUrl}" target="_blank" style="display: inline-block; background: #4CAF50; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px;">
+                                    👉 Mở Menu Đặt Món (TV2)
+                                </a>
+                            </div>
                             <div style="font-size: 11px; color: #666; word-break: break-all;">
                                 Token: ${table.current_session_token || 'N/A'}
                             </div>
