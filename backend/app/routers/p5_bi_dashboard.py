@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -13,6 +12,7 @@ router = APIRouter(
 # 1. DASHBOARD SUMMARY
 @router.get("/dashboard-summary")
 def get_dashboard_summary(db: Session = Depends(get_db)):
+    """[TV5] Tổng hợp chỉ số KPI toàn quán: Doanh thu, Lượt xem, Tỷ lệ chuyển đổi"""
     sql = text("""
         WITH click_stats AS (
             SELECT
@@ -63,6 +63,7 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
 # 2. REVENUE OVER TIME
 @router.get("/revenue-over-time")
 def get_revenue_over_time(db: Session = Depends(get_db)):
+    """[TV5] Chuỗi thời gian doanh thu & sản lượng bán theo từng ngày"""
     sql = text("""
         SELECT
             t.full_date AS date,
@@ -81,6 +82,7 @@ def get_revenue_over_time(db: Session = Depends(get_db)):
 # 3. MENU ENGINEERING MATRIX
 @router.get("/menu-engineering-matrix")
 def get_menu_engineering_matrix(db: Session = Depends(get_db)):
+    """[TV5] Ma trận Phân tích Thực đơn: So sánh Lượt xem (Clickstream) vs Lượt mua thực tế"""
     sql = text("""
         WITH click_stats AS (
             SELECT

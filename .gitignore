@@ -29,3 +29,13 @@ node_modules/
 dist/
 out/
 build/
+
+# Temporary / Local guides & redundant files
+HUONG_DAN_*.md
+TAI_LIEU_*.md
+data/
+frontend_p2/
+3_chay_menu_khach.bat
+4_nap_real_dataset.bat
+agy_setup_and_verification_guide.md.ext
+agy.md.ext
