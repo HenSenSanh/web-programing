@@ -1,0 +1,1345 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <title>DineFlow BI Dashboard - Phân Tích Doanh Thu & Menu Engineering (TV5)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    />
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+
+  <body class="bg-slate-100 min-h-screen text-slate-800 pb-10">
+    <!-- TOP NAVBAR -->
+    <header class="bg-slate-900 text-white shadow-lg sticky top-0 z-30 border-b border-slate-800">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-400 to-indigo-600 flex items-center justify-center text-xl shadow">
+            📊
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-bold tracking-tight">
+                DineFlow BI & Menu Analytics
+              </h1>
+              <span class="text-[11px] bg-teal-500/20 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full font-semibold">
+                TV5 - OLAP Star Schema
+              </span>
+            </div>
+            <p class="text-xs text-slate-400">
+              Hệ thống Phân tích Doanh thu, Ma trận Menu Engineering 4 góc phần tư, Khung giờ cao điểm & SLA Bếp
+            </p>
+          </div>
+        </div>
+
+        <!-- BỘ LỌC TOÀN CỤC & ĐIỀU HƯỚNG -->
+        <div class="flex flex-wrap items-center gap-2.5 text-xs">
+          <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 gap-2">
+            <i class="fa-regular fa-calendar text-teal-400"></i>
+            <select
+              id="filterDays"
+              onchange="refreshAllBI()"
+              class="bg-transparent text-slate-200 focus:outline-none cursor-pointer"
+            >
+              <option value="" class="bg-slate-800">Toàn bộ thời gian</option>
+              <option value="14" class="bg-slate-800">14 ngày gần nhất</option>
+              <option value="7" class="bg-slate-800">7 ngày gần nhất</option>
+              <option value="3" class="bg-slate-800">3 ngày gần nhất</option>
+            </select>
+          </div>
+
+          <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 gap-2">
+            <i class="fa-solid fa-filter text-indigo-400"></i>
+            <select
+              id="filterWeekend"
+              onchange="refreshAllBI()"
+              class="bg-transparent text-slate-200 focus:outline-none cursor-pointer"
+            >
+              <option value="" class="bg-slate-800">Tất cả các ngày</option>
+              <option value="false" class="bg-slate-800">Chỉ Ngày thường (T2 - T6)</option>
+              <option value="true" class="bg-slate-800">Chỉ Cuối tuần (T7 - CN)</option>
+            </select>
+          </div>
+
+          <input
+            id="serverUrl"
+            type="text"
+            value="http://localhost:8000"
+            class="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 font-mono w-40 hidden md:block"
+            title="FastAPI Server URL"
+          />
+
+          <button
+            onclick="refreshAllBI()"
+            class="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold rounded-lg transition flex items-center gap-1.5 shadow-sm"
+          >
+            <i id="refreshIcon" class="fa-solid fa-arrows-rotate"></i>
+            <span>Làm mới</span>
+          </button>
+
+          <a
+            href="/demo"
+            class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition flex items-center gap-1.5"
+          >
+            <i class="fa-solid fa-flask text-amber-400"></i>
+            <span>E2E Simulator</span>
+          </a>
+
+          <a
+            href="/docs"
+            target="_blank"
+            class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition"
+            title="Swagger API Docs"
+          >
+            <i class="fa-solid fa-book-open"></i>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="max-w-7xl mx-auto px-4 pt-5 space-y-6">
+      <!-- THÔNG BÁO TRẠNG THÁI KẾT NỐI SERVER -->
+      <div
+        id="connectionNotice"
+        class="hidden bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-3.5 text-xs flex flex-wrap items-center justify-between gap-3 shadow-sm"
+      >
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-circle-info text-amber-600 text-base"></i>
+          <div>
+            <b>Đang hiển thị ở Chế độ Xem Trước (Offline Preview):</b> Không phát hiện FastAPI Server tại
+            <code class="bg-amber-100 px-1.5 py-0.5 rounded font-mono">http://localhost:8000</code>.
+            Hệ thống đã tự động nạp dữ liệu mẫu OLAP (1.000 phiên lịch sử) để bạn xem trước toàn bộ biểu đồ!
+          </div>
+        </div>
+        <button
+          onclick="refreshAllBI()"
+          class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold transition"
+        >
+          Thử kết nối lại Server
+        </button>
+      </div>
+
+      <!-- 1. 6 THẺ KPI TỔNG QUAN -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
+        <!-- Tổng doanh thu -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-500">Tổng Doanh Thu</span>
+            <span class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i class="fa-solid fa-sack-dollar"></i>
+            </span>
+          </div>
+          <div class="mt-2">
+            <div id="kpiRevenue" class="text-xl font-extrabold text-slate-900">---</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              Từ <span id="kpiPurchaseSessions" class="font-semibold text-blue-600">0</span> phiên thanh toán
+            </div>
+          </div>
+        </div>
+
+        <!-- Giá trị đơn TB (AOV) -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-500">Doanh Thu TB / Bàn</span>
+            <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <i class="fa-solid fa-receipt"></i>
+            </span>
+          </div>
+          <div class="mt-2">
+            <div id="kpiAov" class="text-xl font-extrabold text-indigo-700">---</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              AOV (Average Order Value)
+            </div>
+          </div>
+        </div>
+
+        <!-- Sản lượng món bán -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-500">Tổng Món Đã Bán</span>
+            <span class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i class="fa-solid fa-bowl-food"></i>
+            </span>
+          </div>
+          <div class="mt-2">
+            <div id="kpiSold" class="text-xl font-extrabold text-emerald-700">---</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              Tổng số phần ăn phục vụ
+            </div>
+          </div>
+        </div>
+
+        <!-- Lượt xem Clickstream -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-500">Lượt Xem Thực Đơn</span>
+            <span class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
+              <i class="fa-solid fa-eye"></i>
+            </span>
+          </div>
+          <div class="mt-2">
+            <div id="kpiViews" class="text-xl font-extrabold text-violet-700">---</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              Trên <span id="kpiViewSessions" class="font-semibold text-violet-600">0</span> phiên lướt QR
+            </div>
+          </div>
+        </div>
+
+        <!-- Tỷ lệ chuyển đổi -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-500">Tỷ Lệ Chuyển Đổi</span>
+            <span class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <i class="fa-solid fa-bolt"></i>
+            </span>
+          </div>
+          <div class="mt-2">
+            <div id="kpiConversion" class="text-xl font-extrabold text-amber-600">---</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              <span id="kpiConvertedSessions" class="font-semibold text-amber-700">0</span> phiên xem & đặt món
+            </div>
+          </div>
+        </div>
+
+        <!-- Tuân thủ SLA Bếp -->
+        <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-medium text-slate-500">Đạt Chuẩn SLA Bếp</span>
+            <span class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+              <i class="fa-solid fa-stopwatch"></i>
+            </span>
+          </div>
+          <div class="mt-2">
+            <div id="kpiSlaCompliance" class="text-xl font-extrabold text-teal-700">---</div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              Nấu TB: <span id="kpiAvgPrep" class="font-semibold text-slate-700">0</span> phút (SLA &le; 15p)
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. BIỂU ĐỒ DOANH THU THEO THỜI GIAN & CƠ CẤU DANH MỤC -->
+      <section class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Doanh thu & Sản lượng theo ngày -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-indigo-600"></i>
+                Biến Động Doanh Thu & Sản Lượng Theo Ngày
+              </h2>
+              <p class="text-xs text-slate-500">
+                Đánh dấu điểm Đỉnh (Xanh lá), Đáy (Đỏ hồng), Đường Trung bình (Nét đứt) & Số lượng món bán
+              </p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select
+                id="biRevChartMode"
+                onchange="if(cachedBiRevRows.length) renderRevenueOverTimeData(cachedBiRevRows)"
+                class="text-xs border rounded-lg px-2.5 py-1 bg-slate-50 text-slate-700"
+              >
+                <option value="area">Đường miền (Area Trend)</option>
+                <option value="combo">Cột + Đường (Combo)</option>
+              </select>
+              <span class="text-[11px] font-mono bg-slate-100 text-slate-600 px-2.5 py-1 rounded">
+                /revenue-over-time
+              </span>
+            </div>
+          </div>
+          <div class="relative h-72 w-full">
+            <canvas id="revenueTimeChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Cơ cấu theo danh mục -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-chart-pie text-teal-600"></i>
+                Cơ Cấu Theo Danh Mục
+              </h2>
+              <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                /category-breakdown
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mb-3">
+              Tỷ trọng đóng góp doanh thu giữa các nhóm thực đơn
+            </p>
+          </div>
+
+          <div class="relative h-48 w-full flex items-center justify-center">
+            <canvas id="categoryDonutChart"></canvas>
+          </div>
+
+          <div id="categoryLegendList" class="mt-4 space-y-2 text-xs border-t pt-3"></div>
+        </div>
+      </section>
+
+      <!-- 3. TRUNG TÂM MA TRẬN MENU ENGINEERING (4 GÓC PHẦN TƯ) -->
+      <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-compass-drafting text-indigo-600"></i>
+              Ma Trận Menu Engineering 4 Góc Phần Tư (Clickstream Views vs Revenue)
+            </h2>
+            <p class="text-xs text-slate-500">
+              Phân nhóm tự động dựa trên đường chuẩn trung bình toàn thực đơn: Lượt xem TB =
+              <b id="lblBenchmarkViews" class="text-slate-700">--</b> lượt | Doanh thu TB =
+              <b id="lblBenchmarkRev" class="text-slate-700">--</b>
+            </p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <select
+              id="matrixCategoryFilter"
+              onchange="renderMenuMatrixSection()"
+              class="border rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700"
+            >
+              <option value="">Tất cả danh mục</option>
+              <option value="Món Chính">Món Chính</option>
+              <option value="Món Ăn Kèm">Món Ăn Kèm</option>
+              <option value="Đồ Uống">Đồ Uống</option>
+            </select>
+
+            <select
+              id="matrixQuadrantFilter"
+              onchange="renderMenuMatrixSection()"
+              class="border rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700"
+            >
+              <option value="">Tất cả 4 nhóm (Quadrants)</option>
+              <option value="STAR">🌟 Ngôi Sao (Star)</option>
+              <option value="PUZZLE">💎 Tiềm Năng Ẩn (Puzzle)</option>
+              <option value="PLOWHORSE">⚠️ Bẫy Lướt Xem (Cash Trap)</option>
+              <option value="DOG">🐶 Kém Hiệu Quả (Dog)</option>
+            </select>
+
+            <input
+              id="matrixSearchInput"
+              type="text"
+              oninput="renderMenuMatrixSection()"
+              placeholder="Tìm tên món ăn..."
+              class="border rounded-lg px-2.5 py-1.5 bg-slate-50 text-slate-700 w-44"
+            />
+          </div>
+        </div>
+
+        <!-- 4 THẺ TÓM TẮT GÓC PHẦN TƯ + BIỂU ĐỒ SCATTER -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+          <!-- Biểu đồ Xếp Hạng & So Sánh Món Ăn Đơn Giản, Dễ Hiểu -->
+          <div class="lg:col-span-7 border rounded-xl p-4 bg-slate-50/60 flex flex-col justify-between space-y-2.5">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <i class="fa-solid fa-ranking-star text-indigo-600"></i>
+                  Xếp Hạng Hiệu Quả Thực Đơn (Màu sắc theo 4 Nhóm Menu Engineering)
+                </div>
+                <div class="text-[11px] text-slate-500">
+                  Sắp xếp từ cao xuống thấp • Nhìn vào biết ngay món nào chủ lực, món nào cần cải thiện
+                </div>
+              </div>
+
+              <select
+                id="matrixChartMode"
+                onchange="renderScatterPlot(cachedMatrixItems)"
+                class="text-xs border rounded-lg px-2.5 py-1 bg-white text-slate-700 font-medium shadow-sm"
+              >
+                <option value="revenue_bar">💰 Xếp hạng theo Doanh Thu</option>
+                <option value="compare_bar">👀 So sánh Lượt Xem vs Đã Bán</option>
+              </select>
+            </div>
+
+            <!-- Chú thích nhanh 4 màu -->
+            <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] bg-white px-3 py-1.5 rounded-lg border border-slate-200/80">
+              <div class="flex flex-wrap items-center gap-3">
+                <span class="flex items-center gap-1 font-medium text-emerald-700">
+                  <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block"></span> 🌟 Ngôi Sao (Xem nhiều • Bán chạy)
+                </span>
+                <span class="flex items-center gap-1 font-medium text-indigo-700">
+                  <span class="w-2.5 h-2.5 rounded-sm bg-indigo-500 inline-block"></span> 💎 Tiềm Năng (Ít xem • Bán tốt)
+                </span>
+                <span class="flex items-center gap-1 font-medium text-amber-700">
+                  <span class="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block"></span> ⚠️ Bẫy Xem (Xem nhiều • Bán ít)
+                </span>
+                <span class="flex items-center gap-1 font-medium text-rose-700">
+                  <span class="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block"></span> 🐶 Kém (Xem ít • Bán ít)
+                </span>
+              </div>
+            </div>
+
+            <div class="relative h-80 w-full bg-white rounded-lg border p-3">
+              <canvas id="menuScatterChart"></canvas>
+            </div>
+          </div>
+
+          <!-- 4 hộp phân loại chiến lược -->
+          <div class="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- STAR -->
+            <div class="border border-emerald-200 bg-emerald-50/60 rounded-xl p-3.5 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-emerald-900">🌟 Ngôi Sao (Star)</span>
+                  <span id="countStar" class="text-xs font-bold bg-emerald-200 text-emerald-900 px-2 py-0.5 rounded-full">0 món</span>
+                </div>
+                <p class="text-[11px] text-emerald-700 mt-1">
+                  Xem nhiều & Doanh thu cao. Món chủ lực mang lại lợi nhuận chính.
+                </p>
+                <div id="listStar" class="mt-2 space-y-1 text-[11px] font-medium text-slate-800"></div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-emerald-200/70 text-[10px] text-emerald-800">
+                💡 <b>Chiến lược:</b> Giữ chất lượng chuẩn, ưu tiên đầu menu.
+              </div>
+            </div>
+
+            <!-- PUZZLE -->
+            <div class="border border-indigo-200 bg-indigo-50/60 rounded-xl p-3.5 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-indigo-900">💎 Tiềm Năng Ẩn (Puzzle)</span>
+                  <span id="countPuzzle" class="text-xs font-bold bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full">0 món</span>
+                </div>
+                <p class="text-[11px] text-indigo-700 mt-1">
+                  Ít lượt xem nhưng khách đã xem là chốt đơn / giá trị cao.
+                </p>
+                <div id="listPuzzle" class="mt-2 space-y-1 text-[11px] font-medium text-slate-800"></div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-indigo-200/70 text-[10px] text-indigo-800">
+                💡 <b>Chiến lược:</b> Đẩy lên banner, gắn nhãn Hot & Gợi ý mua kèm.
+              </div>
+            </div>
+
+            <!-- PLOWHORSE -->
+            <div class="border border-amber-200 bg-amber-50/60 rounded-xl p-3.5 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-amber-900">⚠️ Bẫy Lướt Xem (Cash Trap)</span>
+                  <span id="countPlowhorse" class="text-xs font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">0 món</span>
+                </div>
+                <p class="text-[11px] text-amber-700 mt-1">
+                  Thu hút nhiều lượt bấm xem nhưng doanh thu / chuyển đổi chưa tương xứng.
+                </p>
+                <div id="listPlowhorse" class="mt-2 space-y-1 text-[11px] font-medium text-slate-800"></div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-amber-200/70 text-[10px] text-amber-800">
+                💡 <b>Chiến lược:</b> Tối ưu lại giá bán, hình ảnh hoặc ghép Combo.
+              </div>
+            </div>
+
+            <!-- DOG -->
+            <div class="border border-rose-200 bg-rose-50/60 rounded-xl p-3.5 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-rose-900">🐶 Kém Hiệu Quả (Dog)</span>
+                  <span id="countDog" class="text-xs font-bold bg-rose-200 text-rose-900 px-2 py-0.5 rounded-full">0 món</span>
+                </div>
+                <p class="text-[11px] text-rose-700 mt-1">
+                  Lượt xem thấp và doanh thu đóng góp thấp nhất thực đơn.
+                </p>
+                <div id="listDog" class="mt-2 space-y-1 text-[11px] font-medium text-slate-800"></div>
+              </div>
+              <div class="mt-2 pt-2 border-t border-rose-200/70 text-[10px] text-rose-800">
+                💡 <b>Chiến lược:</b> Cải tiến công thức hoặc thay thế món mới.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BẢNG DỮ LIỆU MA TRẬN CHI TIẾT -->
+        <div class="overflow-x-auto border rounded-xl custom-scrollbar">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 border-b uppercase text-[11px]">
+              <tr>
+                <th class="py-3 px-3">Món Ăn</th>
+                <th class="py-3 px-2">Danh Mục</th>
+                <th class="py-3 px-2 text-right">Đơn Giá</th>
+                <th class="py-3 px-2 text-right">Lượt Xem (Phiên)</th>
+                <th class="py-3 px-2 text-right">Đã Bán</th>
+                <th class="py-3 px-3 text-right">Tổng Doanh Thu</th>
+                <th class="py-3 px-3 text-center">Tỷ Lệ Chuyển Đổi</th>
+                <th class="py-3 px-2 text-center">Phân Nhóm</th>
+                <th class="py-3 px-3">Khuyến Nghị Kinh Doanh (AI/BI Insight)</th>
+              </tr>
+            </thead>
+            <tbody id="matrixFullTableBody" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. PHÂN TÍCH VẬN HÀNH: HEATMAP GIỜ CAO ĐIỂM & HIỆU SUẤT BẾP SLA -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Bản đồ nhiệt khung giờ cao điểm (Peak Hours Heatmap) -->
+        <div class="lg:col-span-7 bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-fire text-orange-500"></i>
+                Bản Đồ Nhiệt Khung Giờ Cao Điểm (Peak Hours Heatmap)
+              </h2>
+              <p class="text-xs text-slate-500">
+                Mật độ doanh thu theo Thứ trong tuần & Khung giờ phục vụ (Giúp bố trí ca làm việc nhân viên)
+              </p>
+            </div>
+            <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+              /peak-hours-heatmap
+            </span>
+          </div>
+
+          <div id="heatmapContainer" class="overflow-x-auto custom-scrollbar"></div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t text-xs">
+            <div class="bg-orange-50 border border-orange-100 rounded-lg p-3">
+              <div class="text-slate-500 text-[11px]">Khung Giờ Vàng (Đông Nhất)</div>
+              <div id="peakHourText" class="font-bold text-orange-700 text-sm mt-0.5">Đang tính...</div>
+            </div>
+            <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+              <div class="text-slate-500 text-[11px]">Ngày Cao Điểm Trong Tuần</div>
+              <div id="peakDayText" class="font-bold text-indigo-700 text-sm mt-0.5">Đang tính...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hiệu suất Đầu bếp & SLA 15 phút -->
+        <div class="lg:col-span-5 bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col justify-between space-y-4">
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h2 class="font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-user-chef text-teal-600"></i>
+                Hiệu Suất Đầu Bếp & Giám Sát SLA (15 Phút)
+              </h2>
+              <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                /kitchen-sla-performance
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 mb-3">
+              Đánh giá tốc độ ra món của từng Đầu bếp và các món có tỷ lệ trễ SLA (&gt; 900 giây)
+            </p>
+
+            <!-- Danh sách Đầu bếp -->
+            <div id="chefPerformanceList" class="space-y-2.5"></div>
+          </div>
+
+          <!-- Top món nấu lâu nhất -->
+          <div class="border-t pt-3">
+            <div class="text-xs font-semibold text-slate-700 mb-2 flex items-center justify-between">
+              <span>⏱️ Top Món Có Thời Gian Chế Biến Lâu Nhất</span>
+              <span class="text-[10px] text-slate-400">Ngưỡng SLA: 15p (900s)</span>
+            </div>
+            <div id="slowestItemsList" class="space-y-1.5 text-xs max-h-44 overflow-y-auto custom-scrollbar"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      let revenueChartInstance = null;
+      let categoryChartInstance = null;
+      let scatterChartInstance = null;
+      let cachedMatrixItems = [];
+
+      function getBaseUrl() {
+        return document
+          .getElementById("serverUrl")
+          .value.trim()
+          .replace(/\/$/, "");
+      }
+
+      function buildQueryParams() {
+        const days = document.getElementById("filterDays").value;
+        const weekend = document.getElementById("filterWeekend").value;
+        const params = new URLSearchParams();
+        if (days) params.append("days", days);
+        if (weekend !== "") params.append("weekend_only", weekend);
+        const qs = params.toString();
+        return qs ? `?${qs}` : "";
+      }
+
+      function formatVND(val) {
+        return (Number(val) || 0).toLocaleString("vi-VN") + " đ";
+      }
+
+      // 1. HIỂN THỊ DASHBOARD SUMMARY
+      function renderSummaryData(data) {
+        document.getElementById("kpiRevenue").textContent = formatVND(data.total_revenue);
+        document.getElementById("kpiPurchaseSessions").textContent = (data.purchase_sessions || 0).toLocaleString("vi-VN");
+        document.getElementById("kpiAov").textContent = formatVND(data.avg_order_value);
+        document.getElementById("kpiSold").textContent = (data.total_sold || 0).toLocaleString("vi-VN");
+        document.getElementById("kpiViews").textContent = (data.total_views || 0).toLocaleString("vi-VN");
+        document.getElementById("kpiViewSessions").textContent = (data.total_view_sessions || 0).toLocaleString("vi-VN");
+        document.getElementById("kpiConversion").textContent = (data.conversion_rate || 0) + "%";
+        document.getElementById("kpiConvertedSessions").textContent = (data.converted_sessions || 0).toLocaleString("vi-VN");
+
+        const compliance = data.sla_compliance_rate ?? 100;
+        const prepMins = ((Number(data.avg_prep_time_seconds) || 0) / 60).toFixed(1);
+        document.getElementById("kpiSlaCompliance").textContent = compliance + "%";
+        document.getElementById("kpiAvgPrep").textContent = prepMins;
+      }
+
+      // 2. HIỂN THỊ BIỂU ĐỒ DOANH THU THEO NGÀY (CHART.JS)
+      let cachedBiRevRows = [];
+      function renderRevenueOverTimeData(rows) {
+        cachedBiRevRows = rows || [];
+        const mode = document.getElementById("biRevChartMode")?.value || "area";
+        const labels = rows.map((r) => {
+          const d = String(r.date).slice(5);
+          return r.is_weekend ? `${d} (CT)` : d;
+        });
+        const revenues = rows.map((r) => Number((Number(r.revenue || 0) / 1000000).toFixed(2)));
+        const solds = rows.map((r) => Number(r.total_sold || 0));
+
+        const minRev = revenues.length ? Math.min(...revenues) : 0;
+        const maxRev = revenues.length ? Math.max(...revenues) : 10;
+        const avgRev = revenues.length
+          ? revenues.reduce((a, b) => a + b, 0) / revenues.length
+          : 0;
+        const pad = Math.max((maxRev - minRev) * 0.25, 1.0);
+        const yMin = Math.max(0, Math.floor((minRev - pad) * 10) / 10);
+        const yMax = Math.ceil((maxRev + pad) * 10) / 10;
+
+        const pointColors = revenues.map((v) =>
+          v === maxRev ? "#10b981" : v === minRev ? "#f43f5e" : "#4f46e5"
+        );
+        const pointRadii = revenues.map((v) =>
+          v === maxRev || v === minRev ? 6 : 4
+        );
+
+        const ctx = document.getElementById("revenueTimeChart").getContext("2d");
+        if (revenueChartInstance) revenueChartInstance.destroy();
+
+        const grad = ctx.createLinearGradient(0, 0, 0, 260);
+        grad.addColorStop(0, "rgba(79, 70, 229, 0.35)");
+        grad.addColorStop(1, "rgba(79, 70, 229, 0.02)");
+
+        const datasets =
+          mode === "area"
+            ? [
+                {
+                  type: "line",
+                  label: "Doanh thu (Triệu VNĐ)",
+                  data: revenues,
+                  borderColor: "#4f46e5",
+                  backgroundColor: grad,
+                  borderWidth: 3,
+                  fill: true,
+                  tension: 0.38,
+                  pointBackgroundColor: pointColors,
+                  pointBorderColor: "#ffffff",
+                  pointBorderWidth: 2,
+                  pointRadius: pointRadii,
+                  pointHoverRadius: 7,
+                  yAxisID: "y",
+                },
+                {
+                  type: "line",
+                  label: `Trung bình (${avgRev.toFixed(1)}M)`,
+                  data: revenues.map(() => Number(avgRev.toFixed(2))),
+                  borderColor: "#f59e0b",
+                  borderDash: [5, 5],
+                  borderWidth: 1.8,
+                  pointRadius: 0,
+                  fill: false,
+                  yAxisID: "y",
+                },
+                {
+                  type: "line",
+                  label: "Số món bán ra",
+                  data: solds,
+                  borderColor: "#0d9488",
+                  backgroundColor: "#0d9488",
+                  borderWidth: 2,
+                  tension: 0.3,
+                  pointRadius: 3,
+                  yAxisID: "y1",
+                },
+              ]
+            : [
+                {
+                  type: "bar",
+                  label: "Doanh thu (Triệu VNĐ)",
+                  data: revenues,
+                  backgroundColor: rows.map((r, idx) =>
+                    revenues[idx] === maxRev
+                      ? "rgba(16, 185, 129, 0.85)"
+                      : r.is_weekend
+                        ? "rgba(245, 158, 11, 0.85)"
+                        : "rgba(79, 70, 229, 0.78)"
+                  ),
+                  borderRadius: 6,
+                  yAxisID: "y",
+                },
+                {
+                  type: "line",
+                  label: "Số món bán ra",
+                  data: solds,
+                  borderColor: "#0d9488",
+                  backgroundColor: "#0d9488",
+                  borderWidth: 2.5,
+                  tension: 0.3,
+                  pointRadius: 3.5,
+                  yAxisID: "y1",
+                },
+              ];
+
+        revenueChartInstance = new Chart(ctx, {
+          type: mode === "area" ? "line" : "bar",
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+            },
+            scales: {
+              y: {
+                type: "linear",
+                position: "left",
+                min: yMin,
+                max: yMax,
+                title: { display: true, text: "Triệu VNĐ", font: { size: 11 } },
+                grid: { color: "#f1f5f9" },
+              },
+              y1: {
+                type: "linear",
+                position: "right",
+                title: { display: true, text: "Số lượng món", font: { size: 11 } },
+                grid: { drawOnChartArea: false },
+              },
+            },
+          },
+        });
+      }
+
+      // 3. HIỂN THỊ CƠ CẤU DANH MỤC
+      function renderCategoryBreakdownData(rows) {
+        const labels = rows.map((r) => r.category_name);
+        const revenues = rows.map((r) => Number(r.total_revenue || 0));
+        const colors = ["#4f46e5", "#0d9488", "#f59e0b", "#ec4899"];
+
+        const ctx = document.getElementById("categoryDonutChart").getContext("2d");
+        if (categoryChartInstance) categoryChartInstance.destroy();
+
+        categoryChartInstance = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels,
+            datasets: [
+              {
+                data: revenues,
+                backgroundColor: colors,
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "65%",
+            plugins: {
+              legend: { display: false },
+            },
+          },
+        });
+
+        const legendEl = document.getElementById("categoryLegendList");
+        legendEl.innerHTML = rows
+          .map(
+            (r, idx) => `
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-sm inline-block" style="background:${colors[idx % colors.length]}"></span>
+                <span class="font-medium text-slate-700">${r.category_name}</span>
+                <span class="text-[10px] text-slate-400">(${r.total_sold} phần)</span>
+              </div>
+              <div class="font-mono font-semibold text-slate-800">
+                ${formatVND(r.total_revenue)}
+                <span class="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded ml-1">${r.revenue_share}%</span>
+              </div>
+            </div>
+          `
+          )
+          .join("");
+      }
+
+      // 4. HIỂN THỊ MA TRẬN MENU ENGINEERING
+      function renderMenuEngineeringMatrixData(items) {
+        cachedMatrixItems = items;
+
+        if (cachedMatrixItems.length > 0) {
+          document.getElementById("lblBenchmarkViews").textContent =
+            cachedMatrixItems[0].benchmark_avg_views;
+          document.getElementById("lblBenchmarkRev").textContent = formatVND(
+            cachedMatrixItems[0].benchmark_avg_revenue
+          );
+        }
+
+        renderQuadrantCards(cachedMatrixItems);
+        renderScatterPlot(cachedMatrixItems);
+        renderMenuMatrixSection();
+      }
+
+      function renderQuadrantCards(items) {
+        const groups = { STAR: [], PUZZLE: [], PLOWHORSE: [], DOG: [] };
+        items.forEach((i) => {
+          const q = i.quadrant || "DOG";
+          if (groups[q]) groups[q].push(i);
+        });
+
+        const mapCard = (quad, countId, listId) => {
+          const arr = groups[quad] || [];
+          document.getElementById(countId).textContent = `${arr.length} món`;
+          document.getElementById(listId).innerHTML = arr.length
+            ? arr
+                .map(
+                  (x) =>
+                    `<div class="flex items-center justify-between">
+                      <span class="truncate pr-2">• ${shortenDishName(x.name)}</span>
+                      <span class="font-mono text-[10px] font-semibold text-slate-600 shrink-0">${((Number(x.total_revenue) || 0) / 1000000).toFixed(1)}M (${x.total_sold} phần)</span>
+                    </div>`
+                )
+                .join("")
+            : `<div class="text-slate-400 italic text-[11px]">Không có món nào</div>`;
+        };
+
+        mapCard("STAR", "countStar", "listStar");
+        mapCard("PUZZLE", "countPuzzle", "listPuzzle");
+        mapCard("PLOWHORSE", "countPlowhorse", "listPlowhorse");
+        mapCard("DOG", "countDog", "listDog");
+      }
+
+      function shortenDishName(name) {
+        return String(name || "")
+          .replace("Hải Sản Cấp Độ 7", "Cấp 7")
+          .replace("Tomyum Bò Mỹ", "Tomyum")
+          .replace("Hàn Quốc Bibimbap", "Bibimbap")
+          .replace("Chiên Phô Mai", "Phô Mai")
+          .replace("Sốt Cay Hàn Quốc", "Sốt Cay")
+          .replace("Bạch Tuộc (6 viên)", "Bạch Tuộc")
+          .replace("Trân Châu Đường Đen", "Đường Đen");
+      }
+
+      function renderScatterPlot(items) {
+        const ctx = document.getElementById("menuScatterChart").getContext("2d");
+        if (scatterChartInstance) scatterChartInstance.destroy();
+        if (!items || !items.length) return;
+
+        const mode = document.getElementById("matrixChartMode")?.value || "revenue_bar";
+        const colorMap = {
+          STAR: "#10b981",
+          PUZZLE: "#6366f1",
+          PLOWHORSE: "#f59e0b",
+          DOG: "#f43f5e",
+        };
+
+        // CHẾ ĐỘ 2: SO SÁNH LƯỢT XEM VS SỐ MÓN ĐÃ BÁN (CỘT ĐÔI DỄ NHÌN)
+        if (mode === "compare_bar") {
+          const sorted = [...items].sort((a, b) => Number(b.views) - Number(a.views));
+          const labels = sorted.map((i) => shortenDishName(i.name));
+          const viewsData = sorted.map((i) => Number(i.views || 0));
+          const soldData = sorted.map((i) => Number(i.total_sold || 0));
+
+          scatterChartInstance = new Chart(ctx, {
+            type: "bar",
+            data: {
+              labels,
+              datasets: [
+                {
+                  label: "Lượt khách bấm xem (Views)",
+                  data: viewsData,
+                  backgroundColor: "rgba(99, 102, 241, 0.75)",
+                  borderRadius: 5,
+                },
+                {
+                  label: "Số phần đã bán ra (Sold)",
+                  data: soldData,
+                  backgroundColor: "rgba(16, 185, 129, 0.85)",
+                  borderRadius: 5,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: { mode: "index", intersect: false },
+              plugins: {
+                legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+              },
+              scales: {
+                x: {
+                  ticks: { font: { size: 10, weight: "600" }, color: "#334155" },
+                  grid: { display: false },
+                },
+                y: {
+                  grid: { color: "#f1f5f9" },
+                },
+              },
+            },
+          });
+          return;
+        }
+
+        // CHẾ ĐỘ 1 (MẶC ĐỊNH): BIỂU ĐỒ XẾP HẠNG THANH NGANG GỌN GÀNG, HIỂN THỊ SỐ LIỆU CUỐI THANH
+        const sorted = [...items].sort((a, b) => Number(b.total_revenue) - Number(a.total_revenue));
+        const labels = sorted.map((i, idx) => `#${idx + 1}. ${shortenDishName(i.name)}`);
+        const revMillions = sorted.map((i) =>
+          Number(((Number(i.total_revenue) || 0) / 1000000).toFixed(1))
+        );
+        const bgColors = sorted.map((i) => colorMap[i.quadrant] || "#64748b");
+        const maxVal = Math.max(...revMillions, 10);
+
+        const barValueLabelPlugin = {
+          id: "barValueLabelPlugin",
+          afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            const meta = chart.getDatasetMeta(0);
+            ctx.save();
+            ctx.font = "bold 11px sans-serif";
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "left";
+
+            meta.data.forEach((bar, index) => {
+              const item = sorted[index];
+              const revM = revMillions[index];
+              const text = `${revM}M  (${item.total_sold} phần • ${item.views} xem)`;
+              ctx.fillStyle = "#334155";
+              ctx.fillText(text, bar.x + 8, bar.y);
+            });
+            ctx.restore();
+          },
+        };
+
+        scatterChartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Doanh thu (Triệu VNĐ)",
+                data: revMillions,
+                backgroundColor: bgColors,
+                borderRadius: 6,
+                barThickness: 20,
+              },
+            ],
+          },
+          plugins: [barValueLabelPlugin],
+          options: {
+            indexAxis: "y",
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (c) => {
+                    const item = sorted[c.dataIndex];
+                    return `${item.name} [${item.quadrant_label}] — Doanh thu: ${c.raw}M VNĐ | Đã bán: ${item.total_sold} phần | Xem: ${item.views} lượt`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                max: Math.ceil(maxVal * 1.38),
+                title: {
+                  display: true,
+                  text: "Tổng Doanh Thu (Triệu VNĐ)",
+                  font: { size: 11, weight: "bold" },
+                },
+                ticks: {
+                  callback: (v) => v + "M",
+                },
+                grid: { color: "#f1f5f9" },
+              },
+              y: {
+                ticks: {
+                  font: { size: 11.5, weight: "600" },
+                  color: "#0f172a",
+                },
+                grid: { display: false },
+              },
+            },
+          },
+        });
+      }
+
+      function renderMenuMatrixSection() {
+        const catFilter = document.getElementById("matrixCategoryFilter").value;
+        const quadFilter = document.getElementById("matrixQuadrantFilter").value;
+        const keyword = document.getElementById("matrixSearchInput").value.trim().toLowerCase();
+
+        const filtered = cachedMatrixItems.filter((item) => {
+          if (catFilter && item.category_name !== catFilter) return false;
+          if (quadFilter && item.quadrant !== quadFilter) return false;
+          if (keyword && !item.name.toLowerCase().includes(keyword)) return false;
+          return true;
+        });
+
+        const badgeStyle = {
+          STAR: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          PUZZLE: "bg-indigo-100 text-indigo-800 border-indigo-200",
+          PLOWHORSE: "bg-amber-100 text-amber-800 border-amber-200",
+          DOG: "bg-rose-100 text-rose-800 border-rose-200",
+        };
+
+        const tbody = document.getElementById("matrixFullTableBody");
+        if (!filtered.length) {
+          tbody.innerHTML = `<tr><td colspan="9" class="p-4 text-center text-slate-400 italic">Không có món ăn nào khớp bộ lọc.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = filtered
+          .map((item) => {
+            const conv = Number(item.conversion_rate || 0);
+            const barWidth = Math.min(conv * 2, 100);
+            return `
+              <tr class="hover:bg-slate-50 transition">
+                <td class="py-3 px-3 font-semibold text-slate-800">${item.name}</td>
+                <td class="py-3 px-2">
+                  <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px]">${item.category_name || "Khác"}</span>
+                </td>
+                <td class="py-3 px-2 text-right font-mono text-slate-600">${formatVND(item.current_price)}</td>
+                <td class="py-3 px-2 text-right font-mono text-slate-700">
+                  <b>${item.views}</b> <span class="text-[10px] text-slate-400">(${item.view_sessions} phiên)</span>
+                </td>
+                <td class="py-3 px-2 text-right font-mono font-bold text-slate-800">${item.total_sold}</td>
+                <td class="py-3 px-3 text-right font-mono font-bold text-emerald-700">${formatVND(item.total_revenue)}</td>
+                <td class="py-3 px-3">
+                  <div class="flex items-center justify-center gap-2">
+                    <div class="w-16 bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div class="bg-indigo-600 h-full rounded-full" style="width:${barWidth}%"></div>
+                    </div>
+                    <span class="font-mono font-semibold text-indigo-700 w-12 text-right">${conv}%</span>
+                  </div>
+                </td>
+                <td class="py-3 px-2 text-center">
+                  <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border ${badgeStyle[item.quadrant] || ""}">
+                    ${item.quadrant_label || item.quadrant}
+                  </span>
+                </td>
+                <td class="py-3 px-3 text-[11px] text-slate-600 max-w-xs">${item.recommendation || ""}</td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+
+      // 5. HIỂN THỊ BẢN ĐỒ NHIỆT GIỜ CAO ĐIỂM (PEAK HOURS HEATMAP)
+      function renderPeakHoursHeatmapData(data) {
+        const byHour = data.by_hour || [];
+        const byDow = data.by_day_of_week || [];
+        const heatmap = data.heatmap || [];
+
+        if (byHour.length) {
+          const topHour = [...byHour].sort((a, b) => b.revenue - a.revenue)[0];
+          document.getElementById("peakHourText").textContent =
+            `${topHour.hour}:00 - ${topHour.hour}:59 (${formatVND(topHour.revenue)} | ${topHour.total_sold} món)`;
+        }
+        if (byDow.length) {
+          const topDay = [...byDow].sort((a, b) => b.revenue - a.revenue)[0];
+          document.getElementById("peakDayText").textContent =
+            `${topDay.day_name} (${formatVND(topDay.revenue)} | ${topDay.sessions} bàn)`;
+        }
+
+        const hours = [...new Set(heatmap.map((x) => x.hour))].sort((a, b) => a - b);
+        const daysOrder = [
+          { id: 0, name: "Thứ 2" },
+          { id: 1, name: "Thứ 3" },
+          { id: 2, name: "Thứ 4" },
+          { id: 3, name: "Thứ 5" },
+          { id: 4, name: "Thứ 6" },
+          { id: 5, name: "Thứ 7" },
+          { id: 6, name: "Chủ Nhật" },
+        ];
+
+        const maxCellRev = Math.max(...heatmap.map((x) => Number(x.revenue) || 0), 1);
+        const cellMap = {};
+        heatmap.forEach((x) => {
+          cellMap[`${x.day_of_week}_${x.hour}`] = x;
+        });
+
+        let html = `<table class="w-full text-center text-[11px] border-collapse">
+          <thead>
+            <tr class="text-slate-500 border-b">
+              <th class="p-1.5 text-left">Thứ / Giờ</th>
+              ${hours.map((h) => `<th class="p-1.5 font-mono">${h}h</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>`;
+
+        daysOrder.forEach((d) => {
+          html += `<tr class="border-b border-slate-100">
+            <td class="p-1.5 text-left font-semibold ${d.id >= 5 ? "text-amber-700" : "text-slate-700"}">${d.name}</td>`;
+          hours.forEach((h) => {
+            const cell = cellMap[`${d.id}_${h}`];
+            const rev = cell ? Number(cell.revenue) : 0;
+            const sold = cell ? cell.total_sold : 0;
+            const ratio = rev / maxCellRev;
+            let bg = "bg-slate-50 text-slate-400";
+            if (ratio > 0.75) bg = "bg-orange-600 text-white font-bold";
+            else if (ratio > 0.5) bg = "bg-orange-400 text-white font-semibold";
+            else if (ratio > 0.25) bg = "bg-amber-200 text-amber-900 font-medium";
+            else if (ratio > 0) bg = "bg-amber-50 text-amber-800";
+
+            html += `<td class="p-1">
+              <div class="rounded py-2 px-1 ${bg}" title="${d.name} lúc ${h}:00 - Doanh thu: ${formatVND(rev)} (${sold} món)">
+                ${rev > 0 ? (rev / 1000000).toFixed(1) + "M" : "-"}
+              </div>
+            </td>`;
+          });
+          html += `</tr>`;
+        });
+
+        html += `</tbody></table>`;
+        document.getElementById("heatmapContainer").innerHTML = html;
+      }
+
+      // 6. HIỂN THỊ HIỆU SUẤT BẾP & SLA
+      function renderKitchenSlaData(data) {
+        const chefs = data.chefs || [];
+        const itemsPrep = data.items_prep_analysis || [];
+
+        document.getElementById("chefPerformanceList").innerHTML = chefs
+          .map((c) => {
+            const prepMins = ((Number(c.avg_prep_seconds) || 0) / 60).toFixed(1);
+            const comp = Number(c.sla_compliance_rate ?? 100);
+            return `
+              <div class="p-3 rounded-xl border bg-slate-50 flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-hat-chef text-teal-600"></i>
+                    ${c.full_name}
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-0.5">
+                    Đã nấu: <b>${c.total_items_cooked}</b> phần (${c.total_order_lines} lượt order) • Nấu TB: <b>${prepMins} phút</b>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span class="px-2.5 py-1 rounded-full text-xs font-bold ${
+                    comp >= 75 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                  }">
+                    SLA: ${comp}%
+                  </span>
+                  <div class="text-[10px] text-rose-600 mt-0.5">
+                    Trễ: ${c.sla_violated_count || 0} lượt
+                  </div>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+
+        document.getElementById("slowestItemsList").innerHTML = itemsPrep
+          .slice(0, 6)
+          .map((item) => {
+            const mins = ((Number(item.avg_prep_seconds) || 0) / 60).toFixed(1);
+            return `
+              <div class="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                <span class="font-medium text-slate-700 truncate pr-2">${item.name}</span>
+                <div class="flex items-center gap-2 shrink-0 font-mono text-[11px]">
+                  <span class="text-slate-600">TB: <b>${mins}p</b></span>
+                  <span class="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700">Trễ: ${item.sla_violation_rate}%</span>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      // DỮ LIỆU MẪU OFFLINE PREVIEW (Khi mở trực tiếp file HTML mà chưa bật Docker/FastAPI)
+      function loadOfflinePreviewData() {
+        document.getElementById("connectionNotice").classList.remove("hidden");
+
+        renderSummaryData({
+          total_revenue: 92450000,
+          total_sold: 1185,
+          purchase_sessions: 482,
+          avg_order_value: 191805,
+          total_views: 8740,
+          total_view_sessions: 1000,
+          converted_sessions: 482,
+          conversion_rate: 48.2,
+          avg_prep_time_seconds: 685,
+          sla_compliance_rate: 76.4,
+        });
+
+        renderRevenueOverTimeData([
+          { date: "2026-11-01", is_weekend: true, revenue: 11200000, total_sold: 142 },
+          { date: "2026-11-02", is_weekend: false, revenue: 6800000, total_sold: 88 },
+          { date: "2026-11-03", is_weekend: false, revenue: 7450000, total_sold: 95 },
+          { date: "2026-11-04", is_weekend: false, revenue: 7100000, total_sold: 91 },
+          { date: "2026-11-05", is_weekend: false, revenue: 8200000, total_sold: 106 },
+          { date: "2026-11-06", is_weekend: false, revenue: 9100000, total_sold: 118 },
+          { date: "2026-11-07", is_weekend: true, revenue: 13800000, total_sold: 175 },
+          { date: "2026-11-08", is_weekend: true, revenue: 14500000, total_sold: 184 },
+          { date: "2026-11-09", is_weekend: false, revenue: 7200000, total_sold: 92 },
+          { date: "2026-11-10", is_weekend: false, revenue: 7100000, total_sold: 94 },
+        ]);
+
+        renderCategoryBreakdownData([
+          { category_name: "Món Chính", total_sold: 560, total_revenue: 64200000, revenue_share: 69.4 },
+          { category_name: "Món Ăn Kèm", total_sold: 345, total_revenue: 15850000, revenue_share: 17.1 },
+          { category_name: "Đồ Uống", total_sold: 280, total_revenue: 12400000, revenue_share: 13.5 },
+        ]);
+
+        renderMenuEngineeringMatrixData([
+          {
+            oltp_item_id: 2, name: "Lẩu Thái Tomyum Bò Mỹ", category_name: "Món Chính", current_price: 189000,
+            views: 1050, view_sessions: 300, total_sold: 210, total_revenue: 39690000, conversion_rate: 35.0,
+            quadrant: "STAR", quadrant_label: "Ngôi Sao (Star)",
+            recommendation: "Món chủ lực! Giữ vững chất lượng, ưu tiên hiển thị đầu trang và dùng làm món dẫn khách.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 1, name: "Mì Cay Hải Sản Cấp Độ 7", category_name: "Món Chính", current_price: 65000,
+            views: 1120, view_sessions: 315, total_sold: 225, total_revenue: 14625000, conversion_rate: 30.8,
+            quadrant: "STAR", quadrant_label: "Ngôi Sao (Star)",
+            recommendation: "Món chủ lực! Giữ vững chất lượng, ưu tiên hiển thị đầu trang và dùng làm món dẫn khách.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 5, name: "Gà Rán Sốt Cay Hàn Quốc", category_name: "Món Ăn Kèm", current_price: 49000,
+            views: 890, view_sessions: 260, total_sold: 165, total_revenue: 8085000, conversion_rate: 28.5,
+            quadrant: "PUZZLE", quadrant_label: "Tiềm Năng Ẩn (Puzzle)",
+            recommendation: "Tỷ lệ chốt/doanh thu tốt nhưng ít lượt xem. Hãy gắn nhãn 'Hot', đẩy lên banner hoặc gợi ý mua kèm.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 3, name: "Cơm Trộn Hàn Quốc Bibimbap", category_name: "Món Chính", current_price: 55000,
+            views: 920, view_sessions: 270, total_sold: 140, total_revenue: 7700000, conversion_rate: 25.2,
+            quadrant: "PUZZLE", quadrant_label: "Tiềm Năng Ẩn (Puzzle)",
+            recommendation: "Tỷ lệ chốt/doanh thu tốt nhưng ít lượt xem. Hãy gắn nhãn 'Hot', đẩy lên banner hoặc gợi ý mua kèm.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 8, name: "Trà Sữa Trân Châu Đường Đen", category_name: "Đồ Uống", current_price: 40000,
+            views: 1010, view_sessions: 295, total_sold: 145, total_revenue: 5800000, conversion_rate: 22.0,
+            quadrant: "PLOWHORSE", quadrant_label: "Bẫy Lướt Xem (Cash Trap)",
+            recommendation: "Khách xem nhiều nhưng ít đặt hoặc doanh thu thấp. Cần tối ưu lại giá bán, hình ảnh hoặc tạo combo.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 4, name: "Khoai Tây Chiên Phô Mai", category_name: "Món Ăn Kèm", current_price: 35000,
+            views: 1030, view_sessions: 300, total_sold: 130, total_revenue: 4550000, conversion_rate: 20.0,
+            quadrant: "PLOWHORSE", quadrant_label: "Bẫy Lướt Xem (Cash Trap)",
+            recommendation: "Khách xem nhiều nhưng ít đặt hoặc doanh thu thấp. Cần tối ưu lại giá bán, hình ảnh hoặc tạo combo.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 7, name: "Trà Đào Cam Sả", category_name: "Đồ Uống", current_price: 35000,
+            views: 990, view_sessions: 285, total_sold: 95, total_revenue: 3325000, conversion_rate: 15.1,
+            quadrant: "PLOWHORSE", quadrant_label: "Bẫy Lướt Xem (Cash Trap)",
+            recommendation: "Khách xem nhiều nhưng ít đặt hoặc doanh thu thấp. Cần tối ưu lại giá bán, hình ảnh hoặc tạo combo.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 6, name: "Takoyaki Bạch Tuộc (6 viên)", category_name: "Món Ăn Kèm", current_price: 40000,
+            views: 870, view_sessions: 250, total_sold: 85, total_revenue: 3400000, conversion_rate: 18.0,
+            quadrant: "DOG", quadrant_label: "Kém Hiệu Quả (Dog)",
+            recommendation: "Lượt xem và doanh thu đều thấp. Cân nhắc cải tiến công thức, đổi tên món hoặc thay thế khỏi menu.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+          {
+            oltp_item_id: 9, name: "Coca Cola Tươi", category_name: "Đồ Uống", current_price: 20000,
+            views: 860, view_sessions: 245, total_sold: 55, total_revenue: 1100000, conversion_rate: 10.2,
+            quadrant: "DOG", quadrant_label: "Kém Hiệu Quả (Dog)",
+            recommendation: "Lượt xem và doanh thu đều thấp. Cân nhắc cải tiến công thức, đổi tên món hoặc thay thế khỏi menu.",
+            benchmark_avg_views: 971.1, benchmark_avg_revenue: 10272222
+          },
+        ]);
+
+        const sampleHours = [11, 12, 13, 18, 19, 20, 21];
+        const sampleHeatmap = [];
+        for (let d = 0; d < 7; d++) {
+          sampleHours.forEach((h) => {
+            const mult = (d >= 5 ? 1.5 : 1.0) * (h === 12 || h === 19 || h === 20 ? 1.8 : 1.0);
+            sampleHeatmap.push({
+              day_of_week: d,
+              hour: h,
+              revenue: Math.round(1150000 * mult),
+              total_sold: Math.round(16 * mult),
+              sessions: Math.round(7 * mult),
+            });
+          });
+        }
+        renderPeakHoursHeatmapData({
+          by_hour: [{ hour: 19, revenue: 24500000, total_sold: 310 }],
+          by_day_of_week: [{ day_of_week: 6, day_name: "Chủ Nhật", revenue: 18400000, sessions: 95 }],
+          heatmap: sampleHeatmap,
+        });
+
+        renderKitchenSlaData({
+          chefs: [
+            { full_name: "Đầu Bếp Hùng", total_items_cooked: 615, total_order_lines: 310, avg_prep_seconds: 660, sla_compliance_rate: 78.5, sla_violated_count: 67 },
+            { full_name: "Đầu Bếp Lan", total_items_cooked: 570, total_order_lines: 285, avg_prep_seconds: 710, sla_compliance_rate: 74.2, sla_violated_count: 73 },
+          ],
+          items_prep_analysis: [
+            { name: "Lẩu Thái Tomyum Bò Mỹ", avg_prep_seconds: 780, sla_violation_rate: 28.4 },
+            { name: "Mì Cay Hải Sản Cấp Độ 7", avg_prep_seconds: 720, sla_violation_rate: 24.1 },
+            { name: "Gà Rán Sốt Cay Hàn Quốc", avg_prep_seconds: 705, sla_violation_rate: 22.8 },
+            { name: "Cơm Trộn Hàn Quốc Bibimbap", avg_prep_seconds: 680, sla_violation_rate: 21.0 },
+          ],
+        });
+      }
+
+      async function refreshAllBI() {
+        const icon = document.getElementById("refreshIcon");
+        icon.classList.add("fa-spin");
+        const base = getBaseUrl();
+        const qs = buildQueryParams();
+        const days = document.getElementById("filterDays").value;
+        const heatQs = days ? `?days=${days}` : "";
+
+        try {
+          const [resSum, resRev, resCat, resMat, resHeat, resSla] = await Promise.all([
+            fetch(`${base}/api/v1/bi/dashboard-summary${qs}`),
+            fetch(`${base}/api/v1/bi/revenue-over-time${qs}`),
+            fetch(`${base}/api/v1/bi/category-breakdown${qs}`),
+            fetch(`${base}/api/v1/bi/menu-engineering-matrix${qs}`),
+            fetch(`${base}/api/v1/bi/peak-hours-heatmap${heatQs}`),
+            fetch(`${base}/api/v1/bi/kitchen-sla-performance${qs}`),
+          ]);
+
+          if (!resSum.ok) throw new Error("API error");
+
+          document.getElementById("connectionNotice").classList.add("hidden");
+
+          renderSummaryData(await resSum.json());
+          renderRevenueOverTimeData(await resRev.json());
+          renderCategoryBreakdownData(await resCat.json());
+          renderMenuEngineeringMatrixData(await resMat.json());
+          renderPeakHoursHeatmapData(await resHeat.json());
+          renderKitchenSlaData(await resSla.json());
+        } catch (err) {
+          console.warn("Chưa bật FastAPI Server, chuyển sang hiển thị dữ liệu mẫu Offline Preview:", err);
+          loadOfflinePreviewData();
+        } finally {
+          setTimeout(() => icon.classList.remove("fa-spin"), 300);
+        }
+      }
+
+      window.onload = () => {
+        refreshAllBI();
+      };
+    </script>
+  </body>
+</html>
