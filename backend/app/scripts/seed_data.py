@@ -103,10 +103,33 @@ def run_seeder():
         fact_orders_batch = []
         fact_clicks_batch = []
 
+        
+        # Tỷ lệ mua giả lập cho từng món ăn
+        # Khách xem món không có nghĩa là chắc chắn sẽ mua
+        conversion_probabilities = {
+            "Mì Cay Hải Sản Cấp Độ 7": 0.30,
+            "Lẩu Thái Tomyum Bò Mỹ": 0.35,
+            "Cơm Trộn Hàn Quốc Bibimbap": 0.25,
+            "Khoai Tây Chiên Phô Mai": 0.20,
+            "Gà Rán Sốt Cay Hàn Quốc": 0.28,
+            "Takoyaki Bạch Tuộc (6 viên)": 0.18,
+            "Trà Đào Cam Sả": 0.15,
+            "Trà Sữa Trân Châu Đường Đen": 0.22,
+            "Coca Cola Tươi": 0.10,
+        }
+
         for _ in range(1000):
             random_days_ago = random.randint(0, 14)
-            random_hour = random.choices([11, 12, 13, 18, 19, 20, 21], weights=[15, 25, 10, 15, 30, 25, 10])[0]
-            dt = (now - timedelta(days=random_days_ago)).replace(hour=random_hour, minute=random.randint(0, 59))
+            random_hour = random.choices(
+                [11, 12, 13, 18, 19, 20, 21],
+                weights=[15, 25, 10, 15, 30, 25, 10]
+            )[0]
+
+            dt = (now - timedelta(days=random_days_ago)).replace(
+                hour=random_hour,
+                minute=random.randint(0, 59)
+            )
+
             t_key = int(dt.strftime("%Y%m%d%H"))
 
             if t_key not in time_keys_created:
@@ -119,25 +142,20 @@ def run_seeder():
                         is_weekend=(dt.weekday() >= 5)
                     ))
                     db.flush()
+
                 time_keys_created.add(t_key)
 
             sess_id = str(uuid.uuid4())
-            # Chọn ngẫu nhiên 2-3 món ăn trong cùng 1 phiên bàn để tạo cặp món mua kèm (Frequently Bought Together)
-            chosen_dims = random.sample(dim_items, k=random.randint(2, 3))
+
+            # Khách xem ngẫu nhiên 2-3 món trong phiên
+            chosen_dims = random.sample(
+                dim_items,
+                k=random.randint(2, 3)
+            )
+
             for d_item in chosen_dims:
-                qty = random.randint(1, 3)
-                prep_sec = random.randint(300, 1100) # Ngẫu nhiên từ 5 phút đến ~18 phút (có đơn vượt SLA 900s)
-                fact_orders_batch.append(FactOrderItem(
-                    time_key=t_key,
-                    item_key=d_item.item_key,
-                    chef_key=random.choice(dim_chefs).chef_key,
-                    session_id=sess_id,
-                    quantity=qty,
-                    revenue=qty * d_item.current_price,
-                    prep_time_seconds=prep_sec,
-                    is_sla_violated=(prep_sec > 900)
-                ))
-                # Tạo 2-5 lượt VIEW_ITEM tương ứng trong Clickstream
+
+                # 1. Luôn ghi nhận lượt xem món
                 for _ in range(random.randint(2, 5)):
                     fact_clicks_batch.append(FactClickstream(
                         time_key=t_key,
@@ -146,6 +164,27 @@ def run_seeder():
                         event_type="VIEW_ITEM",
                         created_at=dt
                     ))
+
+                # 2. Chỉ mua nếu xác suất ngẫu nhiên đạt yêu cầu
+                purchase_rate = conversion_probabilities.get(
+                    d_item.name, 0.20
+                )
+
+                if random.random() < purchase_rate:
+                    qty = random.randint(1, 3)
+                    prep_sec = random.randint(300, 1100)
+
+                    fact_orders_batch.append(FactOrderItem(
+                        time_key=t_key,
+                        item_key=d_item.item_key,
+                        chef_key=random.choice(dim_chefs).chef_key,
+                        session_id=sess_id,
+                        quantity=qty,
+                        revenue=qty * d_item.current_price,
+                        prep_time_seconds=prep_sec,
+                        is_sla_violated=(prep_sec > 900)
+                    ))
+
 
         db.bulk_save_objects(fact_orders_batch)
         db.bulk_save_objects(fact_clicks_batch)

@@ -5,6 +5,7 @@
     <title>DineFlow - Hệ Thống Test Trực Quan E2E</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
@@ -70,6 +71,13 @@
           >
             Chưa kiểm tra
           </span>
+
+          <a
+            href="/bi-dashboard"
+            class="px-3 py-1.5 text-xs font-semibold bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition flex items-center gap-1.5"
+          >
+            <i class="fa-solid fa-chart-line"></i> BI Dashboard (TV5)
+          </a>
         </div>
       </header>
 
@@ -325,27 +333,35 @@
 
           <!-- TV5: REVENUE OVER TIME -->
           <div class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <span class="font-semibold text-slate-700"
-                >Doanh thu theo ngày</span
+                >Biến động doanh thu theo ngày</span
               >
-              <button
-                onclick="loadRevenueChart()"
-                class="text-[10px] text-indigo-600 hover:underline"
-              >
-                Cập nhật
-              </button>
+              <div class="flex items-center gap-1.5">
+                <select
+                  id="demoChartType"
+                  onchange="renderDemoRevenueChart()"
+                  class="text-[10px] border rounded px-1.5 py-0.5 bg-white text-slate-700"
+                >
+                  <option value="area">Đường miền (Area)</option>
+                  <option value="combo">Cột + Đường</option>
+                </select>
+                <button
+                  onclick="loadRevenueChart()"
+                  class="text-[10px] text-indigo-600 hover:underline font-medium"
+                >
+                  Cập nhật
+                </button>
+              </div>
             </div>
 
-            <div
-              id="revenueChart"
-              class="flex items-end gap-1 h-36 overflow-x-auto border-b border-l rounded bg-white p-2"
-            >
-              <p class="text-slate-400">Đang tải dữ liệu...</p>
+            <div class="relative h-44 w-full rounded bg-white border p-1.5">
+              <canvas id="revenueChartCanvas"></canvas>
             </div>
 
-            <div class="text-right text-[10px] text-slate-500">
-              Đơn vị: triệu VNĐ
+            <div class="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
+              <span id="revStatsSummary">Đang tính biên độ...</span>
+              <span>Đơn vị: triệu VNĐ</span>
             </div>
           </div>
 
@@ -370,6 +386,7 @@
                 <thead class="bg-slate-50 text-slate-500 border-b">
                   <tr>
                     <th class="p-1.5">Tên Món</th>
+                    <th class="p-1.5 text-center">Nhóm</th>
                     <th class="p-1.5 text-right">Xem</th>
                     <th class="p-1.5 text-right">Bán</th>
                     <th class="p-1.5 text-right">Doanh Thu</th>
@@ -380,7 +397,7 @@
                 <tbody id="matrixTableBody" class="divide-y divide-slate-100">
                   <tr>
                     <td
-                      colspan="5"
+                      colspan="6"
                       class="p-2 text-center text-slate-400 italic"
                     >
                       Chưa tải dữ liệu...
@@ -389,6 +406,13 @@
                 </tbody>
               </table>
             </div>
+
+            <a
+              href="/bi-dashboard"
+              class="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white text-center rounded font-bold transition block mt-1"
+            >
+              <i class="fa-solid fa-up-right-from-square mr-1"></i> Mở Trang BI Dashboard Chuyên Sâu (TV5)
+            </a>
           </div>
         </div>
       </div>
@@ -880,12 +904,13 @@
       }
 
       // =====================================================
-      // TV5: REVENUE OVER TIME
+      // TV5: REVENUE OVER TIME (CHART.JS AREA / COMBO)
       // API: GET /api/v1/bi/revenue-over-time
       // =====================================================
-      async function loadRevenueChart() {
-        const chart = document.getElementById("revenueChart");
+      let demoRevChartInstance = null;
+      let cachedDemoRevRows = [];
 
+      async function loadRevenueChart() {
         try {
           const res = await fetch(
             `${getBaseUrl()}/api/v1/bi/revenue-over-time`,
@@ -895,56 +920,158 @@
             throw new Error("HTTP " + res.status);
           }
 
-          const rows = await res.json();
-
-          if (!rows.length) {
-            chart.innerHTML = `
-            <p class="text-slate-400">Chưa có dữ liệu doanh thu.</p>
-          `;
-            return;
-          }
-
-          const maxRevenue = Math.max(
-            ...rows.map((row) => Number(row.revenue) || 0),
-            1,
-          );
-
-          chart.innerHTML = rows
-            .map((row) => {
-              const revenue = Number(row.revenue) || 0;
-              const height = Math.max((revenue / maxRevenue) * 100, 3);
-              const dateLabel = String(row.date).slice(5);
-
-              return `
-            <div
-              class="flex flex-col items-center justify-end h-full min-w-[25px] flex-1"
-              title="${row.date}: ${revenue.toLocaleString("vi-VN")} VNĐ">
-
-              <span class="text-[8px] text-slate-500 mb-1">
-                ${(revenue / 1000000).toFixed(1)}
-              </span>
-
-              <div
-                class="w-full rounded-t bg-indigo-500 hover:bg-indigo-700"
-                style="height:${height}%">
-              </div>
-
-              <span class="text-[8px] text-slate-500 mt-1">
-                ${dateLabel}
-              </span>
-            </div>
-          `;
-            })
-            .join("");
-
-          log("Đã tải biểu đồ doanh thu theo ngày!", "success");
+          cachedDemoRevRows = await res.json();
+          renderDemoRevenueChart();
+          log("Đã tải biểu đồ biến động doanh thu theo ngày!", "success");
         } catch (e) {
-          chart.innerHTML = `
-          <p class="text-rose-500">Không tải được biểu đồ.</p>
-        `;
-
           log("Lỗi tải doanh thu theo ngày: " + e.message, "error");
         }
+      }
+
+      function renderDemoRevenueChart() {
+        const rows = cachedDemoRevRows || [];
+        if (!rows.length) return;
+
+        const chartType =
+          document.getElementById("demoChartType")?.value || "area";
+        const labels = rows.map((r) => String(r.date).slice(5));
+        const revMillions = rows.map((r) =>
+          Number(((Number(r.revenue) || 0) / 1000000).toFixed(2)),
+        );
+        const solds = rows.map((r) => Number(r.total_sold || 0));
+
+        const minRev = Math.min(...revMillions);
+        const maxRev = Math.max(...revMillions);
+        const avgRev =
+          revMillions.reduce((acc, v) => acc + v, 0) / revMillions.length;
+
+        const summaryEl = document.getElementById("revStatsSummary");
+        if (summaryEl) {
+          summaryEl.innerHTML = `Đỉnh: <b class="text-emerald-600">${maxRev.toFixed(1)}M</b> • Đáy: <b class="text-rose-500">${minRev.toFixed(1)}M</b> • TB: <b class="text-indigo-600">${avgRev.toFixed(1)}M</b>`;
+        }
+
+        // Thu phóng trục Y quanh vùng biến động để làm nổi bật chênh lệch giữa các ngày
+        const padding = Math.max((maxRev - minRev) * 0.25, 1.0);
+        const suggestedMin = Math.max(0, Math.floor((minRev - padding) * 10) / 10);
+        const suggestedMax = Math.ceil((maxRev + padding) * 10) / 10;
+
+        // Tô màu đặc biệt cho điểm Đỉnh (xanh lá) và Đáy (đỏ hồng)
+        const pointColors = revMillions.map((v) => {
+          if (v === maxRev) return "#10b981";
+          if (v === minRev) return "#f43f5e";
+          return "#4f46e5";
+        });
+        const pointRadii = revMillions.map((v) =>
+          v === maxRev || v === minRev ? 5.5 : 3.5,
+        );
+
+        const canvas = document.getElementById("revenueChartCanvas");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+
+        if (demoRevChartInstance) {
+          demoRevChartInstance.destroy();
+        }
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, 160);
+        gradient.addColorStop(0, "rgba(79, 70, 229, 0.38)");
+        gradient.addColorStop(1, "rgba(79, 70, 229, 0.02)");
+
+        const datasets =
+          chartType === "area"
+            ? [
+                {
+                  type: "line",
+                  label: "Doanh thu (Triệu VNĐ)",
+                  data: revMillions,
+                  borderColor: "#4f46e5",
+                  backgroundColor: gradient,
+                  borderWidth: 2.5,
+                  fill: true,
+                  tension: 0.38,
+                  pointBackgroundColor: pointColors,
+                  pointBorderColor: "#ffffff",
+                  pointBorderWidth: 1.5,
+                  pointRadius: pointRadii,
+                  pointHoverRadius: 6,
+                },
+                {
+                  type: "line",
+                  label: "Trung bình (" + avgRev.toFixed(1) + "M)",
+                  data: revMillions.map(() => Number(avgRev.toFixed(2))),
+                  borderColor: "#f59e0b",
+                  borderDash: [4, 4],
+                  borderWidth: 1.5,
+                  pointRadius: 0,
+                  fill: false,
+                },
+              ]
+            : [
+                {
+                  type: "bar",
+                  label: "Doanh thu (Triệu VNĐ)",
+                  data: revMillions,
+                  backgroundColor: revMillions.map((v) =>
+                    v === maxRev
+                      ? "rgba(16, 185, 129, 0.85)"
+                      : v === minRev
+                        ? "rgba(244, 63, 94, 0.75)"
+                        : "rgba(99, 102, 241, 0.75)",
+                  ),
+                  borderRadius: 4,
+                },
+                {
+                  type: "line",
+                  label: "Xu hướng",
+                  data: revMillions,
+                  borderColor: "#0f172a",
+                  borderWidth: 2,
+                  tension: 0.35,
+                  pointRadius: 3,
+                  pointBackgroundColor: "#f59e0b",
+                },
+              ];
+
+        demoRevChartInstance = new Chart(ctx, {
+          type: chartType === "area" ? "line" : "bar",
+          data: { labels, datasets },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: "index", intersect: false },
+            plugins: {
+              legend: {
+                display: true,
+                position: "top",
+                labels: { boxWidth: 10, font: { size: 9 }, padding: 6 },
+              },
+              tooltip: {
+                callbacks: {
+                  afterBody: (items) => {
+                    const idx = items[0].dataIndex;
+                    const row = rows[idx];
+                    return `Số món bán: ${solds[idx]} phần${row?.is_weekend ? " (Cuối tuần)" : ""}`;
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                ticks: { font: { size: 9 }, maxRotation: 0 },
+                grid: { display: false },
+              },
+              y: {
+                min: suggestedMin,
+                max: suggestedMax,
+                ticks: {
+                  font: { size: 9 },
+                  callback: (val) => val + "M",
+                },
+                grid: { color: "#f1f5f9" },
+              },
+            },
+          },
+        });
       }
 
       // =====================================================
@@ -964,14 +1091,29 @@
           const items = await res.json();
           const tbody = document.getElementById("matrixTableBody");
 
+          const quadMap = {
+            STAR: { text: "🌟 Star", cls: "bg-emerald-100 text-emerald-800" },
+            PUZZLE: { text: "💎 Puzzle", cls: "bg-indigo-100 text-indigo-800" },
+            PLOWHORSE: { text: "⚠️ Trap", cls: "bg-amber-100 text-amber-800" },
+            DOG: { text: "🐶 Dog", cls: "bg-rose-100 text-rose-800" },
+          };
+
           // Hiển thị toàn bộ món, không giới hạn 6 món
           tbody.innerHTML = items
             .map(
-              (item) => `
-          <tr class="hover:bg-slate-50">
+              (item) => {
+                const q = quadMap[item.quadrant] || { text: item.quadrant || "-", cls: "bg-slate-100 text-slate-600" };
+                return `
+          <tr class="hover:bg-slate-50" title="${item.recommendation || ''}">
 
             <td class="p-1.5 font-medium text-slate-800">
               ${item.name}
+            </td>
+
+            <td class="p-1.5 text-center">
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-semibold ${q.cls}">
+                ${q.text}
+              </span>
             </td>
 
             <td class="p-1.5 text-right font-mono text-slate-600">
@@ -991,7 +1133,8 @@
             </td>
 
           </tr>
-        `,
+        `;
+              },
             )
             .join("");
 

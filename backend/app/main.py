@@ -56,6 +56,13 @@ def tv4_control_center():
     return RedirectResponse(url="/frontend/tv4_data_pipeline.html")
 
 
+@app.get("/tv5", include_in_schema=False)
+@app.get("/bi-dashboard", include_in_schema=False)
+def tv5_bi_dashboard():
+    """[TV5] Chuyển hướng tới giao diện BI Dashboard, Menu Engineering & Phân tích OLAP"""
+    return RedirectResponse(url="/frontend/tv5_bi_dashboard.html")
+
+
 app.include_router(p1_admin_catalog.router)
 app.include_router(p2_client_order.router)
 app.include_router(p3_kds_pos.router)
