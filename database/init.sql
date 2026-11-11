@@ -210,12 +210,18 @@ CREATE TABLE IF NOT EXISTS stock_movements (
 -- DỮ LIỆU BAN ĐẦU (SEED DATA MẪU)
 -- =========================================================================
 
--- 1. Users mẫu (Mật khẩu '123456' mã hóa SHA256: 8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92)
-INSERT INTO users (id, username, email, password_hash, email_verified) VALUES
-(1, 'admin', 'admin@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 1),
-(2, 'creator', 'creator@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 1),
-(3, 'keeper', 'keeper@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 1),
-(4, 'viewer', 'viewer@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 1);
+-- 1. Users mẫu (Mật khẩu 'Admin@123' / '123456')
+INSERT INTO users (id, username, email, password_hash, role, email_verified) VALUES
+(1, 'admin', 'admin@dineflow.vn', 'e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7', 'ADMIN', 1),
+(2, 'creator', 'creator@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'CREATOR', 1),
+(3, 'keeper', 'keeper@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'KEEPER', 1),
+(4, 'viewer', 'viewer@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'VIEWER', 1),
+(5, 'admin_example', 'admin@example.com', '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92', 'ADMIN', 1),
+(6, 'manager', 'manager@dineflow.vn', 'e8392925a98c9c22795d1fc5d0dfee5b9a6943f6b768ec5a2a0c077e5ed119cf', 'CREATOR', 1),
+(7, 'staff', 'staff@dineflow.vn', 'dfd48f36338aa36228ebb9e204bba6b4e18db0b623e25c458901edc831fb18e9', 'CREATOR', 1),
+(8, 'chef', 'chef@dineflow.vn', 'd166a2682ff2efc04f40c0a0ce8f67a4d2dd76a70d24c45bd6537a5e1da19761', 'KEEPER', 1),
+(9, 'cashier', 'cashier@dineflow.vn', 'b827b2184e9e049bb3f349eb4337a25cb1339ef617ad4d1e9e7899f140ffa5e9', 'VIEWER', 1)
+ON DUPLICATE KEY UPDATE email = VALUES(email), password_hash = VALUES(password_hash), email_verified = VALUES(email_verified);
 
 -- 2. Nhóm quyền (Roles)
 INSERT INTO roles (id, role_code, name, description) VALUES
