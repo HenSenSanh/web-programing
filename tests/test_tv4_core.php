@@ -6,11 +6,13 @@ if (!getenv('DINEFLOW_DB_PATH')) {
     putenv("SQLITE_PATH={$tempDb}");
 }
 
-require_once __DIR__ . '/../app/Core/Database.php';
-require_once __DIR__ . '/../app/Services/SharedCartService.php';
-require_once __DIR__ . '/../app/Services/EtlService.php';
-require_once __DIR__ . '/../app/Services/AprioriService.php';
-require_once __DIR__ . '/../app/Controllers/DataPipelineController.php';
+$appDir = is_dir(__DIR__ . '/../app') ? realpath(__DIR__ . '/../app') : (is_dir('/var/www/html') ? '/var/www/html' : __DIR__ . '/../app');
+
+require_once $appDir . '/Core/Database.php';
+require_once $appDir . '/Services/SharedCartService.php';
+require_once $appDir . '/Services/EtlService.php';
+require_once $appDir . '/Services/AprioriService.php';
+require_once $appDir . '/Controllers/DataPipelineController.php';
 
 use App\Core\Database;
 use App\Services\SharedCartService;

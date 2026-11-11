@@ -453,3 +453,205 @@ INSERT INTO fact_clickstream (id, time_key, session_id, oltp_item_id, event_type
 (5, 2026111218, 'init_sess_003', 1, 'VIEW_ITEM'),
 (6, 2026111218, 'init_sess_003', 8, 'VIEW_ITEM')
 ON DUPLICATE KEY UPDATE event_type = VALUES(event_type);
+
+-- =========================================================================
+-- 15. DINEFLOW RESTAURANT OPERATIONAL TABLES (OLTP)
+-- Phục vụ màn hình Menu Khách QR, Giỏ hàng chung, Bếp KDS và Thu ngân POS
+-- =========================================================================
+
+-- Bàn ăn nhà hàng (15 bàn)
+CREATE TABLE IF NOT EXISTS dining_tables (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    table_number VARCHAR(20) UNIQUE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'AVAILABLE',
+    current_session_id VARCHAR(64) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Phiên ngồi tại bàn
+CREATE TABLE IF NOT EXISTS table_sessions (
+    id VARCHAR(64) PRIMARY KEY,
+    table_id INT NOT NULL,
+    session_token VARCHAR(64) UNIQUE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    guest_count INT DEFAULT 1,
+    total_amount DECIMAL(12, 2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP NULL,
+    is_etl_processed TINYINT(1) DEFAULT 0,
+    INDEX idx_table_sess (table_id),
+    INDEX idx_token_sess (session_token),
+    FOREIGN KEY (table_id) REFERENCES dining_tables(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Món ăn trong thực đơn gọi món
+CREATE TABLE IF NOT EXISTS menu_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    description TEXT NULL,
+    price DECIMAL(12, 2) NOT NULL,
+    is_available TINYINT(1) DEFAULT 1,
+    is_hot TINYINT(1) DEFAULT 0,
+    image_url VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_menu_cat (category_id),
+    FOREIGN KEY (category_id) REFERENCES categories(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Đơn gửi món theo phiên
+CREATE TABLE IF NOT EXISTS session_orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL,
+    idempotency_key VARCHAR(64) UNIQUE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_order_sess (session_id),
+    INDEX idx_order_idem (idempotency_key),
+    FOREIGN KEY (session_id) REFERENCES table_sessions(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Món gửi xuống bếp KDS
+CREATE TABLE IF NOT EXISTS order_items_kitchen (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    session_id VARCHAR(64) NOT NULL,
+    menu_item_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    item_price DECIMAL(12, 2) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    notes TEXT NULL,
+    chef_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    prep_time_seconds INT NULL,
+    is_sla_violated TINYINT(1) DEFAULT 0,
+    INDEX idx_kds_sess (session_id),
+    INDEX idx_kds_status (status),
+    FOREIGN KEY (order_id) REFERENCES session_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (session_id) REFERENCES table_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Dữ liệu 15 bàn ăn mẫu
+INSERT INTO dining_tables (id, table_number, status, current_session_id) VALUES
+(1, 'Bàn 01', 'OCCUPIED', 'init_sess_001'),
+(2, 'Bàn 02', 'OCCUPIED', 'init_sess_002'),
+(3, 'Bàn 03', 'AVAILABLE', NULL),
+(4, 'Bàn 04', 'AVAILABLE', NULL),
+(5, 'Bàn 05', 'OCCUPIED', 'init_sess_003'),
+(6, 'Bàn 06', 'AVAILABLE', NULL),
+(7, 'Bàn 07', 'AVAILABLE', NULL),
+(8, 'Bàn 08', 'AVAILABLE', NULL),
+(9, 'Bàn 09', 'AVAILABLE', NULL),
+(10, 'Bàn 10', 'AVAILABLE', NULL),
+(11, 'Bàn 11', 'AVAILABLE', NULL),
+(12, 'Bàn 12', 'AVAILABLE', NULL),
+(13, 'Bàn 13', 'AVAILABLE', NULL),
+(14, 'Bàn 14', 'AVAILABLE', NULL),
+(15, 'Bàn 15', 'AVAILABLE', NULL)
+ON DUPLICATE KEY UPDATE table_number = VALUES(table_number);
+
+-- Dữ liệu phiên bàn mẫu
+INSERT INTO table_sessions (id, table_id, session_token, status, guest_count, total_amount, is_etl_processed) VALUES
+('init_sess_001', 1, 'tbl-01-sess', 'ACTIVE', 3, 229000.00, 1),
+('init_sess_002', 2, 'tbl-02-sess', 'ACTIVE', 2, 258000.00, 1),
+('init_sess_003', 5, 'tbl-05-sess', 'ACTIVE', 4, 97000.00, 1)
+ON DUPLICATE KEY UPDATE status = VALUES(status);
+
+-- Dữ liệu món ăn thực đơn mẫu
+INSERT INTO menu_items (id, category_id, name, description, price, is_available, is_hot, image_url) VALUES
+(1, 1, 'Mì Cay Hải Sản Cấp Độ 7', 'Mì cay hải sản tôm mực chua cay đậm đà', 65000.00, 1, 1, '/frontend/img/mi_cay.jpg'),
+(2, 1, 'Lẩu Thái Tomyum Bò Mỹ', 'Nồi lẩu chua cay Tomyum kèm ba chỉ bò Mỹ', 189000.00, 1, 1, '/frontend/img/lau_thai.jpg'),
+(3, 1, 'Cơm Trộn Hàn Quốc Bibimbap', 'Cơm trộn thịt bò sốt Gochujang truyền thống', 55000.00, 1, 0, '/frontend/img/com_tron.jpg'),
+(4, 1, 'Mì Ý Sốt Bò Bằm Bolognaise', 'Mì spaghetti sốt cà chua thịt bò bằm phô mai', 59000.00, 1, 0, '/frontend/img/mi_y.jpg'),
+(5, 2, 'Khoai Tây Chiên Lắc Phô Mai', 'Khoai tây giòn rụm phủ bột phô mai béo ngậy', 35000.00, 1, 1, '/frontend/img/khoai_tay.jpg'),
+(6, 2, 'Gà Rán Sốt Cay Hàn Quốc (4 miếng)', 'Gà giòn tẩm sốt cay ngọt chuẩn vị Seoul', 69000.00, 1, 1, '/frontend/img/ga_ran.jpg'),
+(7, 2, 'Kim Chi Cải Thảo Truyền Thống', 'Kim chi cải thảo muối giòn chua cay vừa vặn', 15000.00, 1, 0, '/frontend/img/kim_chi.jpg'),
+(8, 3, 'Trà Đào Cam Sả Tươi', 'Trà đào thanh mát với miếng đào giòn và sả tươi', 32000.00, 1, 1, '/frontend/img/tra_dao.jpg'),
+(9, 3, 'Trà Sữa Trân Châu Hoàng Kim', 'Trà sữa đậm vị hồng trà và trân châu dẻo ngon', 35000.00, 1, 1, '/frontend/img/tra_sua.jpg'),
+(10, 3, 'Coca-Cola Lon Lạnh', 'Nước ngọt có gas ướp lạnh sảng khoái', 18000.00, 1, 0, '/frontend/img/coca.jpg')
+ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
+
+-- Đơn gửi mẫu
+INSERT INTO session_orders (id, session_id, idempotency_key) VALUES
+(1, 'init_sess_001', 'idem_001_initial'),
+(2, 'init_sess_002', 'idem_002_initial')
+ON DUPLICATE KEY UPDATE idempotency_key = VALUES(idempotency_key);
+
+-- Món bếp KDS mẫu (Kèm món vi phạm SLA >900s để demo)
+INSERT INTO order_items_kitchen (id, order_id, session_id, menu_item_id, quantity, item_price, status, prep_time_seconds, is_sla_violated) VALUES
+(1, 1, 'init_sess_001', 1, 2, 65000.00, 'COMPLETED', 480, 0),
+(2, 1, 'init_sess_001', 8, 2, 32000.00, 'COMPLETED', 240, 0),
+(3, 1, 'init_sess_001', 5, 1, 35000.00, 'COOKING', NULL, 0),
+(4, 2, 'init_sess_002', 2, 1, 189000.00, 'COMPLETED', 960, 1),
+(5, 2, 'init_sess_002', 6, 1, 69000.00, 'PENDING', NULL, 0)
+ON DUPLICATE KEY UPDATE status = VALUES(status);
+
+-- Đơn hàng & Chi tiết món ăn (KDS / Thu ngân)
+CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL,
+    order_code VARCHAR(50) UNIQUE NOT NULL,
+    status VARCHAR(20) DEFAULT 'CONFIRMED',
+    total_amount DECIMAL(12, 2) NOT NULL,
+    idempotency_key VARCHAR(64) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_order_sess (session_id),
+    INDEX idx_order_idem (idempotency_key),
+    FOREIGN KEY (session_id) REFERENCES table_sessions(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    menu_item_id INT NOT NULL,
+    item_name VARCHAR(150) NOT NULL,
+    unit_price DECIMAL(12, 2) NOT NULL,
+    quantity INT NOT NULL,
+    subtotal DECIMAL(12, 2) NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    chef_id INT NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP NULL,
+    INDEX idx_oi_order (order_id),
+    INDEX idx_oi_menu (menu_item_id),
+    INDEX idx_oi_status (status),
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS bill_payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL,
+    table_id INT NOT NULL,
+    subtotal_amount DECIMAL(12, 2) NOT NULL,
+    vat_amount DECIMAL(12, 2) NOT NULL,
+    service_fee DECIMAL(12, 2) DEFAULT 0.00,
+    final_amount DECIMAL(12, 2) NOT NULL,
+    payment_method VARCHAR(30) DEFAULT 'CASH',
+    cashier_id INT NULL,
+    payment_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    invoice_code VARCHAR(50) UNIQUE NOT NULL,
+    INDEX idx_bp_sess (session_id),
+    INDEX idx_bp_time (payment_time),
+    FOREIGN KEY (session_id) REFERENCES table_sessions(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO orders (id, session_id, order_code, status, total_amount, idempotency_key) VALUES
+(1, 'init_sess_001', 'ORD-INIT-001', 'CONFIRMED', 229000.00, 'idem_001_initial'),
+(2, 'init_sess_002', 'ORD-INIT-002', 'CONFIRMED', 258000.00, 'idem_002_initial')
+ON DUPLICATE KEY UPDATE total_amount = VALUES(total_amount);
+
+INSERT INTO order_items (id, order_id, menu_item_id, item_name, unit_price, quantity, subtotal, status, chef_id, completed_at) VALUES
+(1, 1, 1, 'Mì Cay Hải Sản Cấp Độ 7', 65000.00, 2, 130000.00, 'COMPLETED', 1, NOW()),
+(2, 1, 8, 'Trà Đào Cam Sả Tươi', 32000.00, 2, 64000.00, 'COMPLETED', 1, NOW()),
+(3, 1, 5, 'Khoai Tây Chiên Lắc Phô Mai', 35000.00, 1, 35000.00, 'COOKING', 2, NULL),
+(4, 2, 2, 'Lẩu Thái Tomyum Bò Mỹ', 189000.00, 1, 189000.00, 'COMPLETED', 1, NOW()),
+(5, 2, 6, 'Gà Rán Sốt Cay Hàn Quốc (4 miếng)', 69000.00, 1, 69000.00, 'PENDING', NULL, NULL)
+ON DUPLICATE KEY UPDATE subtotal = VALUES(subtotal);
+
+INSERT INTO bill_payments (id, session_id, table_id, subtotal_amount, vat_amount, service_fee, final_amount, payment_method, invoice_code) VALUES
+(1, 'init_sess_001', 1, 229000.00, 18320.00, 0.00, 247320.00, 'VIETQR', 'INV-20261112-001')
+ON DUPLICATE KEY UPDATE final_amount = VALUES(final_amount);
