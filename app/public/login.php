@@ -28,7 +28,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <body>
     <div class="auth-wrapper">
         <div class="form-container">
-            <h2>Đăng nhập</h2>
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="font-size: 36px; line-height: 1;">🍲</div>
+                <h2 style="margin-top: 8px; margin-bottom: 4px; color: #1e293b;">DineFlow</h2>
+                <p style="font-size: 13px; color: #64748b; margin: 0;">Đăng nhập hệ thống điều hành nhà hàng</p>
+            </div>
 
             <?php if (!empty($message)): ?>
                 <div class="message error-box">

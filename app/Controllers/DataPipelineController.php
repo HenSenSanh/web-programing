@@ -292,7 +292,7 @@ class DataPipelineController
                 'sla_violations_count' => (int)($olapStats['sla_violated'] ?? 0),
                 'system_health' => 'OPTIMAL',
                 'redis_status' => 'CONNECTED'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
@@ -433,7 +433,7 @@ class DataPipelineController
                 'sla_compliance_rate' => $complianceRate,
                 'chef_performance' => $chefPerformance,
                 'dish_bottlenecks' => $dishBottlenecks
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
