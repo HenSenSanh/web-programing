@@ -3,431 +3,1036 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DineFlow - Điều Phối Luồng Đơn Hàng & Quản Lý Gợi Ý Món (TV4)</title>
+    <title>DineFlow - TV4 Live Operations & Data Pipeline</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.15); }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-indigo-500 selection:text-white">
 
-    <!-- Thanh điều hướng liên kết toàn bộ các màn hình trong thư mục frontend -->
-    <header class="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+    <!-- Floating Toast Notification Container (Requirement 4) -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col gap-2 max-w-md w-full pointer-events-auto"></div>
+
+    <!-- Thanh điều hướng liên kết toàn bộ các màn hình trong phân hệ -->
+    <header class="border-b border-slate-800 bg-slate-900/95 backdrop-blur sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-600/30">⚡</div>
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-600/40 text-white">⚡</div>
                 <div>
-                    <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Phân hệ TV4 • Real-time & Data Flow</span>
-                    <h1 class="text-lg font-bold text-white mt-0.5">Điều Phối Luồng Đơn Hàng Thời Gian Thực & Gợi Ý Món Kèm</h1>
+                    <div class="flex items-center gap-2">
+                        <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Phân Hệ TV4 • Live Operations & Data Pipeline</span>
+                        <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            <span id="livePulseDot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-fast"></span>
+                            <span>Hệ thống Hoạt Động</span>
+                        </span>
+                    </div>
+                    <h1 class="text-base sm:text-lg font-bold text-white mt-0.5">Trung Tâm Điều Phối Luồng Dữ Liệu & Vận Hành Trực Tiếp</h1>
                 </div>
             </div>
 
-            <!-- Menu chuyển nhanh sang các trang của TV1, TV2, TV3 trong cùng folder frontend -->
+            <!-- Menu liên kết nhanh sang các trang TV1, TV2, TV3 trong frontend -->
             <div class="flex flex-wrap items-center gap-2 text-xs font-semibold">
-                <a href="tv1/table-management.html" target="_blank" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
-                    🪑 Mở Bàn & QR (TV1)
+                <a href="tv1/table-management.html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Quản lý bàn & QR">
+                    🪑 Bàn & QR (TV1)
                 </a>
-                <a href="tv1/menu-management.html" target="_blank" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
-                    📋 Quản Lý Món (TV1)
+                <a href="tv1/menu-management.html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Quản lý món ăn">
+                    📋 Menu (TV1)
                 </a>
-                <a href="menu/index.html" target="_blank" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 transition">
+                <a href="menu/index.html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/30 transition" title="Giao diện khách chọn món">
                     📱 Menu Khách (TV2)
                 </a>
-                <a href="kds.html" target="_blank" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition">
-                    👨‍🍳 Màn Hình Bếp (TV3)
+                <a href="kds.html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition" title="Màn hình bếp KDS">
+                    👨‍🍳 Bếp KDS (TV3)
                 </a>
-                <a href="pos.html" target="_blank" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 transition">
-                    💰 Thu Ngân POS (TV3)
+                <a href="pos.html" target="_blank" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-sky-500/30 transition" title="Thu ngân POS">
+                    💰 Thu Ngân (TV3)
                 </a>
-                <button onclick="refreshAll()" class="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition">
-                    🔄 Làm mới (Auto 5s)
+                <button onclick="toggleAutoRefresh()" id="btnAutoToggle" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition font-mono">
+                    ⏱️ <span id="countdownLabel">Auto 5s</span>
+                </button>
+                <button onclick="manualRefresh()" id="btnManualRefresh" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-sm flex items-center gap-1.5">
+                    <svg id="refreshIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span>Làm mới</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-6 py-7 space-y-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-7">
 
-        <!-- Hàng Thống Kê Nhanh Trạng Thái Luồng Thật -->
-        <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <div class="text-xs text-slate-400 uppercase font-semibold">Bàn Đang Phục Vụ</div>
-                <div id="statOccupiedTables" class="text-2xl font-black text-emerald-400 mt-1">0 / 0</div>
-                <div class="text-xs text-slate-500 mt-1">Đang mở mã QR gọi món</div>
+        <!-- Banner thông tin trạng thái & cập nhật -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/60 border border-slate-800/80 rounded-xl px-4 py-2.5 text-xs">
+            <div class="flex items-center gap-4 text-slate-400">
+                <span>Hạ tầng: <b class="text-indigo-400 font-bold">Docker Port 8080</b></span>
+                <span class="hidden sm:inline">•</span>
+                <span>Trạng thái máy chủ: <b id="statServerHealth" class="text-emerald-400 font-bold">OPTIMAL</b></span>
+                <span class="hidden sm:inline">•</span>
+                <span>Redis Sync: <b id="statRedisStatus" class="text-sky-400 font-bold">CONNECTED</b></span>
+                <span class="hidden sm:inline">•</span>
+                <span>Chu kỳ thăm dò: <b class="text-indigo-400 font-mono">5.0s (fetch)</b></span>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <div class="text-xs text-slate-400 uppercase font-semibold">Đơn Đã Gửi Xuống Bếp</div>
-                <div id="statTotalOrders" class="text-2xl font-black text-amber-400 mt-1">0</div>
-                <div id="statTotalItems" class="text-xs text-slate-500 mt-1">0 phần món ăn</div>
+            <div class="text-slate-400 text-xs flex items-center gap-1.5">
+                <span>Cập nhật gần nhất:</span>
+                <span id="lastUpdatedTime" class="font-mono text-white font-semibold">--:--:--</span>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <div class="text-xs text-slate-400 uppercase font-semibold">Hóa Đơn Đã Thanh Toán</div>
-                <div id="statClosedBills" class="text-2xl font-black text-sky-400 mt-1">0</div>
-                <div id="statPendingEtl" class="text-xs text-slate-500 mt-1">Đã đồng bộ hết sang kho phân tích</div>
+        </div>
+
+        <!-- 5 THẺ CHỈ SỐ KPI CHÍNH (REQUIREMENT 2) -->
+        <section class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            <!-- 1. Bàn đang hoạt động -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
+                    <span>Bàn Đang Mở</span>
+                    <span class="text-emerald-400 text-sm">🪑</span>
+                </div>
+                <div class="my-2">
+                    <div id="statOccupiedTables" class="text-2xl font-black text-emerald-400">0</div>
+                    <div id="statTablesDetail" class="text-[11px] text-slate-400 mt-0.5">Đang có khách ngồi</div>
+                </div>
+                <div class="text-[10px] text-slate-500 font-medium">OLTP: dining_tables</div>
             </div>
-            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <div class="text-xs text-slate-400 uppercase font-semibold">Lượt Khách Xem Món (QR)</div>
-                <div id="statClicks" class="text-2xl font-black text-indigo-400 mt-1">0</div>
-                <div class="text-xs text-slate-500 mt-1">Sự kiện Clickstream thật</div>
+
+            <!-- 2. Đơn & Doanh thu hôm nay -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
+                    <span>Đơn & Doanh Thu</span>
+                    <span class="text-amber-400 text-sm">💰</span>
+                </div>
+                <div class="my-2">
+                    <div id="statTodayRevenue" class="text-xl font-black text-amber-400">0 đ</div>
+                    <div id="statTodayOrders" class="text-[11px] text-slate-300 font-medium mt-0.5">0 đơn hôm nay</div>
+                </div>
+                <div class="text-[10px] text-slate-500 font-medium">OLTP: orders (today)</div>
+            </div>
+
+            <!-- 3. Món đang chờ KDS -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
+                    <span>Chờ Bếp Nấu (KDS)</span>
+                    <span class="text-sky-400 text-sm">👨‍🍳</span>
+                </div>
+                <div class="my-2">
+                    <div id="statKdsPendingCount" class="text-2xl font-black text-sky-400">0</div>
+                    <div id="statKdsDetail" class="text-[11px] text-slate-400 mt-0.5">Món đang xếp hàng</div>
+                </div>
+                <div class="text-[10px] text-slate-500 font-medium">order_items (PENDING/COOKING)</div>
+            </div>
+
+            <!-- 4. Kho phân tích OLAP Fact -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
+                    <span>Kho Dữ Liệu OLAP</span>
+                    <span class="text-indigo-400 text-sm">📊</span>
+                </div>
+                <div class="my-2">
+                    <div id="statOlapRecords" class="text-2xl font-black text-indigo-400">0</div>
+                    <div id="statOlapRevenue" class="text-[11px] text-slate-300 font-medium mt-0.5">0 đ kho phân tích</div>
+                </div>
+                <div class="text-[10px] text-slate-500 font-medium">OLAP: fact_order_items</div>
+            </div>
+
+            <!-- 5. SLA Vi phạm & Tỷ lệ tuân thủ -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-between hover:border-slate-700 transition col-span-2 sm:col-span-1">
+                <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase">
+                    <span>SLA Bếp (>15m)</span>
+                    <span class="text-rose-400 text-sm">⏱️</span>
+                </div>
+                <div class="my-2">
+                    <div class="flex items-baseline gap-2">
+                        <span id="statSlaViolations" class="text-2xl font-black text-rose-400">0</span>
+                        <span class="text-xs text-slate-400">vi phạm</span>
+                    </div>
+                    <div id="statSlaCompliance" class="text-[11px] text-emerald-400 font-semibold mt-0.5">100% đạt chuẩn</div>
+                </div>
+                <div class="text-[10px] text-slate-500 font-medium">Ngưỡng: prep_time &gt; 900s</div>
             </div>
         </section>
 
-        <!-- PHẦN 1: GIÁM SÁT BÀN ĂN, GIỎ HÀNG CHUNG (WEBSOCKET) & ĐƠN BẾP TRỰC TIẾP -->
+        <!-- PHẦN 1: GIÁM SÁT TRẠNG THÁI BÀN ĂN, GIỎ HÀNG CHUNG & HÀNG ĐỢI BẾP (REQUIREMENT 2) -->
         <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
             <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
                 <div>
-                    <h2 class="text-base font-bold text-white">1. Giám Sát Trạng Thái Bàn, Giỏ Hàng Chung (WebSocket) & Tiến Độ Bếp</h2>
+                    <h2 class="text-base font-bold text-white">1. Giám Sát Trạng Thái Bàn Ăn, Giỏ Hàng Chung & Đơn Bếp Thời Gian Thực</h2>
                     <p class="text-xs text-slate-400 mt-0.5">
-                        Hiển thị trực tiếp các bàn đang mở trong nhà hàng: khách đang bỏ món gì vào giỏ hàng, món nào bếp đang nấu hay đã hoàn thành
+                        Dữ liệu polling từ <code>/api/v1/data/live-ops</code>: Hiển thị các bàn đang có khách ngồi, món trong giỏ hàng chung, và tiến độ nấu từng món dưới bếp.
                     </p>
                 </div>
-                <a href="tv1/table-management.html" target="_blank" class="text-xs font-bold text-indigo-400 hover:underline">
-                    + Mở thêm bàn mới bên trang Quản lý Bàn (TV1) ➔
+                <a href="tv1/table-management.html" target="_blank" class="text-xs font-bold text-indigo-400 hover:text-indigo-300 hover:underline">
+                    + Mở thêm bàn mới bên Quản lý Bàn (TV1) ➔
                 </a>
             </div>
 
+            <!-- Grid các bàn đang mở -->
             <div id="liveTablesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div class="text-sm text-slate-500 py-6">Đang tải trạng thái bàn ăn...</div>
+                <div class="col-span-full py-8 text-center text-slate-500 text-sm">Đang tải trạng thái bàn ăn...</div>
             </div>
         </section>
 
-        <!-- PHẦN 2: QUẢN LÝ GỢI Ý MÓN MUA KÈM (COMBO UPSELL TRÊN MENU KHÁCH TV2) -->
+        <!-- HÀNG ĐỢI BẾP KDS CHI TIẾT (LIVE QUEUE) -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-base font-bold text-white">👨‍🍳 Hàng Đợi Chế Biến Tại Bếp KDS (KDS Live Queue)</h2>
+                        <span id="badgeKdsCount" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">0 món</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Các món ăn đang chờ bếp nấu (<code>PENDING</code>) hoặc đang đứng bếp nấu (<code>COOKING</code>), cảnh báo vi phạm SLA nếu chờ quá 15 phút (900s).
+                    </p>
+                </div>
+                <a href="kds.html" target="_blank" class="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 transition">
+                    <span>Mở màn hình Bếp KDS (TV3)</span>
+                    <span>➔</span>
+                </a>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-800 text-slate-400 uppercase bg-slate-950/40">
+                            <th class="py-2.5 px-3">Món Ăn</th>
+                            <th class="py-2.5 px-3">Bàn Phục Vụ</th>
+                            <th class="py-2.5 px-3 text-center">Trạng Thái</th>
+                            <th class="py-2.5 px-3 text-right">Thời Gian Gọi</th>
+                            <th class="py-2.5 px-3 text-right">Chờ (SLA 15p)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kdsPendingBody" class="divide-y divide-slate-800/60">
+                        <tr><td colspan="5" class="py-8 text-center text-slate-500">Đang tải danh sách món bếp...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- PHẦN 2: QUẢN LÝ GỢI Ý MÓN MUA KÈM (COMBO UPSELL & APRIORI RULES - REQUIREMENT 3) -->
         <section class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-6">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <!-- Cột Trái: Form tạo quy luật Gợi ý Combo -->
-                <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-5">
-                    <span class="text-xs font-bold uppercase text-indigo-400">Thiết lập gợi ý trên Menu QR (TV2)</span>
-                    <h3 class="text-base font-bold text-white mt-1">2. Cấu Hình Cặp Món Gợi Ý Mua Kèm (Combo Upsell)</h3>
-                    <p class="text-xs text-slate-400 mt-1 mb-4">
-                        Ngoài việc tự động học từ các hóa đơn đã thanh toán, bạn có thể ghim cặp món gợi ý tại đây. Khi khách ở trang Menu QR (TV2) bấm xem <b>Món chính</b>, hệ thống sẽ hiện ngay <b>Món gợi ý đi kèm</b>!
-                    </p>
 
-                    <div class="space-y-3 text-sm">
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Khi khách bấm xem món:</label>
-                            <select id="selectItemA" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
+                <!-- Cột Trái (lg:col-span-5): Form tạo quy luật Gợi ý Combo Upsell -->
+                <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-xl p-5 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-bold uppercase text-indigo-400">Thiết lập Menu Khách QR (TV2)</span>
+                            <span class="text-[10px] font-mono text-slate-500">POST /api/v1/data/combo-rule</span>
                         </div>
-                        <div>
-                            <label class="block text-xs text-slate-400 mb-1">Hệ thống sẽ gợi ý mua kèm món:</label>
-                            <select id="selectItemB" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white"></select>
+                        <h3 class="text-base font-bold text-white mt-0.5">2. Cấu Hình Cặp Món Gợi Ý Mua Kèm (Combo Upsell)</h3>
+                        <p class="text-xs text-slate-400 mt-1 mb-4 leading-relaxed">
+                            Ngoài việc thuật toán Apriori tự động học từ lịch sử, bạn có thể ghim cặp món gợi ý tại đây. Khi khách xem <b>Món chính</b> trên Menu QR, hệ thống sẽ đề xuất ngay <b>Món kèm ưu đãi</b>!
+                        </p>
+
+                        <div class="space-y-3.5 text-xs">
+                            <div>
+                                <label class="block text-slate-300 font-semibold mb-1">Khi khách bấm xem món (Món A):</label>
+                                <select id="selectSourceItem" onchange="onSourceItemChange()" class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-white outline-none transition"></select>
+                            </div>
+
+                            <div>
+                                <label class="block text-slate-300 font-semibold mb-1">Hệ thống sẽ gợi ý mua kèm (Món B):</label>
+                                <select id="selectTargetItem" class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-white outline-none transition"></select>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-slate-300 font-semibold mb-1">Độ tin cậy (Confidence):</label>
+                                    <select id="inputConfidence" class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-white outline-none transition">
+                                        <option value="0.95">95% (Rất cao)</option>
+                                        <option value="0.85" selected>85% (Mặc định)</option>
+                                        <option value="0.75">75% (Cao)</option>
+                                        <option value="0.60">60% (Trung bình)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-slate-300 font-semibold mb-1">Giảm giá mua kèm (%):</label>
+                                    <div class="relative">
+                                        <input type="number" id="inputDiscount" min="0" max="100" value="10" class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg px-3 py-2 text-white outline-none transition pr-7">
+                                        <span class="absolute right-3 top-2 text-slate-400 font-bold">%</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <button onclick="saveComboRule()" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition mt-2">
-                            ➕ Lưu Cặp Món Gợi Ý Này Lên Menu Khách
+                    </div>
+
+                    <div class="mt-5 pt-3 border-t border-slate-800/80">
+                        <button onclick="saveComboRule()" id="btnSaveCombo" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-bold text-xs transition shadow-md flex items-center justify-center gap-1.5">
+                            <span>➕ Lưu Cặp Món Gợi Ý Lên Menu Khách</span>
                         </button>
-                        <div id="comboMsg" class="hidden text-xs font-semibold text-emerald-400 mt-2"></div>
                     </div>
                 </div>
 
-                <!-- Cột Phải: Bảng các quy luật gợi ý đang hoạt động -->
-                <div class="lg:col-span-7 flex flex-col">
-                    <div class="flex items-center justify-between mb-3">
-                        <div>
-                            <h3 class="text-base font-bold text-white">🔥 Các Cặp Món Gợi Ý Đang Hoạt Động (Apriori Rules)</h3>
-                            <p class="text-xs text-slate-400">Dữ liệu trả về trực tiếp qua API <code>/api/v1/data/recommendations/{id}</code> cho Menu Khách</p>
+                <!-- Cột Phải (lg:col-span-7): Xem trước gợi ý Apriori & Bảng luật đang chạy -->
+                <div class="lg:col-span-7 flex flex-col justify-between gap-4">
+
+                    <!-- Box Xem Thử Kết Quả Apriori cho Món A -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                        <div class="flex items-center justify-between border-b border-slate-800/60 pb-2 mb-2.5">
+                            <div class="text-xs font-bold text-white flex items-center gap-2">
+                                <span>🔍 Thử Nghiệm Gợi Ý Cho:</span>
+                                <b id="previewSourceItemName" class="text-indigo-300">--</b>
+                            </div>
+                            <span class="text-[11px] font-mono text-slate-400">GET /api/v1/data/recommendations/{id}</span>
+                        </div>
+                        <div id="recommendationsPreviewList" class="space-y-2">
+                            <div class="py-4 text-center text-slate-500 text-xs">Đang kiểm tra kết quả gợi ý...</div>
                         </div>
                     </div>
-                    <div class="overflow-x-auto bg-slate-950 border border-slate-800 rounded-xl flex-1">
+
+                    <!-- Bảng các quy luật kết hợp Apriori toàn quán -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 flex-1 flex flex-col">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="text-xs font-bold text-white uppercase tracking-wider text-indigo-400">🔥 Các Cặp Món Gợi Ý Đang Hoạt Động (Apriori Rules)</h4>
+                            <span class="text-[11px] font-mono text-slate-500">GET /api/v1/data/association-rules</span>
+                        </div>
+                        <div class="overflow-x-auto flex-1">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="border-b border-slate-800 text-slate-400 uppercase bg-slate-900/50">
+                                        <th class="py-2 px-2.5">Khi Khách Chọn Món</th>
+                                        <th class="py-2 px-2.5">Gợi Ý Gọi Kèm</th>
+                                        <th class="py-2 px-2.5 text-right">Phiên Đi Chung</th>
+                                        <th class="py-2 px-2.5 text-right">Tỷ Lệ (Confidence)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="aprioriRulesBody" class="divide-y divide-slate-800/60">
+                                    <tr><td colspan="4" class="py-4 text-center text-slate-500">Đang tải các quy luật kết hợp...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- PHẦN 3: NHẬT KÝ HÓA ĐƠN ĐÃ THANH TOÁN & ĐỒNG BỘ KHO PHÂN TÍCH (BATCH ETL - REQUIREMENT 4) -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Bảng Hóa đơn thật đã đóng ở POS (lg:col-span-7) -->
+            <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                <div>
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-white">3. Nhật Ký Hóa Đơn Đã Thanh Toán & Đồng Bộ Kho Phân Tích</h3>
+                            <p class="text-xs text-slate-400">Các bàn đã chốt thanh toán tại Thu ngân POS (TV3) và được đẩy sang kho OLAP</p>
+                        </div>
+                        <button onclick="triggerBatchETL()" id="btnTriggerEtl" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-bold transition shadow-md shadow-emerald-900/30 flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <span>⚡ Kích hoạt Batch ETL</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr class="border-b border-slate-800 text-slate-400 uppercase bg-slate-900/50">
-                                    <th class="py-3 px-3">Khi Khách Chọn Món</th>
-                                    <th class="py-3 px-3">Gợi Ý Gọi Kèm</th>
-                                    <th class="py-3 px-3 text-right">Số Phiên Đi Chung</th>
-                                    <th class="py-3 px-3 text-right">Tỷ Lệ Gợi Ý (Confidence)</th>
+                                <tr class="border-b border-slate-800 text-slate-400 uppercase bg-slate-950/40">
+                                    <th class="py-2.5 px-2.5">Bàn</th>
+                                    <th class="py-2.5 px-2.5">Các Món Đã Gọi</th>
+                                    <th class="py-2.5 px-2.5 text-right">Tổng Tiền</th>
+                                    <th class="py-2.5 px-2.5 text-center">Giờ Đóng</th>
+                                    <th class="py-2.5 px-2.5 text-center">Trạng Thái ETL</th>
                                 </tr>
                             </thead>
-                            <tbody id="aprioriRulesBody" class="divide-y divide-slate-800/60">
-                                <tr><td colspan="4" class="py-8 text-center text-slate-500">Chưa có quy luật gợi ý nào.</td></tr>
+                            <tbody id="closedBillsBody" class="divide-y divide-slate-800/60">
+                                <tr><td colspan="5" class="py-6 text-center text-slate-500">Chưa có hóa đơn thanh toán nào.</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-            </div>
-        </section>
 
-        <!-- PHẦN 3: NHẬT KÝ HÓA ĐƠN ĐÃ THANH TOÁN & THỜI GIAN BẾP CHẾ BIẾN THỰC TẾ -->
-        <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <!-- Bảng Hóa đơn thật đã đóng ở POS -->
-            <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-                    <div>
-                        <h3 class="text-base font-bold text-white">3. Nhật Ký Hóa Đơn Đã Thanh Toán & Đồng Bộ Kho Phân Tích</h3>
-                        <p class="text-xs text-slate-400">Các bàn đã chốt thanh toán tại Thu ngân POS (TV3) và tự động đẩy sang kho OLAP</p>
+                <div class="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                    <span>Tính chất <b>Idempotent</b>: Chạy lại ETL nhiều lần không nhân đôi doanh thu kho.</span>
+                    <span id="statPendingEtlBadge" class="font-bold text-emerald-400">Đã đồng bộ đầy đủ</span>
+                </div>
+            </div>
+
+            <!-- Bảng Thống kê Tốc độ Ra món của Bếp (SLA & Bottlenecks - lg:col-span-5) -->
+            <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between">
+                <div>
+                    <div class="mb-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-base font-bold text-white">⏱️ Tốc Độ Ra Món & Điểm Nghẽn Bếp (SLA)</h3>
+                            <span class="text-[11px] font-mono text-slate-400">GET /api/v1/data/sla-metrics</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-0.5">Thời gian chế biến thực tế từ lúc khách gửi đơn tới khi bếp bấm hoàn thành (Ngưỡng 15 phút)</p>
                     </div>
-                    <button onclick="triggerBatchETL()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
-                        ⚡ Đồng bộ thủ công (ETL)
-                    </button>
+
+                    <!-- Thanh Tiến Độ Tuân Thủ SLA -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5 mb-4">
+                        <div class="flex items-center justify-between text-xs mb-1">
+                            <span class="text-slate-300 font-semibold">Tỷ lệ tuân thủ toàn quán:</span>
+                            <b id="slaCompliancePercentText" class="text-emerald-400 font-bold">100%</b>
+                        </div>
+                        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                            <div id="slaComplianceBar" class="h-full bg-emerald-500 rounded-full transition-all duration-500" style="width: 100%"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1.5">
+                            <span id="slaViolationSummary">0 món vi phạm / 0 món nấu</span>
+                            <span>Chuẩn cam kết: ≥ 90%</span>
+                        </div>
+                    </div>
+
+                    <!-- Bảng Điểm Nghẽn Món Ăn -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-400 uppercase bg-slate-950/40">
+                                    <th class="py-2 px-2">Món Ăn</th>
+                                    <th class="py-2 px-2 text-right">Lượt Nấu</th>
+                                    <th class="py-2 px-2 text-right">TG Trung Bình</th>
+                                    <th class="py-2 px-2 text-right">Trễ (>15p)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="slaBody" class="divide-y divide-slate-800/60">
+                                <tr><td colspan="4" class="py-6 text-center text-slate-500">Chưa có dữ liệu thời gian nấu.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="border-b border-slate-800 text-slate-400 uppercase">
-                                <th class="py-2.5 px-2">Bàn</th>
-                                <th class="py-2.5 px-2">Các Món Đã Gọi</th>
-                                <th class="py-2.5 px-2 text-right">Tổng Tiền</th>
-                                <th class="py-2.5 px-2 text-center">Giờ Đóng</th>
-                                <th class="py-2.5 px-2 text-center">Trạng Thái ETL</th>
-                            </tr>
-                        </thead>
-                        <tbody id="closedBillsBody" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="5" class="py-6 text-center text-slate-500">Chưa có hóa đơn thanh toán nào.</td></tr>
-                        </tbody>
-                    </table>
+
+                <div class="mt-4 pt-3 border-t border-slate-800/60 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>TG Nấu TB: <b id="slaAvgPrepTime" class="text-amber-400 font-mono">0.0 p</b></span>
+                    <span>Lâu nhất: <b id="slaMaxPrepTime" class="text-rose-400 font-mono">0.0 p</b></span>
                 </div>
             </div>
 
-            <!-- Bảng Thời gian bếp làm món thực tế (SLA) -->
-            <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                <div class="mb-4">
-                    <h3 class="text-base font-bold text-white">⏱️ Thống Kê Tốc Độ Ra Món Của Bếp (SLA)</h3>
-                    <p class="text-xs text-slate-400">Đo thời gian từ lúc khách gửi đơn tới lúc Bếp bấm Hoàn thành (Cảnh báo nếu > 15 phút)</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="border-b border-slate-800 text-slate-400 uppercase">
-                                <th class="py-2.5 px-2">Món Ăn</th>
-                                <th class="py-2.5 px-2 text-right">Số Lượt Nấu</th>
-                                <th class="py-2.5 px-2 text-right">TG Trung Bình</th>
-                                <th class="py-2.5 px-2 text-right">Trễ (>15p)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="slaBody" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="4" class="py-6 text-center text-slate-500">Chưa có dữ liệu thời gian nấu.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </section>
 
     </main>
 
-    <script>
-        const API_BASE = window.location.origin.includes('8000') ? window.location.origin : 'http://localhost:8000';
+    <!-- FOOTER HỒ SƠ TV4 -->
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 py-6 text-center text-xs text-slate-500 border-t border-slate-800/60 mt-12">
+        <p>DineFlow TV4 • Phân Hệ Quản Trị Dữ Liệu Thời Gian Thực, Lõi Vận Hành & Tích Hợp Kho OLAP (PHP 8.2 + Docker)</p>
+    </footer>
 
+    <!-- SCRIPT XỬ LÝ LOGIC HOÀN TOÀN BẰNG RELATIVE PATH /api/v1/... (REQUIREMENTS 1, 2, 3, 4, 5) -->
+    <script>
+        // Cấu hình Polling & Auto-refresh (Requirement 1)
+        let refreshTimer = null;
+        let countdown = 5;
+        let isAutoRefreshEnabled = true;
+        let allMenuItems = [];
+
+        // Định dạng tiền tệ VND
         function formatVND(val) {
             return Number(val || 0).toLocaleString('vi-VN') + ' đ';
         }
 
+        // Định dạng thời gian tương đối
+        function formatTimeAgo(dateStr) {
+            if (!dateStr) return '--';
+            const cleanStr = dateStr.replace(' ', 'T');
+            const d = new Date(cleanStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const diffSec = Math.max(0, Math.floor((Date.now() - d.getTime()) / 1000));
+            if (diffSec < 60) return `${diffSec}s trước`;
+            const diffMin = Math.floor(diffSec / 60);
+            if (diffMin < 60) return `${diffMin}p trước`;
+            const diffHr = Math.floor(diffMin / 60);
+            return `${diffHr}h ${diffMin % 60}p trước`;
+        }
+
+        // Hiển thị thông báo Toast trực quan (Requirement 4)
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200 shadow-emerald-950/50',
+                error: 'bg-rose-950/95 border-rose-500/50 text-rose-200 shadow-rose-950/50',
+                warning: 'bg-amber-950/95 border-amber-500/50 text-amber-200 shadow-amber-950/50',
+                info: 'bg-indigo-950/95 border-indigo-500/50 text-indigo-200 shadow-indigo-950/50'
+            };
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️',
+                info: '⚡'
+            };
+
+            toast.className = `p-4 rounded-xl border backdrop-blur shadow-2xl flex items-center gap-3 transition-all duration-300 transform translate-y-2 opacity-0 text-xs font-semibold ${colors[type] || colors.info}`;
+            toast.innerHTML = `
+                <span class="text-base flex-shrink-0">${icons[type] || '⚡'}</span>
+                <div class="flex-1 leading-relaxed">${message}</div>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white transition text-sm font-bold px-1">&times;</button>
+            `;
+
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4500);
+        }
+
+        // 1. Tải danh mục món cho dropdown cấu hình Combo Rule
         async function loadMenuDropdowns() {
             try {
-                const res = await fetch(`${API_BASE}/api/v1/admin/menu-items`);
+                const res = await fetch('/api/v1/admin/menu-items');
+                if (!res.ok) throw new Error('Không thể tải danh sách món');
                 const data = await res.json();
-                const items = (data.categories || []).flatMap(c => c.items || []);
-                const selA = document.getElementById('selectItemA');
-                const selB = document.getElementById('selectItemB');
-                if (!items.length) return;
-                const opts = items.map(i => `<option value="${i.id}">${i.name} (${formatVND(i.price)})</option>`).join('');
-                selA.innerHTML = opts;
-                selB.innerHTML = opts;
-                if (items.length > 1) selB.selectedIndex = 1;
+                
+                allMenuItems = Array.isArray(data) 
+                    ? data 
+                    : ((data.categories || []).flatMap(c => (c.items || []).map(i => ({ ...i, category_name: c.name }))));
+
+                const selA = document.getElementById('selectSourceItem');
+                const selB = document.getElementById('selectTargetItem');
+                
+                if (!allMenuItems.length) {
+                    selA.innerHTML = '<option value="">(Chưa có món nào)</option>';
+                    selB.innerHTML = '<option value="">(Chưa có món nào)</option>';
+                    return;
+                }
+
+                const optionsHtml = allMenuItems.map(i => 
+                    `<option value="${i.id}">${i.name} (${formatVND(i.price)})${i.category_name ? ' - [' + i.category_name + ']' : ''}</option>`
+                ).join('');
+
+                selA.innerHTML = optionsHtml;
+                selB.innerHTML = optionsHtml;
+
+                if (allMenuItems.length > 1) {
+                    selB.selectedIndex = 1;
+                }
+
+                onSourceItemChange();
             } catch (e) {
-                console.error(e);
+                console.error('Lỗi khi nạp menu dropdowns:', e);
             }
         }
 
-        async function refreshAll() {
-            await Promise.all([
-                loadPipelineStats(),
-                loadLiveOperations(),
-                loadAprioriRules(),
-                loadSlaAnalytics()
-            ]);
-        }
-
-        async function loadPipelineStats() {
-            try {
-                const res = await fetch(`${API_BASE}/api/v1/data/pipeline-status`);
-                const data = await res.json();
-                const oltp = data.oltp_stats || {};
-                const olap = data.olap_star_schema_stats || {};
-
-                document.getElementById('statTotalOrders').textContent = oltp.total_orders || 0;
-                document.getElementById('statTotalItems').textContent = `${oltp.total_order_items || 0} phần món đã đặt`;
-                document.getElementById('statClosedBills').textContent = oltp.closed_sessions || 0;
-                document.getElementById('statPendingEtl').textContent =
-                    (oltp.pending_etl_sessions || 0) > 0
-                        ? `⚠️ Còn ${oltp.pending_etl_sessions} đơn chờ đồng bộ`
-                        : `✅ Đã đồng bộ sang OLAP (${olap.fact_order_items || 0} dòng)`;
-                document.getElementById('statClicks').textContent = Number(olap.fact_clickstream || 0).toLocaleString('vi-VN');
-            } catch (e) {
-                console.error(e);
+        function onSourceItemChange() {
+            const selA = document.getElementById('selectSourceItem');
+            const selectedId = parseInt(selA.value, 10);
+            const selectedItem = allMenuItems.find(i => i.id === selectedId);
+            const nameEl = document.getElementById('previewSourceItemName');
+            if (nameEl) {
+                nameEl.textContent = selectedItem ? selectedItem.name : '--';
+            }
+            if (selectedId) {
+                loadRecommendationsPreview(selectedId);
             }
         }
 
-        async function loadLiveOperations() {
+        // 2. Thăm dò API Live Ops, SLA Metrics & Association Rules (Auto-refresh every 5s - Requirement 1)
+        async function pollLiveOpsAndSla() {
+            const pulseDot = document.getElementById('livePulseDot');
+            if (pulseDot) pulseDot.classList.add('scale-125', 'bg-emerald-300');
+
             try {
-                const res = await fetch(`${API_BASE}/api/v1/data/live-operations`);
-                const data = await res.json();
-                const tables = data.tables || [];
-                const occupied = tables.filter(t => t.status === 'OCCUPIED');
-                document.getElementById('statOccupiedTables').textContent = `${occupied.length} / ${tables.length}`;
+                // Polling song song /api/v1/data/live-ops, /api/v1/data/sla-metrics, và /api/v1/data/association-rules
+                const [liveRes, slaRes, rulesRes] = await Promise.allSettled([
+                    fetch('/api/v1/data/live-ops'),
+                    fetch('/api/v1/data/sla-metrics'),
+                    fetch('/api/v1/data/association-rules?limit=6')
+                ]);
 
-                const grid = document.getElementById('liveTablesGrid');
-                if (occupied.length === 0) {
-                    grid.innerHTML = `
-                        <div class="col-span-full bg-slate-950 border border-slate-800 rounded-xl p-6 text-center text-slate-400 text-sm">
-                            Hiện chưa có bàn nào đang mở QR. Bạn có thể qua trang <a href="tv1/table-management.html" target="_blank" class="text-indigo-400 font-bold underline">Quản lý Bàn (TV1)</a> để bấm "Mở bàn & Tạo QR"!
-                        </div>
-                    `;
-                } else {
-                    grid.innerHTML = occupied.map(t => {
-                        const cartHtml = (t.shared_cart_items || []).length
-                            ? t.shared_cart_items.map(c => `<span class="inline-block px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs mr-1 mb-1">🛒 ${c.name} x${c.quantity}</span>`).join('')
-                            : `<span class="text-xs text-slate-500">Giỏ hàng đang trống</span>`;
+                // Xử lý live-ops
+                if (liveRes.status === 'fulfilled' && liveRes.value.ok) {
+                    const liveData = await liveRes.value.json();
+                    renderLiveOps(liveData);
+                }
 
-                        const kitchenHtml = (t.submitted_kitchen_items || []).length
-                            ? t.submitted_kitchen_items.map(k => {
-                                let color = 'bg-amber-500/20 text-amber-300';
-                                if (k.status === 'COOKING') color = 'bg-sky-500/20 text-sky-300';
-                                if (k.status === 'COMPLETED') color = 'bg-emerald-500/20 text-emerald-300';
-                                return `<div class="flex justify-between items-center text-xs py-1 border-b border-slate-800/60">
-                                    <span>${k.dish_name} <b>x${k.quantity}</b></span>
-                                    <span class="px-2 py-0.5 rounded font-bold ${color}">${k.status}</span>
-                                </div>`;
-                            }).join('')
-                            : `<div class="text-xs text-slate-500">Chưa gửi đơn xuống bếp</div>`;
+                // Xử lý sla-metrics
+                if (slaRes.status === 'fulfilled' && slaRes.value.ok) {
+                    const slaData = await slaRes.value.json();
+                    renderSlaMetrics(slaData);
+                }
 
-                        const menuUrl = `menu/index.html?table=${t.table_id}&token=${t.session_token}`;
-                        return `
-                            <div class="bg-slate-950 border border-emerald-500/40 rounded-xl p-4 flex flex-col justify-between">
-                                <div>
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-base font-black text-white">${t.table_number}</span>
-                                        <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">
-                                            🟢 Đang mở (${t.ws_connected_devices} máy kết nối)
-                                        </span>
-                                    </div>
-                                    <div class="text-xs text-slate-400 font-mono mt-1">Mã phiên: ${t.session_token}</div>
+                // Xử lý association-rules
+                if (rulesRes.status === 'fulfilled' && rulesRes.value.ok) {
+                    const rulesData = await rulesRes.value.json();
+                    renderAssociationRules(rulesData);
+                }
 
-                                    <div class="mt-3">
-                                        <div class="text-xs font-bold text-slate-400 uppercase mb-1">Giỏ hàng chung (Redis WebSocket):</div>
-                                        <div>${cartHtml}</div>
-                                    </div>
+                document.getElementById('lastUpdatedTime').textContent = new Date().toLocaleTimeString('vi-VN');
+            } catch (err) {
+                console.error('Lỗi khi thăm dò dữ liệu:', err);
+            } finally {
+                if (pulseDot) {
+                    setTimeout(() => {
+                        pulseDot.classList.remove('scale-125', 'bg-emerald-300');
+                    }, 400);
+                }
+            }
+        }
 
-                                    <div class="mt-3">
-                                        <div class="text-xs font-bold text-slate-400 uppercase mb-1">Món đã gửi xuống Bếp:</div>
-                                        <div class="space-y-1">${kitchenHtml}</div>
-                                    </div>
+        // 3. Render dữ liệu Live Operations (Requirement 2)
+        function renderLiveOps(data) {
+            // Cập nhật 5 thẻ KPI
+            document.getElementById('statOccupiedTables').textContent = data.active_tables ?? 0;
+            document.getElementById('statTodayOrders').textContent = `${data.today_orders_count ?? 0} đơn hôm nay`;
+            document.getElementById('statTodayRevenue').textContent = formatVND(data.today_revenue ?? 0);
+            document.getElementById('statOlapRecords').textContent = Number(data.olap_total_fact_records ?? 0).toLocaleString('vi-VN');
+            document.getElementById('statOlapRevenue').textContent = formatVND(data.olap_total_revenue ?? 0);
+            
+            // Server status
+            if (data.system_health) document.getElementById('statServerHealth').textContent = data.system_health;
+            if (data.redis_status) document.getElementById('statRedisStatus').textContent = data.redis_status;
+
+            // Render Danh Sách Bàn Ăn Đang Mở (Shared Cart & Kitchen Progress)
+            const tables = data.tables || [];
+            const occupied = tables.filter(t => t.status === 'OCCUPIED' || (t.session_token && t.session_token !== ''));
+            document.getElementById('statTablesDetail').textContent = `${occupied.length} / ${tables.length} bàn đang mở`;
+
+            const grid = document.getElementById('liveTablesGrid');
+            if (occupied.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-slate-950 border border-slate-800 rounded-xl p-8 text-center text-slate-400 text-sm">
+                        Hiện chưa có bàn nào đang mở phiên QR gọi món. Bạn có thể sang trang 
+                        <a href="tv1/table-management.html" target="_blank" class="text-indigo-400 font-bold underline hover:text-indigo-300 ml-1">
+                            Quản lý Bàn (TV1)
+                        </a> để bấm "Mở bàn & Tạo QR"!
+                    </div>
+                `;
+            } else {
+                grid.innerHTML = occupied.map(t => {
+                    const cartHtml = (t.shared_cart_items || []).length
+                        ? t.shared_cart_items.map(c => `<span class="inline-block px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-xs mr-1 mb-1 font-medium">🛒 ${c.name} x${c.quantity}</span>`).join('')
+                        : `<span class="text-xs text-slate-500 italic">Giỏ hàng chung đang trống</span>`;
+
+                    const kitchenHtml = (t.submitted_kitchen_items || []).length
+                        ? t.submitted_kitchen_items.map(k => {
+                            let color = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                            if (k.status === 'COOKING') color = 'bg-sky-500/20 text-sky-300 border-sky-500/30';
+                            if (k.status === 'COMPLETED') color = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+                            return `
+                                <div class="flex justify-between items-center text-xs py-1 border-b border-slate-800/60">
+                                    <span class="text-slate-200">${k.dish_name} <b class="text-white">x${k.quantity}</b></span>
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${color}">${k.status}</span>
+                                </div>
+                            `;
+                        }).join('')
+                        : `<div class="text-xs text-slate-500 italic">Chưa gửi đơn xuống bếp</div>`;
+
+                    const menuUrl = `menu/index.html?table=${t.table_id || ''}&token=${t.session_token || ''}`;
+
+                    return `
+                        <div class="bg-slate-950 border border-emerald-500/40 rounded-xl p-4 flex flex-col justify-between hover:border-emerald-500/70 transition shadow-sm">
+                            <div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-base font-black text-white">${t.table_number}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30 flex items-center gap-1">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                        <span>Đang Mở (${t.ws_connected_devices || 1} máy)</span>
+                                    </span>
+                                </div>
+                                <div class="text-[11px] text-slate-400 font-mono mt-1 truncate">Phiên: ${t.session_token || '--'}</div>
+
+                                <div class="mt-3">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Giỏ hàng chung (Shared Cart):</div>
+                                    <div class="flex flex-wrap gap-1">${cartHtml}</div>
                                 </div>
 
-                                <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
-                                    <div>
-                                        <span class="text-xs text-slate-400">Tạm tính:</span>
-                                        <b class="text-sm text-emerald-400 ml-1">${formatVND(t.current_bill_total)}</b>
-                                    </div>
-                                    <a href="${menuUrl}" target="_blank" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition">
-                                        📱 Mở Menu Bàn Này
-                                    </a>
+                                <div class="mt-3">
+                                    <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Món đã gửi xuống Bếp:</div>
+                                    <div class="space-y-0.5 max-h-28 overflow-y-auto pr-1">${kitchenHtml}</div>
                                 </div>
                             </div>
-                        `;
-                    }).join('');
-                }
 
-                // Render bảng Hóa đơn đã thanh toán
-                const bills = data.recent_closed_bills || [];
-                const billsBody = document.getElementById('closedBillsBody');
-                if (bills.length === 0) {
-                    billsBody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">Chưa có bàn nào thanh toán.</td></tr>`;
-                } else {
-                    billsBody.innerHTML = bills.map(b => `
-                        <tr class="hover:bg-slate-800/40">
-                            <td class="py-2.5 px-2 font-bold text-white">${b.table_number}<br><span class="font-mono text-[10px] text-slate-400">${b.session_token}</span></td>
-                            <td class="py-2.5 px-2 text-slate-300">${b.dishes}</td>
-                            <td class="py-2.5 px-2 text-right font-bold text-emerald-400">${formatVND(b.total_amount)}</td>
-                            <td class="py-2.5 px-2 text-center text-slate-400">${b.closed_at}</td>
-                            <td class="py-2.5 px-2 text-center">
-                                ${b.is_etl_processed
-                                    ? '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">Đã sang OLAP</span>'
-                                    : '<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Chờ ETL</span>'}
-                            </td>
-                        </tr>
-                    `).join('');
-                }
-            } catch (e) {
-                console.error(e);
+                            <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+                                <div>
+                                    <span class="text-xs text-slate-400">Tạm tính:</span>
+                                    <b class="text-sm text-emerald-400 ml-1">${formatVND(t.current_bill_total || 0)}</b>
+                                </div>
+                                <a href="${menuUrl}" target="_blank" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                                    <span>📱 Mở Menu</span>
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             }
-        }
 
-        async function loadAprioriRules() {
-            try {
-                const res = await fetch(`${API_BASE}/api/v1/data/association-rules?limit=8`);
-                const rows = await res.json();
-                const tbody = document.getElementById('aprioriRulesBody');
-                if (!rows || rows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Chưa có cặp món gợi ý nào. Hãy chọn 2 món ở khung bên trái và bấm "Lưu Cặp Món Gợi Ý"!</td></tr>`;
-                    return;
-                }
-                tbody.innerHTML = rows.map(r => `
-                    <tr class="hover:bg-slate-900/60">
-                        <td class="py-2.5 px-3 font-semibold text-white">${r.antecedent_item}</td>
-                        <td class="py-2.5 px-3 font-semibold text-emerald-400">+ ${r.consequent_item}</td>
-                        <td class="py-2.5 px-3 text-right font-bold text-indigo-300">${r.co_occurrence_sessions} phiên</td>
-                        <td class="py-2.5 px-3 text-right">
-                            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold">${r.confidence_a_to_b_pct}%</span>
+            // Render Danh Sách KDS Pending Items
+            const pendingItems = data.kds_pending_items || [];
+            document.getElementById('statKdsPendingCount').textContent = pendingItems.length;
+            document.getElementById('badgeKdsCount').textContent = `${pendingItems.length} món`;
+            document.getElementById('statKdsDetail').textContent = pendingItems.length > 0 
+                ? `${pendingItems.length} món đang chờ phục vụ` 
+                : 'Bếp đã hoàn thành hết món';
+
+            const kdsBody = document.getElementById('kdsPendingBody');
+            if (pendingItems.length === 0) {
+                kdsBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="py-6 text-center text-slate-500">
+                            <span class="text-emerald-400 font-bold">✅ Bếp hiện không có món chờ.</span> Tất cả món ăn đã hoàn tất chế biến!
                         </td>
                     </tr>
-                `).join('');
-            } catch (e) {
-                console.error(e);
-            }
-        }
+                `;
+            } else {
+                const now = Date.now();
+                kdsBody.innerHTML = pendingItems.map(item => {
+                    let statusBadge = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+                    let statusLabel = 'Chờ nấu';
+                    if (item.status === 'COOKING') {
+                        statusBadge = 'bg-sky-500/20 text-sky-300 border-sky-500/30';
+                        statusLabel = 'Đang nấu';
+                    }
 
-        async function loadSlaAnalytics() {
-            try {
-                const res = await fetch(`${API_BASE}/api/v1/data/sla-analytics`);
-                const data = await res.json();
-                const rows = data.dish_bottlenecks || [];
-                const tbody = document.getElementById('slaBody');
-                if (rows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">Chưa có dữ liệu thời gian nấu.</td></tr>`;
-                    return;
-                }
-                tbody.innerHTML = rows.slice(0, 8).map(r => {
-                    const rate = Number(r.violation_rate_pct || 0);
-                    const badge = rate > 20 ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300';
+                    let waitTimeSec = 0;
+                    if (item.created_at) {
+                        const createdTs = new Date(item.created_at.replace(' ', 'T')).getTime();
+                        if (!isNaN(createdTs)) {
+                            waitTimeSec = Math.max(0, Math.floor((now - createdTs) / 1000));
+                        }
+                    }
+                    const isSlaBreached = waitTimeSec > 900;
+                    const waitMin = Math.floor(waitTimeSec / 60);
+
                     return `
-                        <tr class="hover:bg-slate-800/40">
-                            <td class="py-2.5 px-2 font-semibold text-white">${r.dish_name}</td>
-                            <td class="py-2.5 px-2 text-right text-slate-300">${r.order_count}</td>
-                            <td class="py-2.5 px-2 text-right text-amber-300">${r.avg_prep_minutes} phút</td>
-                            <td class="py-2.5 px-2 text-right"><span class="px-2 py-0.5 rounded font-bold ${badge}">${rate}%</span></td>
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-2.5 px-3">
+                                <div class="font-bold text-white">${item.item_name}</div>
+                                <div class="text-[10px] text-slate-500 font-mono">ID #${item.id}</div>
+                            </td>
+                            <td class="py-2.5 px-3">
+                                <span class="font-semibold text-slate-200">${item.table_number || 'Bàn --'}</span>
+                            </td>
+                            <td class="py-2.5 px-3 text-center">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${statusBadge}">${statusLabel}</span>
+                            </td>
+                            <td class="py-2.5 px-3 text-right text-slate-400 font-mono text-[11px]">
+                                ${formatTimeAgo(item.created_at)}
+                            </td>
+                            <td class="py-2.5 px-3 text-right">
+                                ${isSlaBreached 
+                                    ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">⚠️ ${waitMin}p (Quá SLA)</span>` 
+                                    : `<span class="text-slate-300 font-mono text-[11px]">${waitMin}p</span>`
+                                }
+                            </td>
                         </tr>
                     `;
                 }).join('');
-            } catch (e) {
-                console.error(e);
+            }
+
+            // Render Bảng Hóa Đơn Đã Thanh Toán Gần Nhất
+            const bills = data.recent_closed_bills || [];
+            const billsBody = document.getElementById('closedBillsBody');
+            if (bills.length === 0) {
+                billsBody.innerHTML = `<tr><td colspan="5" class="py-6 text-center text-slate-500">Chưa có bàn nào thanh toán.</td></tr>`;
+            } else {
+                let pendingCount = 0;
+                billsBody.innerHTML = bills.map(b => {
+                    if (!b.is_etl_processed) pendingCount++;
+                    return `
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-2.5 px-2.5 font-bold text-white">
+                                <div>${b.table_number}</div>
+                                <div class="font-mono text-[10px] text-slate-500">${b.session_token ? b.session_token.slice(0, 10) + '...' : ''}</div>
+                            </td>
+                            <td class="py-2.5 px-2.5 text-slate-300 max-w-xs truncate">${b.dishes}</td>
+                            <td class="py-2.5 px-2.5 text-right font-bold text-emerald-400">${formatVND(b.total_amount)}</td>
+                            <td class="py-2.5 px-2.5 text-center text-slate-400 font-mono text-[11px]">${b.closed_at || '--'}</td>
+                            <td class="py-2.5 px-2.5 text-center">
+                                ${b.is_etl_processed
+                                    ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold">Đã sang OLAP</span>'
+                                    : '<span class="px-2 py-0.5 rounded text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">Chờ ETL</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+
+                const pendingBadge = document.getElementById('statPendingEtlBadge');
+                if (pendingCount > 0) {
+                    pendingBadge.textContent = `⚠️ Còn ${pendingCount} hóa đơn chờ ETL`;
+                    pendingBadge.className = 'font-bold text-amber-400';
+                } else {
+                    pendingBadge.textContent = '✅ Đã đồng bộ hết sang kho OLAP';
+                    pendingBadge.className = 'font-bold text-emerald-400';
+                }
             }
         }
 
+        // 4. Render dữ liệu SLA Metrics & Bottlenecks (Requirement 2)
+        function renderSlaMetrics(data) {
+            const violations = data.sla_violations_count ?? 0;
+            const compliance = data.sla_compliance_rate ?? 100;
+            const total = data.total_dishes_cooked ?? 0;
+
+            document.getElementById('statSlaViolations').textContent = violations;
+            document.getElementById('statSlaCompliance').textContent = `${compliance}% đạt chuẩn`;
+            document.getElementById('statSlaCompliance').className = `text-[11px] font-semibold mt-0.5 ${compliance >= 90 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            document.getElementById('slaCompliancePercentText').textContent = `${compliance}%`;
+            document.getElementById('slaCompliancePercentText').className = `font-bold text-xs ${compliance >= 90 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            const bar = document.getElementById('slaComplianceBar');
+            bar.style.width = `${Math.min(100, Math.max(0, compliance))}%`;
+            bar.className = `h-full rounded-full transition-all duration-500 ${compliance >= 90 ? 'bg-emerald-500' : (compliance >= 75 ? 'bg-amber-500' : 'bg-rose-500')}`;
+
+            document.getElementById('slaViolationSummary').textContent = `${violations} món vi phạm / ${total} món đã nấu`;
+            document.getElementById('slaAvgPrepTime').textContent = `${data.avg_prep_time_minutes ?? 0} p`;
+            document.getElementById('slaMaxPrepTime').textContent = `${data.max_prep_time_minutes ?? 0} p`;
+
+            // Render Dish Bottlenecks Table
+            const rows = data.dish_bottlenecks || [];
+            const tbody = document.getElementById('slaBody');
+            if (rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">Chưa có dữ liệu thời gian nấu.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rows.slice(0, 6).map(r => {
+                const rate = Number(r.violation_rate_pct || 0);
+                const badge = rate > 20 
+                    ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40' 
+                    : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                return `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="py-2 px-2 font-semibold text-white truncate max-w-[140px]">${r.dish_name}</td>
+                        <td class="py-2 px-2 text-right text-slate-300">${r.order_count}</td>
+                        <td class="py-2 px-2 text-right text-amber-300 font-mono">${r.avg_prep_minutes}p</td>
+                        <td class="py-2 px-2 text-right"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${badge}">${rate}%</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 5. Render bảng quy luật Apriori toàn hệ thống
+        function renderAssociationRules(rows) {
+            const tbody = document.getElementById('aprioriRulesBody');
+            if (!Array.isArray(rows) || rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-slate-500">Chưa có quy luật gợi ý nào. Hãy tạo một luật bên trái!</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => `
+                <tr class="hover:bg-slate-900/60 transition">
+                    <td class="py-2 px-2.5 font-semibold text-white">${r.antecedent_item || r.source_name || '--'}</td>
+                    <td class="py-2 px-2.5 font-semibold text-emerald-400">+ ${r.consequent_item || r.target_name || '--'}</td>
+                    <td class="py-2 px-2.5 text-right font-bold text-indigo-300 font-mono">${r.co_occurrence_sessions || r.co_count || 1} phiên</td>
+                    <td class="py-2 px-2.5 text-right">
+                        <span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold font-mono">
+                            ${r.confidence_a_to_b_pct || Math.round((r.confidence || 0) * 100)}%
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // 6. Cấu hình quy luật Combo Upsell (Requirement 3: POST /api/v1/data/combo-rule)
         async function saveComboRule() {
-            const itemA = Number(document.getElementById('selectItemA').value);
-            const itemB = Number(document.getElementById('selectItemB').value);
-            const msgEl = document.getElementById('comboMsg');
+            const selA = document.getElementById('selectSourceItem');
+            const selB = document.getElementById('selectTargetItem');
+            const sourceId = parseInt(selA.value, 10);
+            const targetId = parseInt(selB.value, 10);
+            const confidence = parseFloat(document.getElementById('inputConfidence').value) || 0.85;
+            const discount = parseInt(document.getElementById('inputDiscount').value, 10) || 10;
+
+            if (!sourceId || !targetId) {
+                showToast('Vui lòng chọn cả món kích hoạt và món gợi ý mua kèm!', 'warning');
+                return;
+            }
+            if (sourceId === targetId) {
+                showToast('Món gợi ý mua kèm phải khác món kích hoạt!', 'warning');
+                return;
+            }
+
+            const saveBtn = document.getElementById('btnSaveCombo');
+            const originalContent = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-3.5 w-3.5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                Đang lưu quy luật...
+            `;
+
             try {
-                const res = await fetch(`${API_BASE}/api/v1/data/combo-rule`, {
+                const payload = {
+                    source_item_id: sourceId,
+                    target_item_id: targetId,
+                    item_a_id: sourceId,
+                    item_b_id: targetId,
+                    confidence: confidence,
+                    discount_percent: discount,
+                    boost_weight: 3
+                };
+
+                const res = await fetch('/api/v1/data/combo-rule', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ item_a_id: itemA, item_b_id: itemB, boost_weight: 3 })
+                    body: JSON.stringify(payload)
                 });
+
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Lỗi lưu quy luật');
-                msgEl.textContent = '✅ ' + data.message;
-                msgEl.classList.remove('hidden');
-                refreshAll();
-            } catch (e) {
-                alert(e.message);
+                if (!res.ok) {
+                    throw new Error(data.error || data.detail || 'Không thể lưu quy luật combo');
+                }
+
+                showToast(data.message || '✅ Đã lưu quy luật gợi ý Combo Upsell thành công!', 'success');
+
+                // Tự động kiểm tra ngay danh sách gợi ý cho món vừa cấu hình
+                loadRecommendationsPreview(sourceId);
+                // Thăm dò lại để cập nhật bảng Apriori rules
+                await pollLiveOpsAndSla();
+            } catch (err) {
+                showToast('Lỗi: ' + err.message, 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalContent;
             }
         }
 
-        async function triggerBatchETL() {
-            const res = await fetch(`${API_BASE}/api/v1/data/trigger-batch-etl`, { method: 'POST' });
-            const data = await res.json();
-            alert(`Đã đồng bộ ${data.sessions_synced_to_olap} hóa đơn đóng bàn sang kho phân tích OLAP!`);
-            refreshAll();
+        // 7. Xem thử gợi ý trả về cho khách (GET /api/v1/data/recommendations/{id})
+        async function loadRecommendationsPreview(itemId) {
+            if (!itemId) return;
+            const container = document.getElementById('recommendationsPreviewList');
+            container.innerHTML = '<div class="py-4 text-center text-slate-500 text-xs">Đang truy vấn công cụ gợi ý Apriori...</div>';
+
+            try {
+                const res = await fetch(`/api/v1/data/recommendations/${itemId}`);
+                if (!res.ok) throw new Error('Không thể lấy danh sách gợi ý');
+                const data = await res.json();
+                const recs = data.recommendations || [];
+
+                if (recs.length === 0) {
+                    container.innerHTML = `
+                        <div class="py-4 text-center text-slate-500 text-xs">
+                            Chưa có món gợi ý đi kèm cho món này. Hãy chọn món ở form bên cạnh và bấm <b>Lưu Cặp Món Gợi Ý</b> để kích hoạt!
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = recs.map(r => {
+                    const isRule = r.source === 'RULE_OVERRIDE';
+                    const badgeClass = isRule ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+                    const badgeLabel = isRule ? '⚡ Ghim Combo' : '🧠 AI Apriori';
+                    const discountedPrice = r.price * (1 - (r.discount_percent || 0) / 100);
+
+                    return `
+                        <div class="p-2.5 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between gap-3 hover:border-slate-700 transition">
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-white text-xs truncate">${r.target_item_name}</span>
+                                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${badgeClass}">${badgeLabel}</span>
+                                </div>
+                                <div class="text-[11px] text-slate-400 mt-0.5 flex flex-wrap items-center gap-3">
+                                    <span>Độ tin cậy: <b class="text-amber-400">${Math.round((r.confidence || 0) * 100)}%</b></span>
+                                    <span>Lift: <b class="text-sky-400">${r.lift || r.lift_ratio || 1.0}x</b></span>
+                                    ${r.discount_percent ? `<span class="text-rose-400 font-bold">Giảm ${r.discount_percent}%</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-xs font-black text-emerald-400">${formatVND(discountedPrice)}</div>
+                                ${r.discount_percent ? `<div class="text-[10px] line-through text-slate-500">${formatVND(r.price)}</div>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) {
+                container.innerHTML = `<div class="py-4 text-center text-rose-400 text-xs">Lỗi: ${err.message}</div>`;
+            }
         }
 
-        loadMenuDropdowns();
-        refreshAll();
-        setInterval(refreshAll, 5000);
+        // 8. Kích hoạt Batch ETL thủ công (Requirement 4: POST /api/v1/data/trigger-batch-etl)
+        async function triggerBatchETL() {
+            const btn = document.getElementById('btnTriggerEtl');
+            const originalContent = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-1.5 h-3.5 w-3.5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                <span>Đang đồng bộ kho OLAP...</span>
+            `;
+
+            try {
+                const res = await fetch('/api/v1/data/trigger-batch-etl', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await res.json();
+
+                const count = data.sessions_synced_to_olap ?? data.processed_sessions ?? 0;
+                const msg = data.message || `Đã đồng bộ thành công ${count} phiên bàn vào kho dữ liệu phân tích OLAP Star Schema!`;
+
+                showToast(msg, 'success');
+
+                // Thăm dò ngay để cập nhật các chỉ số tức thì
+                await pollLiveOpsAndSla();
+            } catch (err) {
+                showToast('Lỗi khi kích hoạt Batch ETL: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalContent;
+            }
+        }
+
+        // 9. Quản lý Auto-refresh & Countdown
+        function updateCountdownUI() {
+            const label = document.getElementById('countdownLabel');
+            if (label) {
+                label.textContent = isAutoRefreshEnabled ? `Auto 5s (${countdown}s)` : 'Tạm dừng';
+            }
+        }
+
+        function toggleAutoRefresh() {
+            isAutoRefreshEnabled = !isAutoRefreshEnabled;
+            const btn = document.getElementById('btnAutoToggle');
+            if (isAutoRefreshEnabled) {
+                btn.className = "px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition font-mono";
+                countdown = 5;
+            } else {
+                btn.className = "px-2.5 py-1.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 transition font-mono";
+            }
+            updateCountdownUI();
+        }
+
+        async function manualRefresh() {
+            const icon = document.getElementById('refreshIcon');
+            if (icon) icon.classList.add('animate-spin');
+            countdown = 5;
+            updateCountdownUI();
+            await pollLiveOpsAndSla();
+            if (icon) {
+                setTimeout(() => icon.classList.remove('animate-spin'), 600);
+            }
+        }
+
+        function startAutoRefreshLoop() {
+            if (refreshTimer) clearInterval(refreshTimer);
+            countdown = 5;
+            updateCountdownUI();
+
+            refreshTimer = setInterval(async () => {
+                if (!isAutoRefreshEnabled) return;
+                countdown--;
+                if (countdown <= 0) {
+                    countdown = 5;
+                    await pollLiveOpsAndSla();
+                }
+                updateCountdownUI();
+            }, 1000);
+        }
+
+        // Khởi động trang khi load xong
+        (async function init() {
+            await loadMenuDropdowns();
+            await pollLiveOpsAndSla();
+            startAutoRefreshLoop();
+        })();
     </script>
 </body>
 </html>

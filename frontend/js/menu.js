@@ -5,7 +5,7 @@
   const params = new URLSearchParams(location.search);
   const sessionToken = params.get("token") || "";
   const tableNumber = params.get("table") || "";
-  const API_BASE = (params.get("api") || localStorage.getItem("dineflow_api_base") || "http://localhost:8000").replace(/\/$/, "");
+  const API_BASE = (params.get("api") || localStorage.getItem("dineflow_api_base") || (location.protocol.startsWith("http") ? location.origin : "http://localhost:8000")).replace(/\/$/, "");
   const FRONTEND_ROOT = new URL("../", document.currentScript.src);
 
   const $ = (selector) => document.querySelector(selector);

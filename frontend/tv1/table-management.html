@@ -224,7 +224,7 @@
 
     <script>
         // ⚠️ QUAN TRỌNG: Địa chỉ API backend
-        const API_BASE = 'http://localhost:8000/api/v1';
+        const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8000') + '/api/v1';
 
         // Hàm hiển thị thông báo (toast)
         function showToast(message, isError = false) {
@@ -352,7 +352,7 @@
                     let errorMsg = `Lỗi HTTP: ${response.status}`;
                     try {
                         const errorData = await response.json();
-                        // FastAPI thường trả lỗi trong trường 'detail'
+                        // Backend PHP trả lỗi trong trường 'detail'
                         if (errorData.detail) {
                             // Nếu detail là mảng (lỗi validation), lấy thông báo đầu tiên
                             if (Array.isArray(errorData.detail)) {

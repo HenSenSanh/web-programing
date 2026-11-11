@@ -1,0 +1,8 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Route all API requests to api_router.php
+    RewriteRule ^api/v1/(.*)$ api_router.php [QSA,L]
+    RewriteRule ^api/v1$ api_router.php [QSA,L]
+</IfModule>

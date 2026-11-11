@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8000') + '/api/v1';
 let allKdsItems = [];
 let currentFilter = 'ALL';
 
