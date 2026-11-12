@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # --- HỢP ĐỒNG CHO TV1 (ADMIN & CATALOG) ---
 class MenuItemCreate(BaseModel):
@@ -12,16 +12,12 @@ class MenuItemCreate(BaseModel):
 
 # --- HỢP ĐỒNG CHO TV2 (CLIENT QR & GIỎ HÀNG CHUNG) ---
 class ToppingSelection(BaseModel):
-    id: int
-    name: str
-    price: float
+    id: int = Field(gt=0)
 
 class CartItemPayload(BaseModel):
-    menu_item_id: int
-    name: str
-    quantity: int
-    unit_price: float
-    selected_toppings: List[ToppingSelection] = []
+    menu_item_id: int = Field(gt=0)
+    quantity: int = Field(gt=0, le=50)
+    selected_toppings: List[ToppingSelection] = Field(default_factory=list)
     note: Optional[str] = None
 
 # --- HỢP ĐỒNG CHO TV3 (BẾP KDS & THU NGÂN POS) ---

@@ -2,7 +2,8 @@ import enum
 import uuid
 from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, Boolean, Float, ForeignKey, DateTime, Enum, JSON
+    Column, Integer, String, Boolean, Float, ForeignKey, DateTime, Enum, JSON,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from app.core.database import Base
@@ -125,3 +126,18 @@ class OrderItem(Base):
     completed_at = Column(DateTime, nullable=True)
 
     order = relationship("Order", back_populates="items")
+    menu_item = relationship("MenuItem")
+
+
+class ClientOrderRequest(Base):
+    __tablename__ = "client_order_requests"
+    __table_args__ = (
+        UniqueConstraint("session_id", "idempotency_key", name="uq_client_order_request_key"),
+        {"schema": "oltp"},
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String(36), ForeignKey("oltp.table_sessions.id"), nullable=False)
+    idempotency_key = Column(String(100), nullable=False)
+    order_id = Column(Integer, ForeignKey("oltp.orders.id"), nullable=False)
+    response_payload = Column(JSON, nullable=False)

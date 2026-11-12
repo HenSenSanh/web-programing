@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.ws_and_cart import ws_manager
@@ -72,9 +72,19 @@ def checkout_and_close_table(
     db: Session = Depends(get_db)
 ):
     """[TV3 -> TV4] Thu ngân xác nhận thanh toán -> Đóng bàn & Kích hoạt ETL ngầm đẩy sang OLAP"""
-    session = db.query(TableSession).filter(TableSession.id == session_id).first()
+    # Hỗ trợ tìm kiếm linh hoạt bằng UUID (session_id), Session Token (sess_...) hoặc Số bàn (table_id)
+    session = db.query(TableSession).filter(
+        (TableSession.id == session_id) | (TableSession.session_token == session_id)
+    ).first()
+    
+    if not session and session_id.isdigit():
+        session = db.query(TableSession).filter(
+            TableSession.table_id == int(session_id),
+            TableSession.closed_at.is_(None)
+        ).order_by(TableSession.created_at.desc()).first()
+
     if not session:
-        raise HTTPException(status_code=404, detail="Không tìm thấy phiên bàn")
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy phiên bàn với mã: {session_id}")
 
     session.payment_status = PaymentStatus.PAID
     session.closed_at = datetime.utcnow()
@@ -88,3 +98,51 @@ def checkout_and_close_table(
     # KÍCH HOẠT PIPELINE CỦA BẠN (TV4) CHẠY NGẦM
     background_tasks.add_task(run_etl_for_closed_session, session.id)
     return {"status": "paid_and_closed", "total_amount": session.total_amount}
+
+@router.get("/pos/bill/{session_id}")
+def get_session_bill(session_id: str, db: Session = Depends(get_db)):
+    """[TV3] Xem chi tiết hóa đơn bàn trước khi đóng (dành cho POS in tạm tính)"""
+    session = db.query(TableSession).filter(
+        (TableSession.id == session_id) | (TableSession.session_token == session_id)
+    ).first()
+    if not session and session_id.isdigit():
+        session = db.query(TableSession).filter(
+            TableSession.table_id == int(session_id),
+            TableSession.closed_at.is_(None)
+        ).order_by(TableSession.created_at.desc()).first()
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Không tìm thấy phiên bàn")
+
+    items_detail = []
+    for order in session.orders:
+        for it in order.items:
+            m_item = db.query(MenuItem).filter(MenuItem.id == it.menu_item_id).first()
+            items_detail.append({
+                "order_item_id": it.id,
+                "name": m_item.name if m_item else f"Món #{it.menu_item_id}",
+                "quantity": it.quantity,
+                "unit_price": it.unit_price,
+                "subtotal": it.quantity * it.unit_price,
+                "selected_toppings": it.selected_toppings,
+                "note": it.note,
+                "status": it.status.value
+            })
+    return {
+        "session_id": session.id,
+        "table_id": session.table_id,
+        "session_token": session.session_token,
+        "payment_status": session.payment_status.value,
+        "total_amount": session.total_amount,
+        "items": items_detail
+    }
+
+@router.websocket("/kds/ws")
+async def kds_realtime_ws(websocket: WebSocket):
+    """[TV3 + TV4] WebSocket cho màn hình Bếp KDS - Nhận thông báo tức thì khi có đơn mới"""
+    await ws_manager.connect_staff(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect_staff(websocket)

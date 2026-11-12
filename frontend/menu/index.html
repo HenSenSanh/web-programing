@@ -36,17 +36,38 @@
         <nav id="category-list" class="category-list" aria-label="Danh mục món"></nav>
         <div id="menu-grid" class="menu-grid" aria-live="polite"></div>
       </section>
+      <aside id="sent-orders" class="side-panel order-tracking-panel" aria-live="polite" aria-label="Theo dõi món đã gọi" aria-hidden="true">
+        <header class="orders-panel-head">
+          <div>
+            <p class="eyebrow">THEO DÕI ĐƠN</p>
+            <h2>Món đã gọi</h2>
+            <p class="orders-live-note">Trạng thái được cập nhật từ bếp</p>
+          </div>
+          <button id="close-orders" class="icon-button" type="button" aria-label="Đóng theo dõi đơn">×</button>
+        </header>
+        <div id="sent-order-list" class="sent-order-list"></div>
+        <footer class="orders-panel-total">
+          <span>Tổng tiền món chưa hủy</span>
+          <strong id="sent-orders-total">0 ₫</strong>
+        </footer>
+      </aside>
     </main>
 
     <footer class="page-footer"><span class="brand-mark small">d</span><span>Được phục vụ bởi DineFlow</span><span class="footer-right">Gọi món thật dễ dàng <b>✳</b></span></footer>
   </div>
 
-  <button id="cart-bar" class="cart-bar" type="button" hidden><span class="cart-count" id="cart-count">0</span><span class="cart-bar-label">Xem giỏ hàng</span><strong id="cart-total">0 ₫</strong><span class="cart-arrow">→</span></button>
+  <button id="cart-bar" class="cart-bar" type="button" hidden><span class="cart-count" id="cart-count">0</span><span class="cart-bar-label">Xem giỏ hàng</span><strong id="cart-total">0 ₫</strong><span class="cart-arrow">→</span></button>
+  <button id="orders-toggle" class="orders-toggle" type="button" aria-controls="sent-orders" aria-expanded="false" hidden>
+    <span class="orders-toggle-icon" aria-hidden="true">☷</span>
+    <span>Đơn đã gọi</span>
+    <span id="orders-count" class="orders-toggle-count">0</span>
+  </button>
+  <div id="orders-overlay" class="overlay orders-overlay" hidden></div>
   <div id="overlay" class="overlay" hidden></div>
   <aside id="cart-panel" class="side-panel" aria-label="Giỏ hàng" aria-hidden="true">
     <div class="panel-head"><div><p class="eyebrow">ĐƠN CỦA BẠN</p><h2>Giỏ hàng</h2></div><button class="icon-button" type="button" data-close aria-label="Đóng">×</button></div>
     <div id="cart-items" class="cart-items"></div>
-    <div class="cart-summary"><div class="total-line"><span>Tạm tính</span><strong id="panel-total">0 ₫</strong></div><p class="cart-hint">Món sẽ được gửi đến bếp sau khi bạn xác nhận.</p><button id="submit-order" class="primary-button" type="button">Gửi đơn đến bếp <span>→</span></button></div>
+    <div class="cart-summary"><div class="total-line"><span>Tạm tính</span><strong id="panel-total">0 ₫</strong></div><p class="cart-hint">Món sẽ được gửi đến bếp sau khi bạn xác nhận.</p><button id="submit-order" class="primary-button" type="button">Gửi đơn đến bếp <span>→</span></button></div>
   </aside>
 
   <dialog id="item-dialog" class="item-dialog">
@@ -57,4 +78,3 @@
   <script src="../js/menu.js" defer></script>
 </body>
 </html>
-

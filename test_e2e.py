@@ -58,18 +58,69 @@ def run_tests():
         order_payload = [
             {
                 "menu_item_id": 1,
-                "name": "Mì Cay Hải Sản Cấp Độ 7",
                 "quantity": 2,
-                "unit_price": 80000.0,
-                "selected_toppings": [{"id": 1, "name": "Thêm Phô Mai Kéo Sợi", "price": 15000.0}],
+                "unit_price": 1,
+                "selected_toppings": [{"id": 1, "price": 1, "name": "Giá giả"}],
                 "note": "Ít cay, nhiều nấm"
             }
         ]
-        r = client.post(f"/api/v1/client/session/{session_token}/submit-order", json=order_payload)
+        menu = client.get("/api/v1/admin/menu-items")
+        assert menu.status_code == 200, menu.text
+        menu_item = next(
+            item
+            for category in menu.json()["categories"]
+            for item in category["items"]
+            if item["id"] == 1
+        )
+        topping = next(
+            topping
+            for topping in menu.json()["available_toppings"]
+            if topping["id"] == 1
+        )
+        expected_unit_price = menu_item["price"] + topping["extra_price"]
+
+        quote = client.post(
+            f"/api/v1/client/session/{session_token}/price-cart",
+            json=order_payload,
+        )
+        assert quote.status_code == 200, quote.text
+        quoted_item = quote.json()["items"][0]
+        assert quoted_item["unit_price"] == expected_unit_price, "Báo giá không lấy giá từ database"
+        assert quoted_item["line_total"] == expected_unit_price * 2
+        assert quote.json()["total_amount"] == expected_unit_price * 2
+
+        idempotency_key = f"e2e-{session_id}-{time.time_ns()}"
+        order_headers = {"Idempotency-Key": idempotency_key}
+        r = client.post(
+            f"/api/v1/client/session/{session_token}/submit-order",
+            json=order_payload,
+            headers=order_headers,
+        )
         assert r.status_code == 200
         order_data = r.json()
         order_id = order_data.get("order_id")
-        created_item_ids = order_data.get("order_item_ids", [1])
+        assert order_data.get("total_amount") == quote.json()["total_amount"], "Đơn hàng không dùng giá do server tính"
+        created_item_ids = order_data.get("order_item_ids", [])
+        assert created_item_ids, "Đơn không tạo OrderItem"
+        assert order_data["items"][0]["unit_price"] == expected_unit_price
+        assert order_data["items"][0]["line_total"] == expected_unit_price * 2
+
+        replay = client.post(
+            f"/api/v1/client/session/{session_token}/submit-order",
+            json=order_payload,
+            headers=order_headers,
+        )
+        assert replay.status_code == 200
+        assert replay.json().get("order_id") == order_id, "Idempotency-Key đã tạo đơn trùng"
+
+        history = client.get(f"/api/v1/client/session/{session_token}/orders")
+        assert history.status_code == 200, history.text
+        saved_orders = history.json().get("orders", [])
+        assert any(order.get("order_id") == order_id for order in saved_orders), "Thiếu đơn trong lịch sử phiên"
+        saved_item = next(item for order in saved_orders if order["order_id"] == order_id for item in order["items"])
+        assert saved_item["status"] == "PENDING"
+        assert saved_item["unit_price"] == expected_unit_price
+        assert saved_item["line_total"] == expected_unit_price * 2
         target_item_id = created_item_ids[0] if created_item_ids else 1
         print(f"   -> Đặt hàng thành công! Mã Order: #{order_id}, Mã Món Order Item: #{target_item_id}")
 
@@ -96,13 +147,28 @@ def run_tests():
         time.sleep(1)
 
         # 7. TV4 & TV5 - Kiểm tra BI & Gợi ý
-        print("\n📊 [KẾT QUẢ PHÂN TÍCH BI & REVIEWS]:")
+        print("\n📊 [KẾT QUẢ PHÂN TÍCH DATA ENGINEERING (TV4) & BI (TV5)]:")
+        r_status = client.get("/api/v1/data/pipeline-status")
+        if r_status.status_code == 200:
+            st = r_status.json()
+            print(f"   ⚡ Trạng thái Data Warehouse: {st['status']} | FactOrderItem: {st['olap_star_schema_stats']['fact_order_items']} dòng | FactClickstream: {st['olap_star_schema_stats']['fact_clickstream']} dòng")
+
         r_rec = client.get("/api/v1/data/recommendations/1")
         if r_rec.status_code == 200:
             recs = r_rec.json().get("recommendations", [])
-            print("   💡 Top món gợi ý mua kèm với Món số 1 (Mì Cay):")
+            print("   💡 Top món gợi ý mua kèm với Món số 1 (Thuật toán Apriori):")
             for idx, item in enumerate(recs, 1):
-                print(f"      {idx}. {item['name']} - Giá: {item['current_price']:,.0f} VNĐ (Số lần gọi chung: {item['pair_count']})")
+                print(
+                    f"      {idx}. {item['name']} - Giá: {item['current_price']:,.0f} VNĐ "
+                    f"(Đi chung: {item['pair_count']} | Support: {item.get('support_pct')}% | Confidence: {item.get('confidence_pct')}% | Lift: {item.get('lift')}x)"
+                )
+
+        r_sla = client.get("/api/v1/data/sla-analytics")
+        if r_sla.status_code == 200:
+            chefs = r_sla.json().get("chef_performance", [])
+            print("\n   ⏱️ Phân tích SLA Bếp (Ngưỡng 15 phút):")
+            for c in chefs[:2]:
+                print(f"      • {c['chef_name']}: Đã nấu {c['total_dishes_cooked']} món | TB: {c['avg_prep_minutes']} phút | Vi phạm SLA: {c['sla_violation_rate_pct']}%")
 
         r_bi = client.get("/api/v1/bi/menu-engineering-matrix")
         if r_bi.status_code == 200:
