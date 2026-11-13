@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
 
 async function handleCheckout() {
   const inputElem = document.getElementById('session-id-input');
@@ -25,11 +25,12 @@ async function handleCheckout() {
 
     const result = await res.json();
     if (res.ok) {
-      const formattedTotal = result.total_amount ? Number(result.total_amount).toLocaleString('vi-VN') : 0;
-      alert(`🎉 THANH TOÁN THÀNH CÔNG!\n\n• Tổng tiền: ${formattedTotal} VNĐ\n• Trạng thái: Bàn đã được đóng và chuyển về TRỐNG\n• Hệ thống: Background ETL đã tự động đẩy dữ liệu sang Star Schema (OLAP).`);
+      const rawTotal = result.final_amount ?? result.total_amount ?? 0;
+      const formattedTotal = Number(rawTotal).toLocaleString('vi-VN');
+      alert(`🎉 THANH TOÁN THÀNH CÔNG!\n\n• Hóa đơn: ${result.invoice_code || '--'}\n• Tổng tiền (VAT 8%): ${formattedTotal} VNĐ\n• Trạng thái: Bàn đã được đóng và chuyển về TRỐNG\n• Hệ thống: ETL đã tự động đẩy dữ liệu sang Star Schema (OLAP).`);
       inputElem.value = '';
     } else {
-      alert(`⚠️ Lỗi thanh toán: ${result.detail || 'Không thể thanh toán'}`);
+      alert(`⚠️ Lỗi thanh toán: ${result.error || result.detail || 'Không thể thanh toán'}`);
     }
   } catch (err) {
     console.error("Lỗi khi kết nối API POS:", err);

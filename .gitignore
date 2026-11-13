@@ -15,7 +15,14 @@ __pycache__/
 
 # Database & Docker storage
 pgdata/
+*.sqlite
 *.sqlite3
+database/*.sqlite
+
+# Local Tools & Portable binaries
+tools/
+.agents/
+skills-lock.json
 
 # IDE & Editor files
 .vscode/
@@ -29,6 +36,14 @@ node_modules/
 dist/
 out/
 build/
+
+# Windows Batch files (Strictly forbidden by lecturer)
+*.bat
+
+# Composer / PHP Dependencies
+/vendor/
+app/vendor/
+composer.lock
 
 # Temporary / Local guides & redundant files
 HUONG_DAN_*.md

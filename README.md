@@ -1,152 +1,162 @@
-# 🍲 DINEFLOW - HỆ THỐNG GỌI MÓN QR TẠI BÀN, BẾP KDS & PHÂN TÍCH NHÀ HÀNG F&B
+# 🍲 DINEFLOW — HỆ THỐNG GỌI MÓN QR TẠI BÀN, BẾP KDS & PHÂN TÍCH NHÀ HÀNG F&B
+### ĐỒ ÁN MÔN LẬP TRÌNH WEB — HỆ THỐNG FULL-STACK PHP 8.2 + MYSQL 8.0 + DOCKER COMPOSE
 
-> **Đồ án Môn Lập trình Web**  
-> **Kiến trúc:** Client - Server (RESTful API, Real-time WebSockets & Dual-Schema OLTP/OLAP)  
-> **Công nghệ:** FastAPI (Python), PostgreSQL, Redis, HTML5 / CSS3 / JavaScript (Vanilla)
-
----
-
-## 📌 THÔNG TIN DÀNH CHO CẢ NHÓM (BẮT BUỘC ĐỌC TRƯỚC KHI CODE)
-
-Toàn bộ mã nguồn giao diện của cả 4 phân hệ hiện đã được gộp thống nhất về thư mục duy nhất: `frontend/`.  
-Hệ thống chạy trên **1 cổng Server duy nhất (`8000`)** — máy chủ FastAPI vừa phục vụ REST API vừa tự động render toàn bộ giao diện HTML/CSS/JS. Các bạn **không cần chạy tách rời frontend cổng 3000 hay cài đặt thêm Node.js/Next.js rườm rà**.
+> **Tài liệu chính thức dành cho cả nhóm:** Hướng dẫn chuẩn hóa 100% bằng câu lệnh **Docker CLI**, phân công nhiệm vụ chi tiết cho 5 thành viên (TV1, TV2, TV3, TV4, TV5) và danh sách đường dẫn kiểm thử chức năng. **Tuyệt đối không dùng file script `.bat` hay runtime bên ngoài**, tuân thủ nghiêm ngặt yêu cầu của giảng viên.
 
 ---
 
-## 🚀 HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG (2 BƯỚC)
+## 🚀 1. HƯỚNG DẪN KHỞI CHẠY HỆ THỐNG BẰNG DOCKER CLI (CHÍNH THỨC)
 
-### ⚙️ Yêu cầu môi trường (Prerequisites):
-1. **Docker Desktop** (bắt buộc đang bật sẵn để chạy Database & Redis).
-2. **Python 3.10+** đã cài trên máy.
+Hệ thống được đóng gói hoàn chỉnh bằng Docker Compose, chạy đồng nhất trên mọi hệ điều hành (Windows / macOS / Linux).
 
----
+### ⚙️ Yêu cầu môi trường duy nhất:
+* Cài đặt **Docker Desktop** (bắt buộc bật Docker Desktop trước khi chạy lệnh).
 
-### 👉 Cách nhanh nhất trên Windows:
-
-1. **Bước 1: Khởi động PostgreSQL & Redis**
-   - Mở Terminal/CMD tại thư mục dự án và chạy:
-     ```bash
-     docker compose up -d
-     ```
-   - *Kiểm tra đảm bảo 2 container `dineflow_postgres` (Port 5432) và `dineflow_redis` (Port 6379) đang ở trạng thái `Running`.*
-
-2. **Bước 2: Bật Server FastAPI**
-   - Nhấp đúp chuột vào file: **`1_chay_server.bat`**
-   - Khi cửa sổ hiện: `INFO: Uvicorn running on http://0.0.0.0:8000` là toàn bộ Backend và Frontend đã sẵn sàng hoạt động!
-
----
-
-### 👉 Khởi chạy thủ công bằng Terminal:
+### ⌨️ Các lệnh Terminal chuẩn (Chạy tại thư mục gốc dự án):
 
 ```bash
-# 1. Bật Docker database
+# BƯỚC 1: Khởi động 3 container dịch vụ ngầm (php-app, mysql, phpmyadmin)
+# Lưu ý: Dockerfile đã tự cài PHPMailer qua Composer và mount volume php_vendor; file .env đã có sẵn cấu hình Docker mặc định.
 docker compose up -d
 
-# 2. Đi vào thư mục backend
-cd backend
+# (Tùy chọn) Nếu có chỉnh sửa composer.json hoặc Dockerfile, build lại image:
+docker compose up -d --build
 
-# 3. Tạo môi trường ảo và cài đặt thư viện (chỉ làm lần đầu)
-python -m venv .venv
-.venv\Scripts\activate       # Trên Windows (.venv/bin/activate trên Mac/Linux)
-pip install -r requirements.txt
+# BƯỚC 2: Kiểm tra trạng thái 3 container đang chạy ổn định
+docker compose ps
+```
 
-# 4. Khởi tạo dữ liệu nền (10 bàn ăn, danh mục món ăn & tài khoản mẫu)
-python -m app.scripts.seed_data
+Khi muốn xem log hoặc dừng hệ thống:
+```bash
+# Xem log hệ thống thời gian thực:
+docker compose logs -f
 
-# 5. Khởi động server (Không dùng cờ --reload trên Windows để tránh crash)
-.venv\Scripts\uvicorn.exe app.main:app --host 0.0.0.0 --port 8000
+# Dừng toàn bộ hệ thống (giữ lại dữ liệu CSDL):
+docker compose down
+
+# Dừng và xóa toàn bộ dữ liệu CSDL cũ để nạp lại từ đầu:
+docker compose down -v
 ```
 
 ---
 
-## 🌐 DANH SÁCH ĐƯỜNG DẪN TRUY CẬP CÁC PHÂN HỆ
+## 👥 2. PHÂN CÔNG NHIỆM VỤ CHI TIẾT CHO 5 THÀNH VIÊN
 
-Khi Server đang chạy, mở trình duyệt và truy cập các liên kết tương ứng:
+Hệ thống được thiết kế theo mô hình **Modular Monolith** trên nền tảng **PHP 8.2 thuần + HTML5 + CSS3 + JavaScript**, phân định ranh giới trách nhiệm rõ ràng cho từng bạn:
 
-| Phân hệ / Vai trò | Đường dẫn trên trình duyệt | Mô tả chức năng |
+```
+                  ┌─────────────────────────────────────────────────────────┐
+                  │                 DINEFLOW SYSTEM CORE                    │
+                  │        (PHP 8.2 + MySQL 8.0 + Docker Compose)           │
+                  └────────────────────────────┬────────────────────────────┘
+                                               │
+       ┌───────────────────┬───────────────────┼───────────────────┬───────────────────┐
+       ▼                   ▼                   ▼                   ▼                   ▼
+    ┌─────┐             ┌─────┐             ┌─────┐             ┌─────┐             ┌─────┐
+    │ TV1 │             │ TV2 │             │ TV3 │             │ TV4 │             │ TV5 │
+    └─────┘             └─────┘             └─────┘             └─────┘             └─────┘
+    Admin &             Khách QR            Bếp KDS             Hạ tầng,            Báo cáo
+   Menu/Bàn            Mobile Menu         & Thu Ngân          RBAC, Test &        Doanh thu
+  (Phân trang)        (Giỏ hàng)          (In hóa đơn)        Chất lượng          & Ma trận
+```
+
+---
+
+### 👤 THÀNH VIÊN 1 (TV1) — Quản Lý Bàn Ăn, Thực Đơn & Xác Thực
+* **Trách nhiệm chính:**
+  * **Trang Đăng nhập & Đăng ký:** Xây dựng giao diện `login.php` và `register.php`, tích hợp mã hóa mật khẩu, ghi nhớ đăng nhập `Remember Me` và gửi email kích hoạt tài khoản qua SMTP.
+  * **Quản lý Bàn ăn & QR:** Xem trạng thái các bàn (Trống / Đang ăn / Đang chờ thanh toán), mở bàn cho khách và tự động tạo mã QR chứa `session_token`.
+  * **Quản lý Thực đơn (Bài A — Phân trang thật):** Thêm, sửa, xóa món ăn, chỉnh sửa đơn giá, bật/tắt trạng thái còn món/hết món. Áp dụng kỹ thuật phân trang thật bằng `COUNT(*)`, `LIMIT`, `OFFSET` trên MySQL, giữ nguyên bộ lọc tìm kiếm trên thanh URL.
+* **Các file phụ trách:** `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `frontend/tv1/table-management.html`, `frontend/tv1/menu-management.html`.
+
+---
+
+### 👤 THÀNH VIÊN 2 (TV2) — Giao Diện Khách Quét QR & Giỏ Hàng Chung
+* **Trách nhiệm chính:**
+  * **Menu Khách trên Điện thoại (`/frontend/menu/index.html?token={session_token}`):** Hiển thị danh mục món ăn, hình ảnh, mô tả, nhãn "Món Hot", tùy chọn topping và ghi chú món.
+  * **Giỏ hàng thời gian thực:** Thao tác trên cây HTML DOM mượt mà không tải lại trang, đồng bộ giỏ hàng chung giữa nhiều thiết bị cùng bàn qua REST API (`/api/v1/client/session/{token}/cart`).
+  * **Gửi đơn đặt món an toàn:** Gửi danh sách món xuống bếp kèm mã `Idempotency-Key` (chặn gửi trùng khi bấm đúp chuột), hỗ trợ khách gọi thêm nhiều đợt vào cùng một phiên bàn.
+  * **Gợi ý món ăn kèm:** Hiển thị thanh "🔥 Món hay được gọi kèm" trên popup chọn món lấy từ API gợi ý của TV4.
+* **Các file phụ trách:** `frontend/menu/index.html`, `frontend/js/menu.js`, `frontend/css/menu.css`.
+
+---
+
+### 👤 THÀNH VIÊN 3 (TV3) — Điều Phối Bếp KDS, Thu Ngân POS & In Hóa Đơn
+* **Trách nhiệm chính:**
+  * **Màn hình Bếp KDS (`/frontend/kds.html`):** Bếp nhận đơn hàng định kỳ qua API, hiển thị thời gian chờ món, đổi trạng thái món theo quy trình: `PENDING` (Chờ nấu) $\rightarrow$ `COOKING` (Đang nấu) $\rightarrow$ `COMPLETED` (Hoàn thành; API cũng hỗ trợ `READY` / `SERVED`).
+  * **Thu ngân POS (`/frontend/pos.html`):** Xem chi tiết các món bàn đã gọi, tạm tính tiền, áp dụng thuế VAT 8%, phí dịch vụ 0đ, làm tròn số tiền theo mốc 500đ chuẩn Việt Nam (`KdsPosController.php`).
+  * **Thanh toán & In chứng từ (Bài D):** Xác nhận thanh toán theo phương thức (`CASH` / `TRANSFER`), chốt đóng bàn, kích hoạt ETL tự động và hỗ trợ **lập/ghi sổ/in phiếu kho & hóa đơn theo chuẩn `@media print`** tại `app/public/documents.php` (sinh mã VietQR động là hạng mục mở rộng tiếp theo).
+* **Các file phụ trách:** `frontend/kds.html`, `frontend/pos.html`, `frontend/js/kds.js`, `frontend/js/pos.js`, `app/public/documents.php`.
+
+---
+
+### 👤 THÀNH VIÊN 4 (TV4) — Kiến Trúc Hệ Thống, Quản Trị Dữ Liệu & Kiểm Thử Chất Lượng
+* **Trách nhiệm chính:**
+  * **Hạ tầng Docker & CSDL Kép:** Xây dựng file `docker-compose.yml`, `Dockerfile`, thiết kế CSDL MySQL 8.0 gồm nhóm bảng vận hành (`oltp`) và kho dữ liệu hình sao (`olap`).
+  * **Phân quyền RBAC nâng cao (Bài B):** Xây dựng lõi kiểm tra quyền theo thứ tự ưu tiên: `deny riêng > allow riêng > nhóm > từ chối 403`.
+  * **Lịch sử giá theo thời gian (Bài C):** Quản lý khoảng giá `[valid_from, valid_to]`, chặn giao khoảng, chụp đơn giá snapshot vào chi tiết hóa đơn.
+  * **Bảo vệ Giao dịch & Chống âm tồn (Bài D):** Bọc các thao tác chốt đơn/thanh toán trong Database Transaction với khóa dòng, đảm bảo toàn vẹn: $\text{stock\_balances} = \sum(\text{stock\_movements})$.
+  * **Data Pipeline (ETL) & Gợi ý Apriori:** Vận hành luồng ETL tự động đổ dữ liệu sang OLAP khi thanh toán, tính toán luật kết hợp Apriori (Support, Confidence, Lift) và giám sát vi phạm SLA bếp (> 15 phút).
+  * **Cổng Kiểm thử Tự động:** Xây dựng và chạy bộ test `tests/run_tests.php` (**64 ca kiểm thử**) và `tests/test_tv4_core.php` kiểm chứng các module cốt lõi.
+* **Các file phụ trách:** `tv4.md`, `docker-compose.yml`, `database/init.sql`, `app/src/`, `app/Services/`, `app/Controllers/`, `tests/run_tests.php`, `tests/test_tv4_core.php`.
+
+---
+
+### 👤 THÀNH VIÊN 5 (TV5) — Báo Cáo Doanh Thu BI & Ma Trận Thực Đơn
+* **Trách nhiệm chính:**
+  * **BI Dashboard (`dashboard.php` & `demo_tester.html`):** Hiển thị KPI tổng quan, doanh thu theo giờ/ngày từ API `/api/v1/bi/dashboard-summary` và `/api/v1/bi/revenue-over-time` (truy vấn từ kho Star Schema).
+  * **Ma trận Menu Engineering (`/api/v1/bi/menu-engineering-matrix`):** Thống kê lượt xem (clickstream), số lượng bán, doanh thu và tỷ lệ chuyển đổi theo từng món ăn trên `demo_tester.html`.
+  * **Báo cáo Hiệu suất & SLA:** Theo dõi chỉ số SLA bếp và báo cáo tồn kho/doanh thu tại `dashboard.php` (tính năng xuất file Excel `.xlsx` riêng là hạng mục mở rộng sau MVP).
+* **Các file phụ trách:** `app/public/dashboard.php`, `app/Controllers/DataPipelineController.php` (BI endpoints), phần biểu đồ BI trong `demo_tester.html`.
+
+---
+
+## 🌐 3. DANH SÁCH ĐƯỜNG DẪN TRUY CẬP CHO CẢ NHÓM KIỂM THỬ
+
+Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập các liên kết tương ứng:
+
+| Phân hệ / Màn hình | Đường dẫn trên trình duyệt | Người phụ trách chính |
 | :--- | :--- | :--- |
-| **API Docs (Swagger)** | `http://localhost:8000/docs` | Tài liệu API chuẩn OpenAPI, xem schema JSON và test API trực tiếp |
-| **TV1 - Quản lý Bàn & QR** | `http://localhost:8000/frontend/tv1/table-management.html` | Xem trạng thái 10 bàn, bấm Mở bàn & Tạo mã QR cho khách |
-| **TV1 - Quản lý Thực đơn** | `http://localhost:8000/frontend/tv1/menu-management.html` | Thêm, sửa, xóa món ăn, chỉnh sửa giá và bật/tắt còn món/hết món |
-| **TV2 - Menu Khách QR** | `http://localhost:8000/frontend/menu/index.html` | Giao diện mobile khách chọn món, xem giỏ hàng chung, nhận gợi ý combo |
-| **TV3 - Bếp KDS** | `http://localhost:8000/frontend/kds.html` | Màn hình bếp nhận món real-time, chuyển trạng thái Đang nấu / Nấu xong |
-| **TV3 - Thu ngân POS** | `http://localhost:8000/frontend/pos.html` | Xem chi tiết đơn bàn, in hóa đơn tạm tính và thanh toán đóng bàn |
-| **TV4 - Điều phối & Gợi ý** | `http://localhost:8000/tv4` | Màn hình live operations: xem giỏ hàng WebSocket, đo thời gian bếp nấu, cấu hình combo gợi ý |
+| **Trang chủ hệ thống** | `http://localhost:8080/` | Cả nhóm |
+| **Đăng ký tài khoản** | `http://localhost:8080/register.php` | TV1 |
+| **Đăng nhập hệ thống** | `http://localhost:8080/login.php` | TV1 |
+| **Dashboard Tổng quan** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
+| **Quản lý Thực đơn (Phân trang)** | `http://localhost:8080/products.php` | TV1 |
+| **Phiếu kho & In hóa đơn** | `http://localhost:8080/documents.php` | TV3 & TV4 |
+| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/tv1/table-management.html` | TV1 |
+| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/tv1/menu-management.html` | TV1 |
+| **TV2 - Menu Khách Quét QR** | `http://localhost:8080/frontend/menu/index.html?token=tbl-01-sess` | TV2 |
+| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds.html` | TV3 |
+| **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos.html` | TV3 |
+| **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/tv4_data_pipeline.html` | TV4 |
+| **Simulator Demo Toàn Luồng E2E** | `http://localhost:8080/demo_tester.html` | TV4 & TV5 |
+| **Quản trị Cơ sở dữ liệu phpMyAdmin** | `http://localhost:8081/` | TV4 & Cả nhóm |
+
+### 🔑 Tài khoản mẫu có sẵn trong MySQL Docker (`database/init.sql`):
+* **Tài khoản Admin (Toàn quyền):** `admin` (`admin@dineflow.vn`) — Mật khẩu: `Admin@123` (hoặc `123456`)
+* **Tài khoản Người lập phiếu (`CREATOR`):** `creator` (`creator@example.com`) — Mật khẩu: `123456`
+* **Tài khoản Thủ kho (`KEEPER`):** `keeper` (`keeper@example.com`) — Mật khẩu: `123456`
+* **Tài khoản Chỉ xem (`VIEWER`):** `viewer` (`viewer@example.com`) — Mật khẩu: `123456`
+* *(Lưu ý: `database/seed.php` chỉ dùng riêng cho SQLite fallback với `admin`/`admin123`, `cashier1`/`cashier123`, `chef_hung`/`chef123`.)*
 
 ---
 
-## 👥 BẢNG PHÂN CÔNG NHIỆM VỤ 5 THÀNH VIÊN
+## 🧪 4. HƯỚNG DẪN CHẠY BỘ KIỂM THỬ TỰ ĐỘNG BẰNG DOCKER
 
-Mỗi thành viên tập trung vào đúng khu vực file được phân công để tránh xung đột mã nguồn (Git Conflict):
+Mỗi khi bất kỳ thành viên nào chỉnh sửa code, cần chạy lại bộ kiểm thử bên trong container Docker:
 
-### 1. TV1 (Trường) - Admin Danh mục Bàn & Thực đơn
-* **Thư mục Frontend:** [`frontend/tv1/`](file:///frontend/tv1/) (`table-management.html`, `menu-management.html`).
-* **Backend API phụ trách:** [`backend/app/routers/p1_admin_catalog.py`](file:///backend/app/routers/p1_admin_catalog.py).
-* **Nhiệm vụ chính:**
-  * Hoàn thiện UI/UX trang mở bàn: bấm nút mở bàn $\rightarrow$ gọi API sinh QR URL $\rightarrow$ hiển thị mã QR động để khách quét.
-  * Hoàn thiện bảng quản trị món ăn: form thêm món, lọc theo danh mục, nút gạt chuyển trạng thái Còn món / Tạm hết.
+```bash
+docker compose exec php-app php /var/www/tests/run_tests.php
+docker compose exec php-app php /var/www/tests/test_tv4_core.php
+```
 
-### 2. TV2 (Vinh) - Menu Khách Quét QR & Giỏ Hàng Chung
-* **Thư mục Frontend:** [`frontend/menu/`](file:///frontend/menu/) (`index.html`), [`frontend/js/menu.js`](file:///frontend/js/menu.js), [`frontend/css/`](file:///frontend/css/).
-* **Backend API phụ trách:** [`backend/app/routers/p2_client_order.py`](file:///backend/app/routers/p2_client_order.py).
-* **Nhiệm vụ chính:**
-  * Nhận query param `table` và `token` từ mã QR do TV1 tạo.
-  * Đồng bộ Giỏ hàng chung qua WebSocket (`/api/v1/client/ws/table/{token}`) giữa nhiều điện thoại cùng bàn.
-  * Khi khách bấm xem chi tiết 1 món $\rightarrow$ hiển thị thanh **"🔥 Món hay được gọi kèm"** từ API gợi ý của TV4.
-  * Bấm gửi đơn (`POST /api/v1/client/session/{token}/submit-order`) đẩy trực tiếp xuống bếp của TV3.
+Màn hình console `run_tests.php` sẽ tự động thực thi **64 ca kiểm thử** bao phủ toàn bộ:
+* 7 ca kiểm thử đăng ký tài khoản (Mục 38)
+* 4 ca kiểm thử xác nhận email qua token (Mục 39)
+* 7 ca kiểm thử đăng nhập và ghi nhớ cookie (Mục 40)
+* 6 ca kiểm thử ma trận phân quyền RBAC (Bài B)
+* 4 ca kiểm thử lịch sử giá theo thời gian không giao khoảng (Bài C)
+* 8 ca kiểm thử nhập/xuất kho, chặn âm tồn và đối soát dữ liệu (Bài D)
+* 28 ca kiểm thử 7 Trụ cột Chất lượng & Bất biến Nghiệp vụ TV4 (Phần 7: Anti-Tamper, Idempotency-Key, ETL Idempotent, Apriori, Kitchen SLA >900s, Chống âm tồn, Star Schema Integrity).
 
-### 3. TV3 (Vũ) - Bếp Điều Phối (KDS) & Thu Ngân (POS)
-* **Thư mục Frontend:** [`frontend/kds.html`](file:///frontend/kds.html), [`frontend/pos.html`](file:///frontend/pos.html), [`frontend/js/kds.js`](file:///frontend/js/kds.js), [`frontend/js/pos.js`](file:///frontend/js/pos.js).
-* **Backend API phụ trách:** [`backend/app/routers/p3_kds_pos.py`](file:///backend/app/routers/p3_kds_pos.py).
-* **Nhiệm vụ chính:**
-  * **KDS:** Tự động lắng nghe đơn món gửi từ TV2, cho phép đầu bếp bấm nhận món (`COOKING`) và nấu xong (`COMPLETED`).
-  * **POS:** Thu ngân chọn bàn (hỗ trợ nhập số bàn hoặc mã session) $\rightarrow$ xem tổng tiền $\rightarrow$ bấm **Thanh toán**.
-  * Ngay khi thanh toán thành công, hệ thống tự động giải phóng bàn về `AVAILABLE` và kích hoạt ngầm luồng đồng bộ sang kho dữ liệu cho TV4/TV5.
-
-### 4. TV4 (Bạn - Backend Lead) - Điều Phối Thời Gian Thực, ETL & Gợi Ý Món
-* **Thư mục Frontend:** [`frontend/tv4_data_pipeline.html`](file:///frontend/tv4_data_pipeline.html) (`http://localhost:8000/tv4`).
-* **Backend API phụ trách:** [`backend/app/routers/p4_data_pipeline.py`](file:///backend/app/routers/p4_data_pipeline.py), [`backend/app/core/`](file:///backend/app/core/), [`backend/app/models/`](file:///backend/app/models/).
-* **Nhiệm vụ chính:**
-  * Quản trị hạ tầng Cơ sở dữ liệu Dual-Schema (`oltp` cho vận hành bán hàng, `olap` cho phân tích sao Star Schema).
-  * Điều phối WebSocket & Giỏ hàng chung trên Redis (`ws_and_cart.py`).
-  * Xây dựng tiến trình Background ETL tự động biến đổi hóa đơn đã thanh toán sang bảng `fact_order_items`.
-  * Thuật toán gợi ý món mua kèm (Apriori Market Basket Analysis) và API cấu hình cặp món khuyến mãi Combo Upsell.
-  * Đo lường thời gian chế biến của bếp và phát hiện vi phạm SLA (> 15 phút).
-
-### 5. TV5 (Thắng) - Báo Cáo BI & Phân Tích Doanh Thu
-* **Thư mục Frontend:** Tự do tạo file giao diện báo cáo (VD: `frontend/dashboard.html`).
-* **Backend API phụ trách:** [`backend/app/routers/p5_bi_dashboard.py`](file:///backend/app/routers/p5_bi_dashboard.py).
-* **Nhiệm vụ chính:**
-  * Sử dụng thư viện biểu đồ (`Chart.js` hoặc tương đương) vẽ Dashboard phân tích:
-    * Doanh thu theo chuỗi thời gian ngày/tuần: `GET /api/v1/bi/revenue-over-time`.
-    * Tổng hợp KPIs doanh thu & tỷ lệ chuyển đổi: `GET /api/v1/bi/dashboard-summary`.
-    * Ma trận thực đơn Menu Engineering (So sánh Lượt xem QR vs Lượt bán thực tế): `GET /api/v1/bi/menu-engineering-matrix`.
-    * Khung giờ cao điểm: `GET /api/v1/data/peak-hours`.
-
----
-
-## 🔄 QUY TRÌNH KIỂM THỬ TOÀN DIỆN (E2E TEST TỪ A ĐẾN Z)
-
-Để kiểm tra hệ thống hoạt động thông suốt qua cả 4 phân hệ:
-
-1. **Bước 1 (TV1):** Mở `http://localhost:8000/frontend/tv1/table-management.html` $\rightarrow$ Chọn **Bàn 01** $\rightarrow$ Bấm **"Mở bàn & Tạo QR"**.
-2. **Bước 2 (TV2):** Bấm trực tiếp vào ảnh QR hoặc nút **"👉 Mở Menu Đặt Món (TV2)"** $\rightarrow$ Trang menu khách mở ra với token của Bàn 01 $\rightarrow$ Chọn món, thêm topping, quan sát gợi ý món đi kèm $\rightarrow$ Bấm **"Gửi đơn đến bếp"**.
-3. **Bước 3 (TV3 KDS):** Mở `http://localhost:8000/frontend/kds.html` $\rightarrow$ Thấy món của Bàn 01 xuất hiện $\rightarrow$ Bấm **Bắt đầu nấu** $\rightarrow$ Bấm **Nấu xong**.
-4. **Bước 4 (TV3 POS):** Mở `http://localhost:8000/frontend/pos.html` $\rightarrow$ Nhập số bàn `1` $\rightarrow$ Bấm **Tra cứu** $\rightarrow$ Bấm **Thanh toán & Đóng bàn**.
-5. **Bước 5 (TV4):** Mở `http://localhost:8000/tv4` $\rightarrow$ Thấy hóa đơn Bàn 01 xuất hiện trong bảng Nhật ký, đã tự động chuyển sang OLAP và ghi nhận thời gian nấu của Bếp.
-6. **Bước 6 (TV5):** Các API BI Dashboard tự động cập nhật doanh thu thật vừa thu được từ Bàn 01.
-
----
-
-## 🛠️ KHẮC PHỤC SỰ CỐ THƯỜNG GẶP (TROUBLESHOOTING)
-
-1. **Lỗi `Cannot connect to server / localhost:8000`:**
-   * Đảm bảo cửa sổ `1_chay_server.bat` đang chạy và không bị tắt.
-   * Kiểm tra Docker Desktop đã `docker compose up -d` thành công chưa.
-2. **Lỗi `Port 8000 already in use`:**
-   * Mở Task Manager tắt các tiến trình `python.exe` hoặc `uvicorn.exe` chạy ngầm từ phiên làm việc trước.
-3. **Khi cần tạo mới lại dữ liệu bàn & món ăn:**
-   * Chạy lệnh: `.venv\Scripts\python.exe -m app.scripts.seed_data`.
-
----
-*DineFlow - Đồ án Môn Lập trình Web. Mọi thắc mắc về API hoặc kết nối luồng vui lòng liên hệ TV4 (Backend Lead).*
+Kết quả mong đợi: **`64 PASSED / 64 TOTAL (100% PASS)`**.

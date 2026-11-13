@@ -4,8 +4,8 @@
 
   const params = new URLSearchParams(location.search);
   const sessionToken = params.get("token") || "";
-  const tableNumber = params.get("table") || "";
-  const API_BASE = (params.get("api") || localStorage.getItem("dineflow_api_base") || "http://localhost:8000").replace(/\/$/, "");
+  let tableNumber = params.get("table") || "";
+  const API_BASE = (params.get("api") || localStorage.getItem("dineflow_api_base") || (location.protocol.startsWith("http") ? location.origin : "http://localhost:8080")).replace(/\/$/, "");
   const FRONTEND_ROOT = new URL("../", document.currentScript.src);
 
   const $ = (selector) => document.querySelector(selector);
@@ -20,8 +20,9 @@
   let cart = [];
   let selectedCategory = "Tất cả";
   let activeItem = null;
-  let socket = null;
-  let reconnectTimer = null;
+  let cartSyncTimer = null;
+  let isSyncingCart = false;
+  let pendingIdempotencyKey = null;
   let toastTimer = null;
   let submitting = false;
 
@@ -79,14 +80,43 @@
     els.table.textContent = sessionToken ? label : `${label} · Xem thử`;
   }
 
+  async function loadSessionInfo() {
+    if (!sessionToken) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}`, { headers: { Accept: "application/json" } });
+      if (!response.ok) return;
+      const data = await response.json();
+      if (data.table_number) {
+        tableNumber = String(data.table_number);
+        updateTableLabel();
+      }
+      if (data.status && data.status !== "ACTIVE") {
+        showNotice("Phiên bàn này đã đóng hoặc đã thanh toán.");
+      }
+    } catch (error) {
+      console.info("Không lấy được thông tin phiên bàn", error);
+    }
+  }
+
   async function loadMenu() {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/admin/menu-items`, { headers: { Accept: "application/json" } });
+      const response = await fetch(`${API_BASE}/api/v1/admin/menu-catalog`, { headers: { Accept: "application/json" } });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      categories = (data.categories || []).map((category) => ({ ...category, items: category.items || [] }));
+      if (Array.isArray(data)) {
+        const grouped = new Map();
+        for (const item of data) {
+          const catName = item.category_name || "Thực đơn";
+          if (!grouped.has(catName)) grouped.set(catName, { id: item.category_id || grouped.size + 1, name: catName, items: [] });
+          grouped.get(catName).items.push(item);
+        }
+        categories = [...grouped.values()];
+        toppings = [];
+      } else {
+        categories = (data.categories || []).map((category) => ({ ...category, items: category.items || [] }));
+        toppings = data.available_toppings || [];
+      }
       menuItems = categories.flatMap((category) => category.items.map((item) => ({ ...item, category: category.name })));
-      toppings = data.available_toppings || [];
       if (!menuItems.length) showNotice("Menu từ máy chủ hiện chưa có món. Hãy chạy dữ liệu mẫu hoặc kiểm tra danh mục món.");
     } catch (error) {
       categories = [];
@@ -253,14 +283,43 @@
   }
 
   function cleanCart(rawCart) {
-    return (rawCart || []).map((item) => ({
-      menu_item_id: Number(item.menu_item_id),
-      name: String(item.name || "Món ăn"),
-      quantity: Number(item.quantity) || 1,
-      unit_price: Number(item.unit_price) || 0,
-      selected_toppings: (item.selected_toppings || []).map((top) => ({ id: Number(top.id), name: String(top.name), price: Number(top.price || 0) })),
-      note: item.note || "",
-    }));
+    return (rawCart || []).map((item) => {
+      const rawTops = item.selected_toppings || item.toppings || [];
+      const selectedToppings = Array.isArray(rawTops)
+        ? rawTops.map((top) => {
+            if (typeof top === "object" && top !== null) {
+              const found = toppings.find((t) => String(t.id) === String(top.id));
+              return {
+                id: Number(top.id || found?.id || 0),
+                name: String(top.name || found?.name || "Topping"),
+                price: Number(top.price ?? top.extra_price ?? found?.extra_price ?? 0),
+              };
+            }
+            const foundByName = toppings.find((t) => String(t.name) === String(top));
+            return {
+              id: Number(foundByName?.id || 0),
+              name: String(top),
+              price: Number(foundByName?.extra_price || 0),
+            };
+          })
+        : [];
+      const note = String(item.note ?? item.notes ?? "");
+      const menuItemId = Number(item.menu_item_id || item.id);
+      const toppingExtra = selectedToppings.reduce((sum, t) => sum + Number(t.price || 0), 0);
+      const serverBase = menuItems.find((m) => Number(m.id) === menuItemId)?.price;
+      const computedPrice = item.unit_price !== undefined && Number(item.unit_price) > Number(serverBase || 0)
+        ? Number(item.unit_price)
+        : Number(serverBase ?? item.unit_price ?? item.price ?? 0) + toppingExtra;
+      return {
+        _key: `${menuItemId}-${selectedToppings.map((top) => top.id).sort().join(",")}-${note.trim()}`,
+        menu_item_id: menuItemId,
+        name: String(item.name || "Món ăn"),
+        quantity: Number(item.quantity) || 1,
+        unit_price: computedPrice,
+        selected_toppings: selectedToppings,
+        note,
+      };
+    });
   }
 
   function addToCart(item, quantity, chosenToppings = [], note = "") {
@@ -339,10 +398,30 @@
       .join("");
   }
 
-  function syncCart() {
+  async function syncCart() {
+    pendingIdempotencyKey = null;
     renderCartPanel();
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ event: "UPDATE_CART", cart }));
+    if (!sessionToken) return;
+    isSyncingCart = true;
+    try {
+      await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/cart`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          items: cart.map((item) => ({
+            menu_item_id: item.menu_item_id,
+            name: item.name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            selected_toppings: item.selected_toppings,
+            note: item.note || "",
+          })),
+        }),
+      });
+    } catch (error) {
+      console.info("Không đồng bộ được giỏ hàng lên máy chủ", error);
+    } finally {
+      isSyncingCart = false;
     }
   }
 
@@ -355,6 +434,9 @@
     submitting = true;
     els.submit.disabled = true;
     els.submit.innerHTML = 'Đang gửi đến bếp… <span>→</span>';
+    if (!pendingIdempotencyKey) {
+      pendingIdempotencyKey = `menu-${sessionToken}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    }
 
     try {
       const payload = cart.map((item) => ({
@@ -368,14 +450,19 @@
 
       const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/submit-order`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "Idempotency-Key": pendingIdempotencyKey,
+        },
         body: JSON.stringify(payload),
       });
 
       const result = await response.json();
-      if (!response.ok) throw new Error(result.detail || `Không gửi được đơn (HTTP ${response.status})`);
+      if (!response.ok) throw new Error(result.error || result.detail || `Không gửi được đơn (HTTP ${response.status})`);
       cart = [];
-      syncCart();
+      pendingIdempotencyKey = null;
+      await syncCart();
       closeCart();
       toast(`Đã gửi đơn #${result.order_id} xuống bếp thành công!`);
     } catch (error) {
@@ -387,27 +474,30 @@
     }
   }
 
-  function connectSharedCart() {
-    if (!sessionToken || !("WebSocket" in window)) return;
-    const wsBase = API_BASE.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
+  async function fetchRemoteCart() {
+    if (!sessionToken || isSyncingCart || submitting) return;
     try {
-      socket = new WebSocket(`${wsBase}/api/v1/client/ws/table/${encodeURIComponent(sessionToken)}`);
-      socket.addEventListener("message", (event) => {
-        try {
-          const message = JSON.parse(event.data);
-          if (message.event === "CART_SYNC") { cart = cleanCart(message.cart); renderCartPanel(); updateCartTotalsOnly(); }
-          if (message.event === "ORDER_SUBMITTED") {
-            cart = [];
-            renderCartPanel();
-            updateCartTotalsOnly();
-            toast("Đơn của bàn đã được gửi đến bếp");
-          }
-          if (message.event === "ITEM_STATUS_UPDATED") toast(`Trạng thái món đã cập nhật: ${message.new_status}`);
-        } catch (error) { console.info("Bỏ qua tin nhắn WebSocket không hợp lệ", error); }
+      const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/cart`, {
+        headers: { Accept: "application/json" },
       });
-      socket.addEventListener("close", () => { clearTimeout(reconnectTimer); reconnectTimer = setTimeout(connectSharedCart, 3000); });
-      socket.addEventListener("error", () => socket.close());
-    } catch (error) { console.info("Không thể khởi tạo WebSocket", error); }
+      if (!response.ok) return;
+      const data = await response.json();
+      const nextCart = cleanCart(data.items || []);
+      if (JSON.stringify(nextCart) !== JSON.stringify(cart)) {
+        cart = nextCart;
+        renderCartPanel();
+        updateCartTotalsOnly();
+      }
+    } catch (error) {
+      console.info("Bỏ qua lỗi tải lại giỏ hàng chung", error);
+    }
+  }
+
+  function connectSharedCart() {
+    if (!sessionToken) return;
+    fetchRemoteCart();
+    clearInterval(cartSyncTimer);
+    cartSyncTimer = setInterval(fetchRemoteCart, 4000);
   }
   function updateCartTotalsOnly() {
     const count = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -434,9 +524,6 @@
     if (button) openItem(button.dataset.add);
   });
   els.search.addEventListener("input", renderMenu);
-  els.dialog.addEventListener("click", (event) => {
-    if (event.target.closest("[data-dialog-qty]")) queueMicrotask(updateDialogPrice);
-  });
   els.dialog.addEventListener("change", (event) => {
     if (event.target.matches(".topping-option input")) updateDialogPrice();
   });
@@ -452,7 +539,7 @@
       const next = Math.max(1, Number(els.dialog.dataset.quantity || 1) + Number(qtyButton.dataset.dialogQty));
       els.dialog.dataset.quantity = next;
       $("#dialog-quantity").textContent = next;
-      $("#add-configured").innerHTML = `Thêm · ${money(next * Number(activeItem.price))} <span>→</span>`;
+      updateDialogPrice();
       return;
     }
     if (event.target.id === "add-configured") {
@@ -478,6 +565,7 @@
   els.submit.addEventListener("click", submitOrder);
 
   updateTableLabel();
+  loadSessionInfo();
   loadMenu();
   connectSharedCart();
   if (!sessionToken) showNotice("Đây là chế độ xem thử. Hãy mở liên kết QR có token phiên hợp lệ để đồng bộ giỏ hàng và gửi đơn.");

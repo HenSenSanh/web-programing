@@ -1,0 +1,7 @@
+{
+  "name": "student/php-inventory-system",
+  "description": "Hệ thống xác thực và quản lý kho PHP thuần + MySQL + Docker",
+  "require": {
+    "phpmailer/phpmailer": "^6.9"
+  }
+}

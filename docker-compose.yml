@@ -1,25 +1,61 @@
-version: '3.8'
-
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: dineflow_postgres
+  php-app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: dineflow_php_app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./app:/var/www/html
+      - ./composer.json:/var/www/html/composer.json
+      - php_vendor:/var/www/html/vendor
+      - ./frontend:/var/www/html/public/frontend
+      - ./demo_tester.html:/var/www/html/public/demo_tester.html
+      - ./tests:/var/www/tests
+      - ./database:/var/www/database
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+    networks:
+      - dineflow_network
+
+  mysql:
+    image: mysql:8.0
+    container_name: dineflow_mysql
     restart: always
     environment:
-      POSTGRES_USER: dineflow_user
-      POSTGRES_PASSWORD: dineflow_password
-      POSTGRES_DB: dineflow_db
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DB_DATABASE:-login_system}
+      MYSQL_USER: ${DB_USERNAME:-login_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-login_password}
     ports:
-      - "5432:5432"
+      - "3307:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - dineflow_network
 
-  redis:
-    image: redis:7-alpine
-    container_name: dineflow_redis
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: dineflow_phpmyadmin
     restart: always
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
     ports:
-      - "6379:6379"
+      - "8081:80"
+    depends_on:
+      - mysql
+    networks:
+      - dineflow_network
 
 volumes:
-  pgdata:
+  mysql_data:
+  php_vendor:
+
+networks:
+  dineflow_network:
+    driver: bridge
