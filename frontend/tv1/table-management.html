@@ -224,7 +224,7 @@
 
     <script>
         // ⚠️ QUAN TRỌNG: Địa chỉ API backend
-        const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8000') + '/api/v1';
+        const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
 
         // Hàm hiển thị thông báo (toast)
         function showToast(message, isError = false) {
@@ -301,7 +301,8 @@
                     actionHTML = `<button class="btn-open" onclick="openTable(${tableId})">Mở bàn & Tạo QR</button>`;
                 } else {
                     // 🎯 TẠO URL CHỨA SESSION TOKEN ĐỂ KHÁCH QUÉT (Mở trực tiếp từ thư mục frontend/menu đã gộp)
-                    const orderPageUrl = new URL(`../menu/index.html?table=${tableId}&token=${table.current_session_token}`, window.location.href).href;
+                    const sessToken = table.current_session_token || table.session_token || '';
+                    const orderPageUrl = new URL(`../menu/index.html?table=${tableId}&token=${encodeURIComponent(sessToken)}`, window.location.href).href;
                     
                     // 📸 TẠO LINK ẢNH QR CODE TỰ ĐỘNG
                     const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(orderPageUrl)}`;
@@ -321,7 +322,7 @@
                                 </a>
                             </div>
                             <div style="font-size: 11px; color: #666; word-break: break-all;">
-                                Token: ${table.current_session_token || 'N/A'}
+                                Token: ${sessToken || 'N/A'}
                             </div>
                         </div>
                     `;
@@ -352,8 +353,10 @@
                     let errorMsg = `Lỗi HTTP: ${response.status}`;
                     try {
                         const errorData = await response.json();
-                        // Backend PHP trả lỗi trong trường 'detail'
-                        if (errorData.detail) {
+                        // Backend PHP trả lỗi trong trường 'error' hoặc 'detail'
+                        if (errorData.error) {
+                            errorMsg = errorData.error;
+                        } else if (errorData.detail) {
                             // Nếu detail là mảng (lỗi validation), lấy thông báo đầu tiên
                             if (Array.isArray(errorData.detail)) {
                                 errorMsg = errorData.detail[0].msg || JSON.stringify(errorData.detail);

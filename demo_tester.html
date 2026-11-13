@@ -48,12 +48,12 @@
 
         <div class="flex items-center gap-3">
           <span class="text-xs font-medium text-slate-600"
-            >FastAPI Server:</span
+            >PHP API Server:</span
           >
           <input
             id="serverUrl"
             type="text"
-            value="http://localhost:8000"
+            value="http://localhost:8080"
             class="text-xs px-2.5 py-1.5 border rounded-lg w-48 font-mono bg-slate-50"
           />
 
@@ -131,13 +131,13 @@
           <div class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-700"
-                >Giỏ Hàng Chung (Redis + WebSocket)</span
+                >Giỏ Hàng Chung (Shared Cart REST)</span
               >
               <span
                 id="wsStatus"
                 class="text-[10px] bg-slate-200 px-2 py-0.5 rounded"
               >
-                WS: Chưa nối
+                Cart: Chưa mở bàn
               </span>
             </div>
 
@@ -417,8 +417,8 @@
           class="h-28 overflow-y-auto space-y-0.5 text-[11px] select-all"
         >
           <div class="text-slate-500">
-            [Hệ thống] Sẵn sàng kiểm thử. Hãy đảm bảo FastAPI server đang chạy
-            tại port 8000.
+            [Hệ thống] Sẵn sàng kiểm thử. Hãy đảm bảo PHP Apache server đang chạy
+            tại port 8080 (Docker).
           </div>
         </div>
       </div>
@@ -428,8 +428,18 @@
       let currentSessionId = "";
       let currentSessionToken = "";
       let localCart = [];
-      let ws = null;
+      let cartPollTimer = null;
       let latestOrderId = null;
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        }[ch]));
+      }
 
       function getBaseUrl() {
         return document
@@ -447,7 +457,7 @@
         if (type === "warn") color = "text-amber-400";
         if (type === "error") color = "text-rose-400";
 
-        box.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
+        box.innerHTML += `<div class="${color}">[${time}] ${escapeHtml(msg)}</div>`;
         box.scrollTop = box.scrollHeight;
       }
 
@@ -457,13 +467,13 @@
         const badge = document.getElementById("healthBadge");
 
         try {
-          const res = await fetch(`${url}/docs`);
+          const res = await fetch(`${url}/api/v1/health`);
 
           if (res.ok) {
             badge.className =
               "px-2.5 py-1 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800";
             badge.textContent = "Server Online";
-            log("Kết nối tới FastAPI server thành công!", "success");
+            log("Kết nối tới PHP Apache server thành công!", "success");
           } else {
             throw new Error("HTTP " + res.status);
           }
@@ -488,12 +498,13 @@
           });
 
           const data = await res.json();
+          if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
 
           currentSessionId = data.session_id;
           currentSessionToken = data.session_token;
 
           document.getElementById("txtSessionId").textContent =
-            currentSessionId.slice(0, 13) + "...";
+            String(currentSessionId).slice(0, 13) + "...";
 
           document.getElementById("txtSessionToken").textContent =
             currentSessionToken;
@@ -503,56 +514,48 @@
             "success",
           );
 
-          connectCartWs(currentSessionToken);
+          connectCartRest(currentSessionToken);
         } catch (e) {
           log("Lỗi mở bàn: " + e.message, "error");
         }
       }
 
-      // TV2: KẾT NỐI WEBSOCKET
-      function connectCartWs(token) {
+      // TV2: ĐỒNG BỘ GIỎ HÀNG CHUNG QUA REST API
+      async function pullSharedCart(token) {
         if (!token) return;
-
-        const wsUrl =
-          getBaseUrl().replace(/^http/, "ws") +
-          `/api/v1/client/ws/table/${token}`;
-
-        const statusEl = document.getElementById("wsStatus");
-
         try {
-          if (ws) ws.close();
-
-          ws = new WebSocket(wsUrl);
-
-          ws.onopen = () => {
-            statusEl.textContent = "WS: Đã kết nối";
-            statusEl.className =
-              "text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded";
-            log("WebSocket giỏ hàng đã kết nối thành công!", "success");
-          };
-
-          ws.onmessage = (event) => {
-            const msg = JSON.parse(event.data);
-
-            if (msg.event === "CART_SYNC") {
-              localCart = msg.cart || [];
-              renderCart();
-              log("Nhận cập nhật giỏ hàng từ WebSocket (Shared Cart)");
-            } else if (msg.event === "ITEM_STATUS_UPDATED") {
-              log(
-                `[Khách] Món #${msg.order_item_id} được đổi trạng thái: ${msg.new_status}`,
-                "warn",
-              );
-            }
-          };
-
-          ws.onclose = () => {
-            statusEl.textContent = "WS: Đã ngắt";
-            statusEl.className = "text-[10px] bg-slate-200 px-2 py-0.5 rounded";
-          };
+          const res = await fetch(
+            `${getBaseUrl()}/api/v1/client/session/${encodeURIComponent(token)}/cart`,
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (Array.isArray(data.items)) {
+            localCart = data.items.map((item) => ({
+              menu_item_id: Number(item.menu_item_id),
+              name: item.name,
+              quantity: Number(item.quantity) || 1,
+              unit_price: Number(item.unit_price ?? item.price ?? 0),
+              selected_toppings: item.selected_toppings || item.toppings || [],
+              note: item.note || item.notes || "",
+            }));
+            renderCart();
+          }
         } catch (e) {
-          log("Lỗi WS: " + e.message, "error");
+          // Ignore polling hiccups
         }
+      }
+
+      function connectCartRest(token) {
+        if (!token) return;
+        const statusEl = document.getElementById("wsStatus");
+        statusEl.textContent = "REST Sync: Sẵn sàng";
+        statusEl.className =
+          "text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded";
+        log("Đã bật đồng bộ Shared Cart qua REST API (/cart)!", "success");
+
+        pullSharedCart(token);
+        clearInterval(cartPollTimer);
+        cartPollTimer = setInterval(() => pullSharedCart(token), 4000);
       }
 
       // TV4: GỬI CLICKSTREAM EVENT
@@ -583,9 +586,9 @@
       }
 
       // TV2: THÊM MÓN VÀO GIỎ HÀNG
-      function addToCart(id, name, price) {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-          log("WebSocket chưa kết nối! Hãy bấm 'Tạo Phiên Bàn' trước.", "warn");
+      async function addToCart(id, name, price) {
+        if (!currentSessionToken) {
+          log("Chưa có phiên bàn! Hãy bấm 'Tạo Phiên Bàn' trước.", "warn");
           return;
         }
 
@@ -606,14 +609,24 @@
           });
         }
 
-        ws.send(
-          JSON.stringify({
-            event: "UPDATE_CART",
-            cart: localCart,
-          }),
-        );
-
         renderCart();
+
+        try {
+          const res = await fetch(
+            `${getBaseUrl()}/api/v1/client/session/${encodeURIComponent(currentSessionToken)}/cart`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ items: localCart }),
+            },
+          );
+          if (res.ok) {
+            const synced = await res.json();
+            log(`Đã đồng bộ Shared Cart (${synced.total_quantity || localCart.length} món)`, "info");
+          }
+        } catch (e) {
+          log("Lỗi đồng bộ giỏ hàng: " + e.message, "error");
+        }
       }
 
       // TV2: HIỂN THỊ GIỎ HÀNG
@@ -629,9 +642,9 @@
           .map(
             (item) => `
         <li class="flex items-center justify-between border-b pb-1">
-          <span>${item.name} x <b>${item.quantity}</b></span>
+          <span>${escapeHtml(item.name)} x <b>${Number(item.quantity) || 0}</b></span>
           <span class="font-mono text-indigo-600">
-            ${(item.unit_price * item.quantity).toLocaleString()}đ
+            ${(Number(item.unit_price || 0) * Number(item.quantity || 0)).toLocaleString()}đ
           </span>
         </li>
       `,
@@ -653,15 +666,19 @@
 
         try {
           const res = await fetch(
-            `${getBaseUrl()}/api/v1/client/session/${currentSessionToken}/submit-order`,
+            `${getBaseUrl()}/api/v1/client/session/${encodeURIComponent(currentSessionToken)}/submit-order`,
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: {
+                "Content-Type": "application/json",
+                "Idempotency-Key": `demo-${currentSessionToken}-${Date.now()}`,
+              },
               body: JSON.stringify(localCart),
             },
           );
 
           const data = await res.json();
+          if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
 
           latestOrderId = data.order_id;
 
@@ -722,17 +739,19 @@
           const res = await fetch(
             `${getBaseUrl()}/api/v1/staff/kds/item-status`,
             {
-              method: "PATCH",
+              method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 order_item_id: orderItemId,
                 chef_id: 3,
+                status: status,
                 new_status: status,
               }),
             },
           );
 
           const data = await res.json();
+          if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
 
           const badge = document.getElementById("kdsStatusBadge");
 
@@ -763,24 +782,27 @@
 
         try {
           const res = await fetch(
-            `${getBaseUrl()}/api/v1/staff/pos/checkout/${currentSessionId}`,
+            `${getBaseUrl()}/api/v1/staff/pos/checkout/${encodeURIComponent(currentSessionId)}`,
             {
               method: "POST",
             },
           );
 
           const data = await res.json();
+          if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
+
+          const paidAmount = Number(data.final_amount ?? data.total_amount ?? 0);
 
           document.getElementById("checkoutResult").innerHTML = `
           <div class="p-2 bg-emerald-50 text-emerald-800 rounded border border-emerald-200 mt-2">
             ✅ Đã thanh toán:
-            <b>${data.total_amount?.toLocaleString() || 0} VNĐ</b><br>
+            <b>${paidAmount.toLocaleString()} VNĐ</b><br>
             🚀 ETL Background đã tự động đẩy sang Star Schema OLAP.
           </div>
         `;
 
           log(
-            `Đã thanh toán bàn! Tổng tiền: ${data.total_amount?.toLocaleString()} VNĐ`,
+            `Đã thanh toán bàn! Tổng tiền: ${paidAmount.toLocaleString()} VNĐ`,
             "success",
           );
 
@@ -818,22 +840,27 @@
 
           list.innerHTML = recs
             .map(
-              (item, idx) => `
+              (item, idx) => {
+                const metricBadge = item.pair_count !== undefined
+                  ? `${item.pair_count} lượt gọi kèm`
+                  : `${item.confidence_pct ?? Math.round((item.confidence || 0) * 100)}% tin cậy`;
+                return `
           <div class="flex items-center justify-between p-1.5 bg-white border rounded">
             <div>
               <span class="font-semibold text-slate-800">
-                ${idx + 1}. ${item.name}
+                ${idx + 1}. ${escapeHtml(item.name || item.target_item_name)}
               </span>
               <div class="text-[10px] text-slate-500">
-                ${item.current_price?.toLocaleString()}đ
+                ${Number(item.current_price ?? item.price ?? 0).toLocaleString()}đ
               </div>
             </div>
 
             <span class="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded font-mono">
-              ${item.pair_count} lượt gọi kèm
+              ${escapeHtml(metricBadge)}
             </span>
           </div>
-        `,
+        `;
+              },
             )
             .join("");
 
@@ -971,7 +998,7 @@
           <tr class="hover:bg-slate-50">
 
             <td class="p-1.5 font-medium text-slate-800">
-              ${item.name}
+              ${escapeHtml(item.name)}
             </td>
 
             <td class="p-1.5 text-right font-mono text-slate-600">
@@ -1008,6 +1035,9 @@
       // TỰ ĐỘNG TẢI DỮ LIỆU KHI MỞ TRANG
       // =====================================================
       window.onload = () => {
+        if (location.protocol.startsWith("http")) {
+          document.getElementById("serverUrl").value = location.origin;
+        }
         checkHealth();
 
         // TV4

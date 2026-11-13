@@ -37,8 +37,12 @@ class ClientOrderController
 
     public function updateCart(string $token, ?array $payload = null): void
     {
-        $data = $payload ?? json_decode(file_get_contents('php://input') ?: '[]', true);
-        $cart = SharedCartService::addItem($token, $data);
+        $data = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+        if (isset($data['items']) && is_array($data['items'])) {
+            $cart = SharedCartService::setCart($token, $data['items']);
+        } else {
+            $cart = SharedCartService::addItem($token, $data);
+        }
         echo json_encode($cart);
     }
 
@@ -97,6 +101,29 @@ class ClientOrderController
 
                 // Luôn lấy giá từ Database, KHÔNG tin giá từ Client
                 $unitPrice = (float)$realItem['price'];
+
+                // Cộng thêm tiền topping từ DB nếu khách có chọn topping
+                $toppingExtra = 0.0;
+                $rawToppings = $item['selected_toppings'] ?? $item['toppings'] ?? [];
+                if (is_array($rawToppings) && !empty($rawToppings)) {
+                    try {
+                        $stmtTop = $db->prepare("SELECT price FROM toppings WHERE id = ? AND is_available = 1");
+                        foreach ($rawToppings as $top) {
+                            $topId = is_array($top) ? (int)($top['id'] ?? 0) : (int)$top;
+                            if ($topId > 0) {
+                                $stmtTop->execute([$topId]);
+                                $topRow = $stmtTop->fetch();
+                                if ($topRow) {
+                                    $toppingExtra += (float)$topRow['price'];
+                                }
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // Ignore if toppings table not present in minimal SQLite schema
+                    }
+                }
+                $unitPrice += $toppingExtra;
+
                 $subtotal = $unitPrice * $qty;
                 $orderTotal += $subtotal;
 
@@ -106,7 +133,7 @@ class ClientOrderController
                     'unit_price' => $unitPrice,
                     'quantity' => $qty,
                     'subtotal' => $subtotal,
-                    'notes' => $item['notes'] ?? ''
+                    'notes' => $item['notes'] ?? ($item['note'] ?? '')
                 ];
             }
 
@@ -124,6 +151,7 @@ class ClientOrderController
                 VALUES (?, ?, ?, ?, ?, ?, 'PENDING', ?)
             ");
 
+            $insertedItemIds = [];
             foreach ($orderItemsToInsert as $oi) {
                 $stmtOrderItem->execute([
                     $orderId,
@@ -134,6 +162,7 @@ class ClientOrderController
                     $oi['subtotal'],
                     $oi['notes']
                 ]);
+                $insertedItemIds[] = (int)$db->lastInsertId();
             }
 
             // Cập nhật tổng tiền phiên bàn
@@ -148,6 +177,7 @@ class ClientOrderController
             echo json_encode([
                 'status' => 'success',
                 'order_id' => $orderId,
+                'order_item_ids' => $insertedItemIds,
                 'order_code' => $orderCode,
                 'total_amount' => $orderTotal,
                 'items_count' => count($orderItemsToInsert),

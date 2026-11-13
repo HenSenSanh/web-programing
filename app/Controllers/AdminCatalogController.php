@@ -11,7 +11,7 @@ class AdminCatalogController
     {
         $db = Database::getConnection();
         $stmt = $db->query("
-            SELECT dt.*, ts.session_token, ts.total_amount, ts.created_at as session_started_at
+            SELECT dt.*, ts.session_token, ts.session_token as current_session_token, ts.total_amount, ts.created_at as session_started_at
             FROM dining_tables dt
             LEFT JOIN table_sessions ts ON dt.current_session_id = ts.id
             ORDER BY dt.id ASC
@@ -120,6 +120,102 @@ class AdminCatalogController
             'name' => $name,
             'price' => $price,
             'status' => 'created'
+        ]);
+    }
+
+    public function getMenuCatalog(): void
+    {
+        $db = Database::getConnection();
+        $stmtItems = $db->query("
+            SELECT m.*, c.name as category_name, c.display_order
+            FROM menu_items m
+            JOIN categories c ON m.category_id = c.id
+            ORDER BY c.display_order ASC, m.id ASC
+        ");
+        $rows = $stmtItems ? $stmtItems->fetchAll() : [];
+
+        $grouped = [];
+        foreach ($rows as $r) {
+            $catId = (int)$r['category_id'];
+            if (!isset($grouped[$catId])) {
+                $grouped[$catId] = [
+                    'id' => $catId,
+                    'name' => $r['category_name'],
+                    'display_order' => (int)$r['display_order'],
+                    'items' => []
+                ];
+            }
+            $r['is_available'] = (bool)$r['is_available'];
+            $r['is_hot'] = (bool)$r['is_hot'];
+            $r['price'] = (float)$r['price'];
+            $grouped[$catId]['items'][] = $r;
+        }
+
+        $toppings = [];
+        try {
+            $stmtTop = $db->query("SELECT id, name, price, price as extra_price, is_available FROM toppings ORDER BY id ASC");
+            $toppings = $stmtTop ? $stmtTop->fetchAll() : [];
+            foreach ($toppings as &$t) {
+                $t['price'] = (float)$t['price'];
+                $t['extra_price'] = (float)$t['extra_price'];
+                $t['is_available'] = (bool)$t['is_available'];
+            }
+            unset($t);
+        } catch (\Throwable $e) {
+            $toppings = [];
+        }
+
+        echo json_encode([
+            'categories' => array_values($grouped),
+            'available_toppings' => $toppings
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function toggleMenuItemAvailability(int $itemId): void
+    {
+        $db = Database::getConnection();
+        $stmt = $db->prepare("SELECT id, is_available FROM menu_items WHERE id = ?");
+        $stmt->execute([$itemId]);
+        $item = $stmt->fetch();
+        if (!$item) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Menu item not found']);
+            return;
+        }
+
+        $newVal = isset($_GET['is_available'])
+            ? (filter_var($_GET['is_available'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
+            : ((int)$item['is_available'] ? 0 : 1);
+
+        $db->prepare("UPDATE menu_items SET is_available = ? WHERE id = ?")->execute([$newVal, $itemId]);
+        echo json_encode([
+            'id' => $itemId,
+            'is_available' => (bool)$newVal,
+            'status' => 'updated'
+        ]);
+    }
+
+    public function toggleToppingAvailability(int $toppingId): void
+    {
+        $db = Database::getConnection();
+        $stmt = $db->prepare("SELECT id, is_available FROM toppings WHERE id = ?");
+        $stmt->execute([$toppingId]);
+        $top = $stmt->fetch();
+        if (!$top) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Topping not found']);
+            return;
+        }
+
+        $newVal = isset($_GET['is_available'])
+            ? (filter_var($_GET['is_available'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
+            : ((int)$top['is_available'] ? 0 : 1);
+
+        $db->prepare("UPDATE toppings SET is_available = ? WHERE id = ?")->execute([$newVal, $toppingId]);
+        echo json_encode([
+            'id' => $toppingId,
+            'is_available' => (bool)$newVal,
+            'status' => 'updated'
         ]);
     }
 }

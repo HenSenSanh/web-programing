@@ -126,11 +126,20 @@ class SharedCartService
                 cart_data TEXT NOT NULL,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )");
-            $stmt = $db->prepare("
-                INSERT INTO shared_carts (session_token, cart_data, updated_at)
-                VALUES (?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(session_token) DO UPDATE SET cart_data = excluded.cart_data, updated_at = CURRENT_TIMESTAMP
-            ");
+            $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driver === 'mysql') {
+                $stmt = $db->prepare("
+                    INSERT INTO shared_carts (session_token, cart_data, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON DUPLICATE KEY UPDATE cart_data = VALUES(cart_data), updated_at = CURRENT_TIMESTAMP
+                ");
+            } else {
+                $stmt = $db->prepare("
+                    INSERT INTO shared_carts (session_token, cart_data, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(session_token) DO UPDATE SET cart_data = excluded.cart_data, updated_at = CURRENT_TIMESTAMP
+                ");
+            }
             $stmt->execute([$cleanToken, $json]);
         } catch (Throwable $e) {
             // If SQLite version does not support ON CONFLICT, try REPLACE
@@ -267,18 +276,70 @@ class SharedCartService
     public static function setCart(string $sessionToken, array $items): array
     {
         $cleanItems = [];
+        $db = null;
+        try {
+            $db = Database::getConnection();
+        } catch (Throwable $e) {
+            $db = null;
+        }
+
+        $stmtMenu = $db ? $db->prepare("SELECT name, price FROM menu_items WHERE id = ?") : null;
+        $stmtTopping = null;
+        if ($db) {
+            try {
+                $stmtTopping = $db->prepare("SELECT price FROM toppings WHERE id = ?");
+            } catch (Throwable $e) {
+                $stmtTopping = null;
+            }
+        }
+
         foreach ($items as $it) {
             $mId = (int)($it['menu_item_id'] ?? $it['id'] ?? 0);
             if ($mId <= 0) continue;
             $qty = max(1, (int)($it['quantity'] ?? 1));
+            $name = (string)($it['name'] ?? $it['dish_name'] ?? "Món #{$mId}");
+            $price = (float)($it['price'] ?? $it['unit_price'] ?? 0);
+
+            if ($stmtMenu) {
+                try {
+                    $stmtMenu->execute([$mId]);
+                    $real = $stmtMenu->fetch();
+                    if ($real) {
+                        $name = $real['name'];
+                        $price = (float)$real['price'];
+                    }
+                } catch (Throwable $e) {
+                    // Fallback if menu_items unavailable
+                }
+            }
+
+            $rawToppings = $it['selected_toppings'] ?? $it['toppings'] ?? [];
+            $toppingList = is_array($rawToppings) ? $rawToppings : [];
+            if ($stmtTopping && $toppingList) {
+                foreach ($toppingList as $top) {
+                    $topId = is_array($top) ? (int)($top['id'] ?? 0) : 0;
+                    if ($topId > 0) {
+                        try {
+                            $stmtTopping->execute([$topId]);
+                            $topRow = $stmtTopping->fetch();
+                            if ($topRow) {
+                                $price += (float)$topRow['price'];
+                            }
+                        } catch (Throwable $e) {
+                            // Ignore missing topping lookup
+                        }
+                    }
+                }
+            }
             $cleanItems[] = [
                 'menu_item_id' => $mId,
-                'name' => (string)($it['name'] ?? $it['dish_name'] ?? "Món #{$mId}"),
-                'price' => (float)($it['price'] ?? $it['unit_price'] ?? 0),
-                'unit_price' => (float)($it['price'] ?? $it['unit_price'] ?? 0),
+                'name' => $name,
+                'price' => $price,
+                'unit_price' => $price,
                 'quantity' => $qty,
-                'toppings' => is_array($it['toppings'] ?? null) ? $it['toppings'] : [],
-                'notes' => (string)($it['notes'] ?? ''),
+                'toppings' => $toppingList,
+                'selected_toppings' => $toppingList,
+                'notes' => (string)($it['notes'] ?? $it['note'] ?? ''),
             ];
         }
 

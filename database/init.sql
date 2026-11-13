@@ -254,7 +254,9 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 
 -- Gán User vào nhóm
 INSERT INTO user_roles (user_id, role_id) VALUES
-(1, 1), (2, 2), (3, 3), (4, 4);
+(1, 1), (2, 2), (3, 3), (4, 4),
+(5, 1), (6, 2), (7, 2), (8, 3), (9, 4)
+ON DUPLICATE KEY UPDATE role_id = VALUES(role_id);
 
 -- 4. Đơn vị cơ sở & Danh mục
 INSERT INTO units (id, unit_code, name) VALUES
@@ -265,7 +267,11 @@ INSERT INTO units (id, unit_code, name) VALUES
 INSERT INTO categories (id, name, display_order) VALUES
 (1, 'Thiết bị điện tử', 1),
 (2, 'Linh kiện máy tính', 2),
-(3, 'Phụ kiện văn phòng', 3);
+(3, 'Phụ kiện văn phòng', 3),
+(4, 'Món Chính', 4),
+(5, 'Món Ăn Kèm', 5),
+(6, 'Đồ Uống', 6)
+ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 -- 5. Kho & Vị trí
 INSERT INTO warehouses (id, warehouse_code, name, address) VALUES
@@ -567,17 +573,17 @@ ON DUPLICATE KEY UPDATE status = VALUES(status);
 
 -- Dữ liệu món ăn thực đơn mẫu
 INSERT INTO menu_items (id, category_id, name, description, price, is_available, is_hot, image_url) VALUES
-(1, 1, 'Mì Cay Hải Sản Cấp Độ 7', 'Mì cay hải sản tôm mực chua cay đậm đà', 65000.00, 1, 1, '/frontend/img/mi_cay.jpg'),
-(2, 1, 'Lẩu Thái Tomyum Bò Mỹ', 'Nồi lẩu chua cay Tomyum kèm ba chỉ bò Mỹ', 189000.00, 1, 1, '/frontend/img/lau_thai.jpg'),
-(3, 1, 'Cơm Trộn Hàn Quốc Bibimbap', 'Cơm trộn thịt bò sốt Gochujang truyền thống', 55000.00, 1, 0, '/frontend/img/com_tron.jpg'),
-(4, 1, 'Mì Ý Sốt Bò Bằm Bolognaise', 'Mì spaghetti sốt cà chua thịt bò bằm phô mai', 59000.00, 1, 0, '/frontend/img/mi_y.jpg'),
-(5, 2, 'Khoai Tây Chiên Lắc Phô Mai', 'Khoai tây giòn rụm phủ bột phô mai béo ngậy', 35000.00, 1, 1, '/frontend/img/khoai_tay.jpg'),
-(6, 2, 'Gà Rán Sốt Cay Hàn Quốc (4 miếng)', 'Gà giòn tẩm sốt cay ngọt chuẩn vị Seoul', 69000.00, 1, 1, '/frontend/img/ga_ran.jpg'),
-(7, 2, 'Kim Chi Cải Thảo Truyền Thống', 'Kim chi cải thảo muối giòn chua cay vừa vặn', 15000.00, 1, 0, '/frontend/img/kim_chi.jpg'),
-(8, 3, 'Trà Đào Cam Sả Tươi', 'Trà đào thanh mát với miếng đào giòn và sả tươi', 32000.00, 1, 1, '/frontend/img/tra_dao.jpg'),
-(9, 3, 'Trà Sữa Trân Châu Hoàng Kim', 'Trà sữa đậm vị hồng trà và trân châu dẻo ngon', 35000.00, 1, 1, '/frontend/img/tra_sua.jpg'),
-(10, 3, 'Coca-Cola Lon Lạnh', 'Nước ngọt có gas ướp lạnh sảng khoái', 18000.00, 1, 0, '/frontend/img/coca.jpg')
-ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
+(1, 4, 'Mì Cay Hải Sản Cấp Độ 7', 'Mì cay hải sản tôm mực chua cay đậm đà', 65000.00, 1, 1, '/frontend/img/mi_cay.jpg'),
+(2, 4, 'Lẩu Thái Tomyum Bò Mỹ', 'Nồi lẩu chua cay Tomyum kèm ba chỉ bò Mỹ', 189000.00, 1, 1, '/frontend/img/lau_thai.jpg'),
+(3, 4, 'Cơm Trộn Hàn Quốc Bibimbap', 'Cơm trộn thịt bò sốt Gochujang truyền thống', 55000.00, 1, 0, '/frontend/img/com_tron.jpg'),
+(4, 4, 'Mì Ý Sốt Bò Bằm Bolognaise', 'Mì spaghetti sốt cà chua thịt bò bằm phô mai', 59000.00, 1, 0, '/frontend/img/mi_y.jpg'),
+(5, 5, 'Khoai Tây Chiên Lắc Phô Mai', 'Khoai tây giòn rụm phủ bột phô mai béo ngậy', 35000.00, 1, 1, '/frontend/img/khoai_tay.jpg'),
+(6, 5, 'Gà Rán Sốt Cay Hàn Quốc (4 miếng)', 'Gà giòn tẩm sốt cay ngọt chuẩn vị Seoul', 69000.00, 1, 1, '/frontend/img/ga_ran.jpg'),
+(7, 5, 'Kim Chi Cải Thảo Truyền Thống', 'Kim chi cải thảo muối giòn chua cay vừa vặn', 15000.00, 1, 0, '/frontend/img/kim_chi.jpg'),
+(8, 6, 'Trà Đào Cam Sả Tươi', 'Trà đào thanh mát với miếng đào giòn và sả tươi', 32000.00, 1, 1, '/frontend/img/tra_dao.jpg'),
+(9, 6, 'Trà Sữa Trân Châu Hoàng Kim', 'Trà sữa đậm vị hồng trà và trân châu dẻo ngon', 35000.00, 1, 1, '/frontend/img/tra_sua.jpg'),
+(10, 6, 'Coca-Cola Lon Lạnh', 'Nước ngọt có gas ướp lạnh sảng khoái', 18000.00, 1, 0, '/frontend/img/coca.jpg')
+ON DUPLICATE KEY UPDATE category_id = VALUES(category_id), name = VALUES(name), price = VALUES(price);
 
 -- Đơn gửi mẫu
 INSERT INTO session_orders (id, session_id, idempotency_key) VALUES
@@ -661,3 +667,50 @@ ON DUPLICATE KEY UPDATE subtotal = VALUES(subtotal);
 INSERT INTO bill_payments (id, session_id, table_id, subtotal_amount, vat_amount, service_fee, final_amount, payment_method, invoice_code) VALUES
 (1, 'init_sess_001', 1, 229000.00, 18320.00, 0.00, 247320.00, 'VIETQR', 'INV-20261112-001')
 ON DUPLICATE KEY UPDATE final_amount = VALUES(final_amount);
+
+-- Topping, Luật gợi ý Combo (Apriori) & Giỏ hàng chung
+CREATE TABLE IF NOT EXISTS toppings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    price DECIMAL(12, 2) NOT NULL,
+    is_available TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS combo_rules (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source_item_id INT NOT NULL,
+    target_item_id INT NOT NULL,
+    confidence DECIMAL(5, 4) DEFAULT 0.7500,
+    discount_percent INT DEFAULT 10,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_combo_src (source_item_id),
+    FOREIGN KEY (source_item_id) REFERENCES menu_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (target_item_id) REFERENCES menu_items(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS shared_carts (
+    session_token VARCHAR(64) PRIMARY KEY,
+    cart_data TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO toppings (id, name, price, is_available) VALUES
+(1, 'Thêm Bò Mỹ Thượng Hạng', 25000.00, 1),
+(2, 'Thêm Phô Mai Mozzarella Kéo Sợi', 15000.00, 1),
+(3, 'Thêm Trân Châu Hoàng Kim', 8000.00, 1),
+(4, 'Thêm Xúc Xích Đức', 12000.00, 1)
+ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
+
+INSERT INTO combo_rules (id, source_item_id, target_item_id, confidence, discount_percent) VALUES
+(1, 1, 8, 0.8800, 10),
+(2, 2, 7, 0.8500, 15)
+ON DUPLICATE KEY UPDATE confidence = VALUES(confidence), discount_percent = VALUES(discount_percent);
+
+-- Phiếu nháp mẫu cho Bài D (documents.php) - trạng thái DRAFT không ảnh hưởng stock_balances
+INSERT INTO inventory_documents (id, document_code, doc_type, doc_date, partner_name, note, status, created_by) VALUES
+(1, 'PN-DEMO-001', 'IN', '2026-11-12', 'Nhà cung cấp Thiết bị ABC', 'Phiếu nhập nháp chờ thủ kho ghi sổ (Bài D)', 'DRAFT', 2)
+ON DUPLICATE KEY UPDATE partner_name = VALUES(partner_name);
+
+INSERT INTO inventory_lines (id, document_id, product_id, location_id, lot_id, unit_id, price_id, snapshot_unit_price, quantity, subtotal, snapshot_product_name, snapshot_sku, snapshot_unit_name, snapshot_location_name, snapshot_lot_code) VALUES
+(1, 1, 2, 1, 2, 1, NULL, 12000000.00, 5, 60000000.00, 'Máy tính bảng Tablet Air 11 inch', 'SKU-DT-02', 'Cái', 'KT-A1-01', 'NOLOT')
+ON DUPLICATE KEY UPDATE quantity = VALUES(quantity), subtotal = VALUES(subtotal);

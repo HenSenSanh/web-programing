@@ -249,12 +249,14 @@ class DataPipelineController
                 ];
             }
 
-            // 3. Thống kê tổng quan đơn & doanh thu hôm nay
-            $stmtTodayOrders = $db->query("
+            // 3. Thống kê tổng quan đơn & doanh thu hôm nay (tương thích cả MySQL & SQLite)
+            $today = date('Y-m-d');
+            $stmtTodayOrders = $db->prepare("
                 SELECT COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as rev
                 FROM orders
-                WHERE date(created_at) = date('now')
+                WHERE DATE(created_at) = ?
             ");
+            $stmtTodayOrders->execute([$today]);
             $todayOrderStats = $stmtTodayOrders ? $stmtTodayOrders->fetch() : null;
 
             // 4. Món đang chờ chế biến trong KDS
@@ -521,6 +523,114 @@ class DataPipelineController
             ");
             $rows = $stmt ? $stmt->fetchAll() : [];
             echo json_encode($rows);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /api/v1/bi/dashboard-summary
+     * Tổng hợp KPI doanh thu & tỷ lệ chuyển đổi từ kho Star Schema OLAP (TV5)
+     */
+    public function getBiDashboardSummary(): void
+    {
+        try {
+            $db = Database::getConnection();
+            $fact = $db->query("
+                SELECT
+                    COALESCE(SUM(revenue), 0) as total_revenue,
+                    COALESCE(SUM(quantity), 0) as total_sold,
+                    COUNT(DISTINCT session_id) as purchase_sessions
+                FROM fact_order_items
+            ")->fetch();
+
+            $clickSessions = (int)$db->query("
+                SELECT COUNT(DISTINCT session_id) FROM fact_clickstream
+            ")->fetchColumn();
+
+            $purchaseSessions = (int)($fact['purchase_sessions'] ?? 0);
+            $denominator = max(1, max($clickSessions, $purchaseSessions));
+            $conversionRate = round(($purchaseSessions / $denominator) * 100, 1);
+
+            echo json_encode([
+                'total_revenue' => (float)($fact['total_revenue'] ?? 0),
+                'total_sold' => (int)($fact['total_sold'] ?? 0),
+                'purchase_sessions' => $purchaseSessions,
+                'conversion_rate' => $conversionRate
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /api/v1/bi/revenue-over-time
+     * Doanh thu theo ngày từ fact_order_items + dim_time (TV5)
+     */
+    public function getBiRevenueOverTime(): void
+    {
+        try {
+            $db = Database::getConnection();
+            $stmt = $db->query("
+                SELECT
+                    t.full_date as date,
+                    COALESCE(SUM(f.revenue), 0) as revenue,
+                    COALESCE(SUM(f.quantity), 0) as total_sold
+                FROM fact_order_items f
+                JOIN dim_time t ON f.time_key = t.time_key
+                GROUP BY t.full_date
+                ORDER BY t.full_date ASC
+            ");
+            echo json_encode($stmt ? $stmt->fetchAll() : [], JSON_UNESCAPED_UNICODE);
+        } catch (Throwable $e) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * GET /api/v1/bi/menu-engineering-matrix
+     * Ma trận Menu Engineering (lượt xem vs lượt bán & doanh thu) từ OLAP (TV5)
+     */
+    public function getBiMenuMatrix(): void
+    {
+        try {
+            $db = Database::getConnection();
+            $stmt = $db->query("
+                SELECT
+                    m.id,
+                    m.name,
+                    COALESCE(c.views, 0) as views,
+                    COALESCE(s.total_sold, 0) as total_sold,
+                    COALESCE(s.total_revenue, 0) as total_revenue
+                FROM menu_items m
+                LEFT JOIN (
+                    SELECT oltp_item_id, COUNT(*) as views
+                    FROM fact_clickstream
+                    WHERE event_type = 'VIEW_ITEM'
+                    GROUP BY oltp_item_id
+                ) c ON c.oltp_item_id = m.id
+                LEFT JOIN (
+                    SELECT dm.oltp_item_id, SUM(f.quantity) as total_sold, SUM(f.revenue) as total_revenue
+                    FROM fact_order_items f
+                    JOIN dim_menu_item dm ON f.item_key = dm.item_key
+                    GROUP BY dm.oltp_item_id
+                ) s ON s.oltp_item_id = m.id
+                ORDER BY total_revenue DESC, m.id ASC
+            ");
+            $rows = $stmt ? $stmt->fetchAll() : [];
+            foreach ($rows as &$r) {
+                $views = (int)$r['views'];
+                $sold = (int)$r['total_sold'];
+                $r['views'] = $views;
+                $r['total_sold'] = $sold;
+                $r['total_revenue'] = (float)$r['total_revenue'];
+                $r['conversion_rate'] = $views > 0 ? round(min(100, ($sold / $views) * 100), 1) : ($sold > 0 ? 100.0 : 0.0);
+            }
+            unset($r);
+            echo json_encode($rows, JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             http_response_code(500);
             echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);

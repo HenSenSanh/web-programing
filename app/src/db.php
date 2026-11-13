@@ -9,7 +9,9 @@ function getDatabaseConnection(): PDO
 
     if (class_exists('App\Core\Database')) {
         $pdoInstance = \App\Core\Database::getConnection();
-        initSqliteFallback($pdoInstance);
+        if ($pdoInstance->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            initSqliteFallback($pdoInstance);
+        }
         return $pdoInstance;
     }
 
@@ -51,6 +53,19 @@ function getDatabaseConnection(): PDO
 
 function initSqliteFallback(PDO $db): void
 {
+    if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
+        return;
+    }
+
+    try {
+        $chk = $db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='users' LIMIT 1");
+        if ($chk && $chk->fetch()) {
+            return;
+        }
+    } catch (\Throwable $e) {
+        // Proceed with fallback initialization
+    }
+
     $initSqlFile = __DIR__ . '/../../database/init.sql';
     if (!file_exists($initSqlFile)) return;
 

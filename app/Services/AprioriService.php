@@ -28,7 +28,9 @@ class AprioriService
                 ORDER BY cr.confidence DESC
                 LIMIT ?
             ");
-            $stmtRule->execute([$menuItemId, $limit]);
+            $stmtRule->bindValue(1, $menuItemId, PDO::PARAM_INT);
+            $stmtRule->bindValue(2, max(1, (int)$limit), PDO::PARAM_INT);
+            $stmtRule->execute();
             $rules = $stmtRule->fetchAll();
 
             foreach ($rules as $r) {
@@ -160,7 +162,10 @@ class AprioriService
                     ORDER BY id ASC
                     LIMIT ?
                 ");
-                $stmtFallback->execute([$menuItemId, $limit - count($recommendations)]);
+                $remaining = max(1, (int)($limit - count($recommendations)));
+                $stmtFallback->bindValue(1, $menuItemId, PDO::PARAM_INT);
+                $stmtFallback->bindValue(2, $remaining, PDO::PARAM_INT);
+                $stmtFallback->execute();
                 $fallbacks = $stmtFallback->fetchAll();
 
                 foreach ($fallbacks as $fb) {
@@ -233,7 +238,8 @@ class AprioriService
                 ORDER BY co_occurrence_sessions DESC
                 LIMIT ?
             ");
-            $stmtPairs->execute([$limit]);
+            $stmtPairs->bindValue(1, max(1, (int)$limit), PDO::PARAM_INT);
+            $stmtPairs->execute();
             $pairs = $stmtPairs->fetchAll();
 
             $rules = [];
@@ -301,10 +307,14 @@ class AprioriService
 
                 if ($dimA && $dimB) {
                     $timeKey = (int)date('YmdH');
-                    // Đảm bảo dim_time
+                    // Đảm bảo dim_time (tương thích cả MySQL và SQLite)
                     $dow = (int)date('w');
-                    $db->prepare("INSERT OR IGNORE INTO dim_time (time_key, full_date, hour, day_of_week, is_weekend) VALUES (?, ?, ?, ?, ?)")
-                       ->execute([$timeKey, date('Y-m-d'), (int)date('H'), $dow, ($dow === 0 || $dow === 6) ? 1 : 0]);
+                    $stmtCheckTime = $db->prepare("SELECT time_key FROM dim_time WHERE time_key = ?");
+                    $stmtCheckTime->execute([$timeKey]);
+                    if (!$stmtCheckTime->fetch()) {
+                        $db->prepare("INSERT INTO dim_time (time_key, full_date, hour, day_of_week, is_weekend) VALUES (?, ?, ?, ?, ?)")
+                           ->execute([$timeKey, date('Y-m-d'), (int)date('H'), $dow, ($dow === 0 || $dow === 6) ? 1 : 0]);
+                    }
 
                     $stmtFact = $db->prepare("
                         INSERT INTO fact_order_items (time_key, item_key, chef_key, session_id, quantity, revenue, prep_time_seconds, is_sla_violated)

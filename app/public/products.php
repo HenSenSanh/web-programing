@@ -47,7 +47,6 @@ $stmtData = $pdo->prepare("
     JOIN units u ON p.unit_id = u.id
     LEFT JOIN menu_items m ON p.id = m.id
     WHERE {$whereSql}
-    GROUP BY p.id
     ORDER BY p.id ASC
     LIMIT {$perPage} OFFSET {$offset}
 ");

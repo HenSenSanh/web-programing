@@ -40,6 +40,11 @@ build/
 # Windows Batch files (Strictly forbidden by lecturer)
 *.bat
 
+# Composer / PHP Dependencies
+/vendor/
+app/vendor/
+composer.lock
+
 # Temporary / Local guides & redundant files
 HUONG_DAN_*.md
 TAI_LIEU_*.md

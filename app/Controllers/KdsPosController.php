@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Core\Database;
 use App\Services\EtlService;
+use App\Services\SharedCartService;
 use PDO;
 
 class KdsPosController
@@ -27,10 +28,10 @@ class KdsPosController
     {
         $data = json_decode(file_get_contents('php://input'), true);
         $itemId = (int)($data['item_id'] ?? $data['order_item_id'] ?? 0);
-        $newStatus = strtoupper(trim($data['status'] ?? ''));
+        $newStatus = strtoupper(trim($data['status'] ?? $data['new_status'] ?? ''));
         $chefId = !empty($data['chef_id']) ? (int)$data['chef_id'] : null;
 
-        $validStatuses = ['PENDING', 'COOKING', 'READY', 'SERVED', 'CANCELLED'];
+        $validStatuses = ['PENDING', 'COOKING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'];
         if (!in_array($newStatus, $validStatuses)) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid status']);
@@ -38,7 +39,7 @@ class KdsPosController
         }
 
         $db = Database::getConnection();
-        $completedAt = in_array($newStatus, ['READY', 'SERVED']) ? date('Y-m-d H:i:s') : null;
+        $completedAt = in_array($newStatus, ['READY', 'SERVED', 'COMPLETED']) ? date('Y-m-d H:i:s') : null;
 
         $stmt = $db->prepare("
             UPDATE order_items
@@ -67,7 +68,7 @@ class KdsPosController
             LEFT JOIN table_sessions ts ON dt.current_session_id = ts.id AND ts.status = 'ACTIVE'
             LEFT JOIN orders o ON ts.id = o.session_id
             LEFT JOIN order_items oi ON o.id = oi.order_id
-            GROUP BY dt.id
+            GROUP BY dt.id, dt.table_number, dt.status, ts.id, ts.session_token, ts.total_amount, ts.created_at
             ORDER BY dt.id ASC
         ");
         echo json_encode($stmt->fetchAll());
@@ -127,11 +128,16 @@ class KdsPosController
         ]);
     }
 
-    public function checkout(string $sessionId): void
+    public function checkout(string $sessionIdentifier): void
     {
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT * FROM table_sessions WHERE id = ? AND status = 'ACTIVE'");
-        $stmt->execute([$sessionId]);
+        if (ctype_digit($sessionIdentifier)) {
+            $stmt = $db->prepare("SELECT * FROM table_sessions WHERE (id = ? OR table_id = ?) AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$sessionIdentifier, (int)$sessionIdentifier]);
+        } else {
+            $stmt = $db->prepare("SELECT * FROM table_sessions WHERE (id = ? OR session_token = ?) AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute([$sessionIdentifier, $sessionIdentifier]);
+        }
         $session = $stmt->fetch();
 
         if (!$session) {
@@ -140,6 +146,7 @@ class KdsPosController
             return;
         }
 
+        $actualSessionId = $session['id'];
         $payload = json_decode(file_get_contents('php://input'), true) ?: [];
         $paymentMethod = $payload['payment_method'] ?? 'CASH';
 
@@ -152,7 +159,7 @@ class KdsPosController
                 JOIN orders o ON oi.order_id = o.id
                 WHERE o.session_id = ?
             ");
-            $stmtSum->execute([$sessionId]);
+            $stmtSum->execute([$actualSessionId]);
             $subtotal = (float)$stmtSum->fetch()['subtotal'];
 
             $vat = $subtotal * 0.08;
@@ -164,13 +171,13 @@ class KdsPosController
                 INSERT INTO bill_payments (session_id, table_id, subtotal_amount, vat_amount, service_fee, final_amount, payment_method, invoice_code)
                 VALUES (?, ?, ?, ?, 0.00, ?, ?, ?)
             ");
-            $stmtBill->execute([$sessionId, $session['table_id'], $subtotal, $vat, $finalAmount, $paymentMethod, $invoiceCode]);
+            $stmtBill->execute([$actualSessionId, $session['table_id'], $subtotal, $vat, $finalAmount, $paymentMethod, $invoiceCode]);
             $billId = (int)$db->lastInsertId();
 
             // Đóng session
             $closedAt = date('Y-m-d H:i:s');
-            $stmtClose = $db->prepare("UPDATE table_sessions SET status = 'CHECKOUT', closed_at = ? WHERE id = ?");
-            $stmtClose->execute([$closedAt, $sessionId]);
+            $stmtClose = $db->prepare("UPDATE table_sessions SET status = 'CHECKOUT', total_amount = ?, closed_at = ? WHERE id = ?");
+            $stmtClose->execute([$subtotal, $closedAt, $actualSessionId]);
 
             // Trả bàn về AVAILABLE
             $stmtTable = $db->prepare("UPDATE dining_tables SET status = 'AVAILABLE', current_session_id = NULL WHERE id = ?");
@@ -178,8 +185,11 @@ class KdsPosController
 
             $db->commit();
 
-            // Tự động kích hoạt luồng ETL chuyển dữ liệu sang kho OLAP
-            EtlService::runEtlForClosedSession($sessionId);
+            // Dọn giỏ hàng & tự động kích hoạt luồng ETL chuyển dữ liệu sang kho OLAP
+            if (!empty($session['session_token'])) {
+                SharedCartService::clearCart($session['session_token']);
+            }
+            EtlService::runEtlForClosedSession($actualSessionId);
 
             echo json_encode([
                 'status' => 'success',
@@ -188,6 +198,7 @@ class KdsPosController
                 'subtotal' => $subtotal,
                 'vat_amount' => $vat,
                 'final_amount' => $finalAmount,
+                'total_amount' => $finalAmount,
                 'payment_method' => $paymentMethod,
                 'closed_at' => $closedAt,
                 'message' => 'Thanh toán thành công! Dữ liệu đã tự động đồng bộ sang kho OLAP.'

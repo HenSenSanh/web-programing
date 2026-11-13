@@ -411,6 +411,16 @@
             return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
         }
 
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[ch]));
+        }
+
         function formatTimeAgo(dateStr) {
             if (!dateStr) return '';
             const d = new Date(dateStr.replace(' ', 'T'));
@@ -434,7 +444,7 @@
             toast.className = `p-3 rounded-lg ${bgClass} text-white text-xs font-medium shadow-lg flex items-center gap-2.5 transform transition-all duration-300 translate-y-2 opacity-0`;
             toast.innerHTML = `
                 <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">${icon}</span>
-                <span class="flex-1">${message}</span>
+                <span class="flex-1">${escapeHtml(message)}</span>
                 <button onclick="this.parentElement.remove()" class="text-white/60 hover:text-white ml-2 text-sm">✕</button>
             `;
 
@@ -455,7 +465,7 @@
                 const data = await res.json();
                 
                 // Fallback items if needed
-                const itemsRes = await fetch('/api/v1/admin/menu');
+                const itemsRes = await fetch('/api/v1/admin/menu-items');
                 let items = [];
                 if (itemsRes.ok) {
                     items = await itemsRes.json();
@@ -561,28 +571,30 @@
 
                 const kitchenItemsHtml = (tbl.submitted_kitchen_items && tbl.submitted_kitchen_items.length > 0)
                     ? tbl.submitted_kitchen_items.map(it => {
-                        const isDone = it.status === 'COMPLETED';
+                        const isDone = ['COMPLETED', 'SERVED', 'READY'].includes(it.status);
                         const badgeColor = isDone ? 'bg-slate-100 text-slate-600' : 'bg-amber-50 text-amber-700 border border-amber-200';
+                        const safeDish = escapeHtml(it.dish_name);
+                        const safeStatus = escapeHtml(it.status);
                         return `
                             <div class="flex items-center justify-between text-xs py-1 border-b border-slate-100 last:border-0">
-                                <span class="font-medium text-slate-800 truncate max-w-[170px]" title="${it.dish_name}">${it.dish_name}</span>
+                                <span class="font-medium text-slate-800 truncate max-w-[170px]" title="${safeDish}">${safeDish}</span>
                                 <div class="flex items-center gap-1.5">
-                                    <span class="font-bold text-slate-900">x${it.quantity}</span>
-                                    <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${badgeColor}">${it.status}</span>
+                                    <span class="font-bold text-slate-900">x${Number(it.quantity) || 0}</span>
+                                    <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded ${badgeColor}">${safeStatus}</span>
                                 </div>
                             </div>
                         `;
                     }).join('')
                     : `<div class="text-xs text-slate-400 py-1 italic">Chưa gọi món nào</div>`;
 
-                const menuUrl = isOccupied && tbl.session_token ? `/frontend/menu/index.html?token=${tbl.session_token}` : '#';
+                const menuUrl = isOccupied && tbl.session_token ? `/frontend/menu/index.html?token=${encodeURIComponent(tbl.session_token)}` : '#';
 
                 return `
                     <div class="rounded-xl border ${borderClass} p-4 flex flex-col justify-between transition hover:shadow-md">
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <div class="flex items-center gap-2">
-                                    <span class="font-bold text-slate-900 text-sm">${tbl.table_number}</span>
+                                    <span class="font-bold text-slate-900 text-sm">${escapeHtml(tbl.table_number)}</span>
                                     ${tbl.session_token ? `<span class="text-[10px] font-mono text-slate-400 truncate max-w-[80px]" title="${tbl.session_token}">${tbl.session_token}</span>` : ''}
                                 </div>
                                 ${statusBadge}
@@ -669,14 +681,20 @@
             }
 
             tbody.innerHTML = rows.slice(0, 6).map(r => {
-                const confPct = Math.round((parseFloat(r.confidence) || 0) * 100);
-                const discount = r.discount_percent || 10;
+                const itemA = escapeHtml(r.antecedent_item || r.item_a_name || r.source_item_name || ('Món #' + (r.antecedent_id ?? r.source_item_id ?? '?')));
+                const itemB = escapeHtml(r.consequent_item || r.item_b_name || r.target_item_name || ('Món #' + (r.consequent_id ?? r.target_item_id ?? '?')));
+                const confPct = r.confidence_a_to_b_pct !== undefined
+                    ? Math.round(parseFloat(r.confidence_a_to_b_pct) || 0)
+                    : Math.round((parseFloat(r.confidence) || 0) * 100);
+                const badgeText = r.discount_percent !== undefined
+                    ? `Giảm ${Number(r.discount_percent) || 0}%`
+                    : `Lift ${Number(r.lift_ratio || 1).toFixed(2)}x`;
                 return `
                     <tr class="hover:bg-slate-50 transition">
-                        <td class="px-3.5 py-2 font-medium text-slate-900">${r.item_a_name || r.source_item_name || 'Món #' + r.source_item_id}</td>
-                        <td class="px-3.5 py-2 font-semibold text-indigo-700">${r.item_b_name || r.target_item_name || 'Món #' + r.target_item_id}</td>
+                        <td class="px-3.5 py-2 font-medium text-slate-900">${itemA}</td>
+                        <td class="px-3.5 py-2 font-semibold text-indigo-700">${itemB}</td>
                         <td class="px-3.5 py-2 font-bold text-slate-700">${confPct}%</td>
-                        <td class="px-3.5 py-2 text-right"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">Giảm ${discount}%</span></td>
+                        <td class="px-3.5 py-2 text-right"><span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">${badgeText}</span></td>
                     </tr>
                 `;
             }).join('');
@@ -757,22 +775,26 @@
                 container.innerHTML = `
                     <div class="w-full space-y-2">
                         ${recs.map(r => {
-                            const confPct = Math.round((parseFloat(r.confidence) || 0) * 100);
-                            const discount = r.discount_percent || 0;
-                            const finalPrice = discount > 0 ? (r.price * (100 - discount) / 100) : r.price;
+                            const itemName = escapeHtml(r.name || r.target_item_name || r.item_name || ('Món #' + (r.oltp_item_id ?? r.target_item_id ?? '?')));
+                            const confPct = r.confidence_pct !== undefined
+                                ? Math.round(parseFloat(r.confidence_pct) || 0)
+                                : Math.round((parseFloat(r.confidence) || 0) * 100);
+                            const basePrice = Number(r.price ?? r.current_price ?? 0);
+                            const discount = Number(r.discount_percent || 0);
+                            const finalPrice = discount > 0 ? (basePrice * (100 - discount) / 100) : basePrice;
                             return `
                                 <div class="bg-white p-2.5 rounded-lg border border-slate-200 flex items-center justify-between">
                                     <div>
-                                        <div class="font-bold text-slate-900 text-xs">${r.item_name}</div>
+                                        <div class="font-bold text-slate-900 text-xs">${itemName}</div>
                                         <div class="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                                             <span>Độ tin cậy: <strong class="text-indigo-600">${confPct}%</strong></span>
                                             <span>•</span>
-                                            <span>Lift: <strong class="text-slate-700">${r.lift || 1.2}x</strong></span>
+                                            <span>Lift: <strong class="text-slate-700">${Number(r.lift || r.lift_ratio || 1.2).toFixed(2)}x</strong></span>
                                         </div>
                                     </div>
                                     <div class="text-right">
                                         <div class="font-bold text-emerald-600 text-xs">${formatVND(finalPrice)}</div>
-                                        ${discount > 0 ? `<div class="text-[10px] text-slate-400 line-through">${formatVND(r.price)}</div>` : ''}
+                                        ${discount > 0 ? `<div class="text-[10px] text-slate-400 line-through">${formatVND(basePrice)}</div>` : ''}
                                     </div>
                                 </div>
                             `;

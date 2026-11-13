@@ -2,7 +2,7 @@
 
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, Idempotency-Key");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -35,6 +35,12 @@ $client = new ClientOrderController();
 $kdsPos = new KdsPosController();
 $data = new DataPipelineController();
 
+// 0. Health check
+if (($path === '' || $path === '/' || $path === '/health') && $method === 'GET') {
+    echo json_encode(['status' => 'OK', 'runtime' => 'PHP ' . PHP_VERSION, 'app' => 'DineFlow']);
+    exit;
+}
+
 // 1. TV1: Admin Tables & Catalog
 if ($path === '/admin/tables' && $method === 'GET') {
     $admin->getTables();
@@ -52,12 +58,28 @@ if ($path === '/admin/categories' && $method === 'GET') {
     $admin->getCategories();
     exit;
 }
-if ($path === '/admin/menu-items' && $method === 'GET') {
-    $admin->getMenuItems();
+if (($path === '/admin/menu-items' || $path === '/admin/menu') && $method === 'GET') {
+    if (isset($_GET['grouped']) && $_GET['grouped'] === '1') {
+        $admin->getMenuCatalog();
+    } else {
+        $admin->getMenuItems();
+    }
+    exit;
+}
+if ($path === '/admin/menu-catalog' && $method === 'GET') {
+    $admin->getMenuCatalog();
     exit;
 }
 if ($path === '/admin/menu-items' && $method === 'POST') {
     $admin->createMenuItem();
+    exit;
+}
+if (preg_match('#^/admin/menu-items/(\d+)/toggle-availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
+    $admin->toggleMenuItemAvailability((int)$m[1]);
+    exit;
+}
+if (preg_match('#^/admin/toppings/(\d+)/toggle-availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
+    $admin->toggleToppingAvailability((int)$m[1]);
     exit;
 }
 
@@ -85,7 +107,7 @@ if ($path === '/staff/kds/active-items' && $method === 'GET') {
     $kdsPos->getKdsActiveItems();
     exit;
 }
-if ($path === '/staff/kds/item-status' && $method === 'POST') {
+if ($path === '/staff/kds/item-status' && ($method === 'POST' || $method === 'PATCH')) {
     $kdsPos->updateItemStatus();
     exit;
 }
@@ -138,6 +160,20 @@ if ($path === '/data/association-rules' && $method === 'GET') {
 }
 if ($path === '/data/peak-hours' && $method === 'GET') {
     $data->getPeakHours();
+    exit;
+}
+
+// 5. TV5: BI Analytics
+if ($path === '/bi/dashboard-summary' && $method === 'GET') {
+    $data->getBiDashboardSummary();
+    exit;
+}
+if ($path === '/bi/revenue-over-time' && $method === 'GET') {
+    $data->getBiRevenueOverTime();
+    exit;
+}
+if ($path === '/bi/menu-engineering-matrix' && $method === 'GET') {
+    $data->getBiMenuMatrix();
     exit;
 }
 

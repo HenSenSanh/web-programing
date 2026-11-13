@@ -1,6 +1,10 @@
-const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8000') + '/api/v1';
+const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
 let allKdsItems = [];
 let currentFilter = 'ALL';
+
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
 
 // 1. Hàm đếm số phút chờ (Đã xử lý lệch múi giờ UTC+7)
 function getWaitTimeInMinutes(createdAtStr) {
@@ -79,7 +83,7 @@ function renderKdsUI() {
     const itemId = item.order_item_id || item.id;
     const tableNo = item.table_number || item.table_no || (item.table_id ? `Bàn ${item.table_id}` : (item.session_id ? `Bàn ${item.session_id}` : 'Bàn --'));
     const quantity = item.quantity || 1;
-    const note = item.note || 'Không có';
+    const note = item.notes || item.note || 'Không có';
     const isPending = item.status === 'PENDING';
 
     // Đếm thời gian chờ SLA và màu cảnh báo
@@ -94,18 +98,18 @@ function renderKdsUI() {
       <div class="col">
         <div class="card h-100 shadow-sm ${cardBorder}">
           <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white">
-            <span class="fw-bold text-warning fs-5"><i class="bi bi-geo-alt-fill"></i> ${tableNo}</span>
+            <span class="fw-bold text-warning fs-5"><i class="bi bi-geo-alt-fill"></i> ${escapeHtml(tableNo)}</span>
             <span class="badge ${slaBadgeClass}">
               <i class="bi bi-clock-history"></i> ${waitMinutes} phút
             </span>
           </div>
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-start mb-2">
-              <h5 class="card-title fw-bold text-dark mb-0">${itemName}</h5>
+              <h5 class="card-title fw-bold text-dark mb-0">${escapeHtml(itemName)}</h5>
               <span class="badge bg-danger fs-6">x${quantity}</span>
             </div>
             <p class="card-text text-secondary mb-0">
-              <strong>Ghi chú:</strong> <span class="text-danger fw-semibold">${note}</span>
+              <strong>Ghi chú:</strong> <span class="text-danger fw-semibold">${escapeHtml(note)}</span>
             </p>
           </div>
           <div class="card-footer bg-white border-0 pb-3">
@@ -132,12 +136,13 @@ async function updateItemStatus(orderItemId, status) {
     const parsedId = !isNaN(orderItemId) ? parseInt(orderItemId, 10) : orderItemId;
 
     const res = await fetch(`${API_BASE}/staff/kds/item-status`, {
-      method: 'PATCH',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         order_item_id: parsedId, 
-        chef_id: 1,             // Mặc định chef_id = 1 (do TV1/TV2 chưa xong phân quyền)
-        new_status: status       // Đổi tên trường thành new_status theo yêu cầu Backend
+        chef_id: 1,
+        status: status,
+        new_status: status
       })
     });
 
@@ -145,7 +150,7 @@ async function updateItemStatus(orderItemId, status) {
       fetchKdsItems(); // Tải lại danh sách sau khi cập nhật thành công
     } else {
       const errData = await res.json();
-      let errorMsg = 'Lỗi không xác định';
+      let errorMsg = errData.error || 'Lỗi không xác định';
       if (Array.isArray(errData.detail)) {
         errorMsg = errData.detail.map(e => `${e.loc ? e.loc.join(' -> ') : ''}: ${e.msg}`).join('\n');
       } else if (typeof errData.detail === 'string') {

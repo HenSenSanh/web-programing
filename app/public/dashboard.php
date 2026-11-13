@@ -34,12 +34,13 @@ $totalMenuItems = (int)($stmtMenuItems->fetch()['cnt'] ?? 0);
 $stmtKdsPending = $pdo->query("SELECT COUNT(*) as cnt FROM order_items WHERE status IN ('PENDING', 'COOKING')");
 $kdsPendingCount = (int)($stmtKdsPending->fetch()['cnt'] ?? 0);
 
-// 5. Doanh thu hôm nay
-$stmtRevenue = $pdo->query("SELECT COALESCE(SUM(final_amount), 0) as rev FROM bill_payments WHERE DATE(payment_time) = CURDATE()");
+// 5. Doanh thu hôm nay (tương thích MySQL & SQLite)
+$stmtRevenue = $pdo->prepare("SELECT COALESCE(SUM(final_amount), 0) as rev FROM bill_payments WHERE DATE(payment_time) = ?");
+$stmtRevenue->execute([date('Y-m-d')]);
 $todayRevenue = (float)($stmtRevenue->fetch()['rev'] ?? 0.0);
 if ($todayRevenue == 0) {
     // Tổng tiền từ các phiên đã thanh toán mẫu
-    $stmtRev2 = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) as rev FROM table_sessions WHERE status = 'CLOSED'");
+    $stmtRev2 = $pdo->query("SELECT COALESCE(SUM(total_amount), 0) as rev FROM table_sessions WHERE status IN ('CLOSED', 'CHECKOUT', 'PAID')");
     $todayRevenue = (float)($stmtRev2->fetch()['rev'] ?? 730000.0);
 }
 

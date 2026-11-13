@@ -20,9 +20,9 @@
 ### 1.2. Ranh giới phân định rõ ràng (TV4 KHÔNG làm thay phần của bạn khác):
 * ❌ **TV1** tự code giao diện Quản lý Bàn, Menu và trang Đăng nhập.
 * ❌ **TV2** tự code giao diện Mobile Khách chọn món, thao tác DOM giỏ hàng và gửi order.
-* ❌ **TV3** tự code màn hình Bếp KDS chuyển trạng thái món, giao diện POS thu ngân và mã VietQR.
-* ❌ **TV5** tự code giao diện biểu đồ `Chart.js`, ma trận Menu Engineering và xuất Excel.
-* ✅ **TV4** nắm giữ hạ tầng Docker, kiến trúc CSDL, toàn bộ lõi bảo mật / transaction / RBAC / ETL / Apriori và **vận hành bộ kiểm thử tự động 64 ca test (`tests/run_tests.php`) đạt 100% PASS**.
+* ❌ **TV3** tự code màn hình Bếp KDS chuyển trạng thái món, giao diện POS thu ngân và thanh toán/in hóa đơn.
+* ❌ **TV5** tự code giao diện biểu đồ `Chart.js`, ma trận Menu Engineering (`/api/v1/bi/*`) trên `dashboard.php` / `demo_tester.html`.
+* ✅ **TV4** nắm giữ hạ tầng Docker, kiến trúc CSDL, toàn bộ lõi bảo mật / transaction / RBAC / ETL / Apriori và **vận hành bộ kiểm thử tự động (`tests/run_tests.php` — 64 ca test và `tests/test_tv4_core.php`)**.
 
 ---
 
@@ -30,15 +30,15 @@
 
 ### 🔹 Module 1: Hạ tầng Docker Compose 3 Dịch vụ ([`docker-compose.yml`](file:///D:/code/test%20Dl/docker-compose.yml), [`docker/php/Dockerfile`](file:///D:/code/test%20Dl/docker/php/Dockerfile))
 * Đóng gói toàn bộ hệ thống chuẩn hóa theo đúng yêu cầu đề bài:
-  1. `php-app`: Chạy image `php:8.2-apache` đã biên dịch extension `pdo_mysql`, cài Composer, bật `a2enmod rewrite` và trỏ `APACHE_DOCUMENT_ROOT=/var/www/html/public`, cổng ánh xạ `8080:80`.
+  1. `php-app`: Chạy image `php:8.2-apache` đã biên dịch extension `pdo_mysql`, `pdo_sqlite`, `zip`, cài Composer (PHPMailer được giữ trong named volume `php_vendor:/var/www/html/vendor` cùng bind mount `composer.json`), bật `a2enmod rewrite` và trỏ `APACHE_DOCUMENT_ROOT=/var/www/html/public`, cổng ánh xạ `8080:80`.
   2. `mysql`: MySQL 8.0 (`utf8mb4_unicode_ci`), ánh xạ cổng `3307:3306`, tự động khởi tạo dữ liệu mẫu từ [`database/init.sql`](file:///D:/code/test%20Dl/database/init.sql).
   3. `phpmyadmin`: Image phpMyAdmin cổng `8081:80` giúp thầy cô kiểm tra CSDL trực quan.
 
 ### 🔹 Module 2: Kiến trúc CSDL Kép & Quản lý Kho Dữ liệu ([`database/init.sql`](file:///D:/code/test%20Dl/database/init.sql))
 * Áp dụng kiến trúc CSDL quan hệ kết hợp Kho dữ liệu phân tích:
   * **Nhóm bảng Quản trị & Xác thực:** `users` (đúng chuẩn PDF trang 18–19 với 3 Index), `roles`, `permissions`, `user_roles`, `role_permissions`, `user_permissions`.
-  * **Nhóm bảng Vận hành Nhà hàng & Kho F&B:** `units`, `categories`, `warehouses`, `warehouse_locations` (khu, kệ, ô), `products` (35 sản phẩm mẫu cho bài tập phân trang), `product_lots` (quản lý hạn sử dụng), `product_prices` (lịch sử giá), `stock_balances`, `stock_movements`, `inventory_documents`, `inventory_lines`.
-  * **Nhóm bảng Phân tích OLAP (Star Schema):** `dim_time`, `dim_menu_item`, `dim_chef`, `fact_order_items`, `fact_clickstream`.
+  * **Nhóm bảng Nhà hàng OLTP & Kho F&B:** `dining_tables`, `table_sessions`, `menu_items`, `toppings`, `combo_rules`, `shared_carts`, `orders`, `order_items`, `bill_payments`, cùng khối kho hàng `units`, `categories` (1–3 cho kho + 4–6 cho thực đơn), `warehouses`, `warehouse_locations` (khu, kệ, ô), `products` (35 sản phẩm mẫu cho bài tập phân trang), `product_lots` (quản lý hạn sử dụng), `product_prices` (lịch sử giá), `stock_balances`, `stock_movements`, `inventory_documents`, `inventory_lines`.
+  * **Nhóm bảng Phân tích OLAP (Star Schema):** `dim_time`, `dim_menu_item`, `dim_chef`, `fact_order_items`, `fact_clickstream` (phục vụ ETL, Apriori và 3 endpoint BI `/api/v1/bi/dashboard-summary`, `/api/v1/bi/revenue-over-time`, `/api/v1/bi/menu-engineering-matrix`).
 
 ### 🔹 Module 3: Hệ thống Xác thực Đa tầng & Gửi Email SMTP ([`app/src/auth.php`](file:///D:/code/test%20Dl/app/src/auth.php), [`app/src/mailer.php`](file:///D:/code/test%20Dl/app/src/mailer.php))
 * Triển khai toàn bộ 47 mục theo giáo trình PDF:
@@ -211,5 +211,9 @@ Khi đến phần báo cáo cá nhân của TV4, bạn tự tin trình diễn th
    * Thử xuất số lượng 100 trong khi kho chỉ còn tồn 4 đơn vị $\rightarrow$ Hệ thống lập tức báo lỗi, câu lệnh Rollback được thực thi, bảo toàn số dư kho và không tạo biến động mồ côi.
    * Bấm In phiếu kho: Giao diện tự động áp dụng `@media print` ẩn hoàn toàn các thanh công cụ, tạo bản in chứng từ nội bộ sạch đẹp.
 4. **Bước 4 — Chạy Bộ Kiểm thử Tự động Trước Mặt Thầy Cô:**
-   * Mở Terminal chạy lệnh chuẩn Docker: `docker compose exec php-app php /var/www/tests/run_tests.php`.
-   * Toàn bộ **64 ca kiểm thử** chạy trong 1–2 giây và hiển thị màu xanh **`100% PASS`**, khẳng định tính đúng đắn và độ tin cậy tuyệt đối của hệ thống.
+   * Mở Terminal chạy lệnh chuẩn Docker:
+     ```bash
+     docker compose exec php-app php /var/www/tests/run_tests.php
+     docker compose exec php-app php /var/www/tests/test_tv4_core.php
+     ```
+   * Toàn bộ **64 ca kiểm thử** trong `run_tests.php` cùng kiểm thử E2E/Apriori/ETL trong `test_tv4_core.php` chạy tự động và kiểm chứng toàn bộ bất biến hệ thống.

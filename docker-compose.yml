@@ -8,6 +8,8 @@ services:
       - "8080:80"
     volumes:
       - ./app:/var/www/html
+      - ./composer.json:/var/www/html/composer.json
+      - php_vendor:/var/www/html/vendor
       - ./frontend:/var/www/html/public/frontend
       - ./demo_tester.html:/var/www/html/public/demo_tester.html
       - ./tests:/var/www/tests
@@ -52,6 +54,7 @@ services:
 
 volumes:
   mysql_data:
+  php_vendor:
 
 networks:
   dineflow_network:

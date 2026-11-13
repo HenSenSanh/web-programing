@@ -1,9 +1,9 @@
-# DINEFLOW — ĐẶC TẢ WEB & QUY TRÌNH NGHIỆP VỤ CHO NHÓM (PHP FRAMEWORK)
+# DINEFLOW — ĐẶC TẢ WEB & QUY TRÌNH NGHIỆP VỤ CHO NHÓM (PHP 8.2 THUẦN + MYSQL 8.0 + DOCKER)
 
-> **Phiên bản:** 1.0 — Tài liệu Đặc tả Kỹ thuật Chính thức cho Nhóm 5 Thành viên  
+> **Phiên bản:** 1.1 — Tài liệu Đặc tả Kỹ thuật & Đối chiếu Kiến trúc Triển khai cho Nhóm 5 Thành viên  
 > **Đề tài:** Website quản lý vận hành nhà hàng tích hợp gọi món QR, điều phối bếp KDS, thu ngân POS và phân tích kinh doanh  
 > **Tài liệu đi kèm:** [`README.md`](file:///D:/code/test%20Dl/README.md), [`tv4.md`](file:///D:/code/test%20Dl/tv4.md), [`TASK_CHECKLIST_DINEFLOW_PHP.md`](file:///D:/code/test%20Dl/TASK_CHECKLIST_DINEFLOW_PHP.md).  
-> **Trạng thái tài liệu:** Đặc tả mục tiêu + kế hoạch triển khai trên nền tảng **PHP Framework (Laravel, HTML5, CSS3, FORM, JS & HTML DOM)**.
+> **Trạng thái tài liệu:** Đã chuẩn hóa theo triển khai thực tế của repository trên nền tảng **PHP 8.2 thuần (Vanilla PHP + PDO MySQL 8.0 / SQLite fallback), Docker Compose, HTML5, CSS3, FORM, JavaScript & HTML DOM**.
 
 ---
 
@@ -29,13 +29,12 @@ Website phải cho phép demo xuyên suốt:
 
 Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là sản phẩm Web hoàn chỉnh.
 
-### 1.2 Những gì đã được mô tả trong báo cáo gốc [BÁO CÁO]
+### 1.2 Hiện trạng kiến trúc triển khai của Repository
 
-- Backend PHP Framework (Laravel) cung cấp REST API và WebSocket; giao diện HTML5/CSS3/FORM/Vanilla JS & HTML DOM.
-- PostgreSQL / MySQL gồm schema `oltp` (8 bảng nghiệp vụ được liệt kê) và `olap` (3 bảng chiều, 2 bảng fact).
-- Redis lưu giỏ hàng chung theo token; giao diện menu QR, admin menu/bàn, KDS, POS, BI, ETL/Apriori được chia cho 5 thành viên.
-- Báo cáo nêu thiếu/hoặc chưa hoàn thiện: auth/RBAC, unified portal, upload/export, vòng đời phiên bàn, xác minh thanh toán.
-- **Không kết luận các nhận định trên vẫn đúng ở HEAD hiện tại trước khi kiểm tra repository.**
+- Backend **PHP 8.2 thuần** (`app/public/api_router.php`, `app/Controllers/`, `app/Services/`, `app/src/`) cung cấp REST API và các trang PHP server-rendered (`login.php`, `register.php`, `dashboard.php`, `products.php`, `documents.php`); giao diện frontend dùng HTML5/CSS3/FORM/Vanilla JS & HTML DOM (`frontend/`, `demo_tester.html`).
+- CSDL **MySQL 8.0** trong Docker (`database/init.sql`, kèm SQLite fallback `database/schema.sql` cho CLI local) gồm nhóm bảng `oltp` (bàn, phiên, thực đơn, toppings, combo_rules, shared_carts, đơn hàng, thanh toán), nhóm RBAC/Kho (`users`, `roles`, `permissions`, `products`, `inventory_*`) và Star Schema `olap` (`dim_time`, `dim_menu_item`, `dim_chef`, `fact_order_items`, `fact_clickstream`).
+- `SharedCartService` lưu giỏ hàng chung theo `session_token` (file lock + bảng `shared_carts` qua REST API `/cart`); giao diện menu QR, admin menu/bàn, KDS, POS, BI, ETL/Apriori được phân công rõ cho 5 thành viên.
+- Mọi kết luận về tính năng hoàn thiện hay mở rộng sau MVP phải đối chiếu trực tiếp với mã nguồn repository và [`TASK_CHECKLIST_DINEFLOW_PHP.md`](file:///D:/code/test%20Dl/TASK_CHECKLIST_DINEFLOW_PHP.md).
 
 ### 1.3 Sản phẩm cần bàn giao [MVP]
 
@@ -56,44 +55,45 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 - Quản lý đa chi nhánh và phân tách dữ liệu theo chi nhánh.
 - AI gợi ý món thời gian thực; Apriori hiện có có thể giữ nếu không ảnh hưởng luồng chính.
 
-## 2. QUYẾT ĐỊNH KIẾN TRÚC [CHỐT TRƯỚC KHI CODE]
+## 2. QUYẾT ĐỊNH KIẾN TRÚC [ĐÃ CHỐT TRÊN REPO]
 
-### 2.1 Phân biệt hiện trạng và mục tiêu
+### 2.1 Kiến trúc chính thức hiện tại
 
-- **Mục tiêu môn Web (Chính thức):** Bắt buộc sử dụng **Framework PHP** kết hợp HTML5, CSS3, FORM, JavaScript & HTML DOM theo đúng chương trình môn học.
-- **Quyết định kiến trúc chính thức:** Sử dụng **Laravel Full-stack Modular Monolith** (kết hợp Blade Template Engine, Eloquent ORM, Session/Auth Middleware, PostgreSQL/MySQL và Redis).
-- **Kế hoạch triển khai:** Áp dụng 100% bản thiết kế thực thể dữ liệu (ERD), hợp đồng API, 6 bất biến nghiệp vụ, và thuật toán Apriori trên Laravel Models, Migrations, Controllers và Jobs.
+- **Mục tiêu môn Web (Chính thức):** Sử dụng **PHP 8.2 thuần (Vanilla PHP Modular Monolith) + PDO** kết hợp HTML5, CSS3, FORM, JavaScript & HTML DOM theo đúng yêu cầu bài tập lớn (`tai lieu/new.md`, `tai lieu/DE_XUAT_MO_RONG.md`, `tai lieu/BAI_TAP_SINH_VIEN.md`).
+- **Quyết định kiến trúc chính thức:** Chạy 3 container Docker (`php-app` PHP 8.2 + Apache, `mysql` 8.0, `phpmyadmin`), sử dụng `PDO` Prepared Statements (`ERRMODE_EXCEPTION`, `FETCH_ASSOC`), không phụ thuộc framework ngoài (Laravel/Redis/WebSocket server riêng).
+- **Kế hoạch triển khai:** Áp dụng bản thiết kế thực thể dữ liệu (ERD), hợp đồng REST API (`/api/v1/*`), các bất biến nghiệp vụ và thuật toán Apriori trực tiếp trên `app/Controllers/`, `app/Services/`, `app/src/` và SQL chuẩn hóa tại `database/init.sql`.
 
 ### 2.2 Quyết định đã chốt
 
 | Mục | Giá trị chốt | Người chốt |
 |---|---|---|
-| Đề cương môn cho phép framework nào? | **Bắt buộc Framework PHP (kết hợp HTML5, CSS3, FORM, JS & DOM)** | Giảng viên + Cả nhóm |
-| Stack frontend/backend | **PHP (Laravel 10/11) + Blade + HTML5/CSS3/JS thuần** | Cả nhóm |
-| Database: giữ PostgreSQL / MySQL? | **Có (PostgreSQL / MySQL, dùng Eloquent ORM & Migrations)** | Cả nhóm |
-| Realtime: WebSocket/Reverb/SSE? | **Laravel Reverb / Redis WebSocket** | TV3 + TV4 |
-| Thanh toán MVP: tiền mặt + chuyển khoản xác nhận thủ công? | **Có (Tiền mặt + VietQR động Napas 247)** | TV3 + TV1 |
+| Đề cương môn sử dụng công nghệ nào? | **PHP 8.2 thuần + PDO MySQL + Docker + HTML5/CSS3/FORM/JS & DOM** | Giảng viên + Cả nhóm |
+| Stack frontend/backend | **Vanilla PHP 8.2 (Controllers/Services/src) + HTML5/CSS3/Vanilla JS** | Cả nhóm |
+| Database | **MySQL 8.0 trong Docker (`database/init.sql`), có SQLite fallback cho test local** | Cả nhóm |
+| Đồng bộ giỏ hàng / cập nhật trạng thái | **REST API + `SharedCartService` (file lock + bảng `shared_carts`) & polling chu kỳ ngắn** | TV3 + TV4 |
+| Thanh toán MVP: tiền mặt + chuyển khoản xác nhận thủ công? | **Có (Tiền mặt/Chuyển khoản thủ công qua POS; VietQR động là phần mở rộng)** | TV3 + TV1 |
 | Đơn vị tiền, làm tròn, thuế/phí? | **VNĐ, làm tròn mốc 500đ, VAT 8%, Phí phục vụ 0đ** | TV3 + TV5 |
 | Có vai trò WAITER/phục vụ riêng? | **Không bắt buộc cho MVP (Cashier/Admin kiêm nhiệm)** | Cả nhóm |
 | Ngưỡng tự hết hạn phiên; xử lý bàn có đơn mở? | **180 phút (bàn trống); bàn có đơn mở tuyệt đối không tự đóng** | TV1 + TV3 |
-| Có giữ Apriori trong MVP? | **Có (chuyển sang PHP Service sau khi hoàn tất nghiệp vụ lõi)** | TV4 + TV5 |
+| Có giữ Apriori trong MVP? | **Có (`App\Services\AprioriService` + `DataPipelineController`)** | TV4 + TV5 |
 
-### 2.3 Bề mặt Web cần có [MVP]
+### 2.3 Bản đồ Bề mặt Web (Đặc tả vs Đường dẫn Thực tế)
 
-| Đường dẫn minh họa | Người dùng | Nhiệm vụ |
-|---|---|---|
-| `/m/{session_token}` | Khách | Menu, giỏ hàng, đơn của phiên bàn |
-| `/login` | Nhân viên | Đăng nhập |
-| `/portal` | Nhân viên | Khung điều hướng chung |
-| `/portal/tables` | ADMIN | Bàn & QR, mở/đóng phiên |
-| `/portal/menu` | ADMIN | Danh mục, món, topping, ảnh |
-| `/portal/kds` | CHEF / ADMIN | Điều phối chế biến |
-| `/portal/pos` | CASHIER / ADMIN | Hóa đơn, thanh toán |
-| `/portal/reports` | ADMIN | Doanh thu, BI |
-| `/portal/staff` | ADMIN | Tài khoản, vai trò |
-| `/portal/audit` | ADMIN | Lịch sử thao tác nhạy cảm |
+| Đường dẫn thực tế hiện có | Route khái niệm (Spec) | Người dùng | Nhiệm vụ |
+|---|---|---|---|
+| `/frontend/menu/index.html?token={session_token}` | `/m/{session_token}` | Khách | Menu QR, giỏ hàng chung REST, gửi đơn, xem gợi ý |
+| `/login.php`, `/register.php`, `/verify_email.php` | `/login` | Nhân viên | Đăng nhập, đăng ký & kích hoạt email SMTP |
+| `/dashboard.php` | `/portal` | Nhân viên | Trang tổng quan ca trực & KPI |
+| `/products.php` | `/portal/menu` (Bài A) | Admin / Thủ kho | Quản lý danh mục & phân trang thật SQL |
+| `/documents.php` | `/portal/documents` (Bài D) | Admin / Thủ kho / Viewer | Lập phiếu, ghi sổ chống âm tồn & in `@media print` |
+| `/frontend/tv1/table-management.html` | `/portal/tables` | ADMIN | Quản lý bàn & mở phiên QR |
+| `/frontend/tv1/menu-management.html` | `/portal/menu` | ADMIN | Danh mục món ăn, topping & bật/tắt hết món |
+| `/frontend/kds.html` | `/portal/kds` | CHEF / ADMIN | Điều phối chế biến KDS |
+| `/frontend/pos.html` | `/portal/pos` | CASHIER / ADMIN | Xem hóa đơn (VAT 8%, làm tròn 500đ) & thanh toán |
+| `/frontend/tv4_data_pipeline.html` | `/portal/live-ops` | TV4 / ADMIN | Giám sát Live Ops, Combo Rule Apriori, SLA & ETL |
+| `/demo_tester.html` | Simulator E2E + BI | Nhóm & Giảng viên | Kiểm thử toàn luồng TV1→TV5 & biểu đồ BI |
 
-> Đây là **route mục tiêu minh họa**, không khẳng định các URL đã tồn tại. Trang khách và portal tách biệt về quyền nhưng dùng chung thương hiệu/design tokens.
+> Bảng trên ánh xạ trực tiếp từ route đặc tả ban đầu sang đường dẫn đang phục vụ trên Apache (`http://localhost:8080/...`) để toàn nhóm và giảng viên kiểm thử thống nhất.
 
 ## 3. TÁC NHÂN VÀ PHÂN QUYỀN
 
@@ -145,7 +145,7 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 1. ADMIN hoặc CASHIER được cấp quyền chọn bàn `AVAILABLE`.
 2. Server mở **một** phiên bàn `ACTIVE`, gắn `table_id`, người mở, thời gian bắt đầu.
 3. Sinh token đủ ngẫu nhiên và khó đoán; ưu tiên lưu dạng hash/lookup bảo mật nếu thiết kế cho phép.
-4. Tạo QR dẫn tới `/m/{token}`; giao diện hiển thị tên/số bàn và menu.
+4. Tạo QR dẫn tới `/frontend/menu/index.html?token={token}` (hoặc route ngắn gọn tương đương); giao diện hiển thị tên/số bàn và menu.
 5. Khách quét QR phải được server xác minh token, trạng thái phiên, hạn sử dụng.
 6. Nếu bàn đã có phiên active thì phải từ chối tạo phiên thứ hai (hoặc xử lý theo quy trình chuyển bàn).
 
@@ -220,7 +220,7 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 4. Đảm bảo tổng tiền POS khớp báo cáo BI theo khoảng thời gian và phương thức tính đã công bố.
 5. Chỉ số chuyển đổi/clickstream và Apriori là báo cáo bổ sung; không được làm chậm luồng thanh toán.
 
-**Lưu ý kiến trúc:** tách schema `oltp`/`olap` trong cùng một PostgreSQL giúp quản lý dữ liệu, **không tự động cách ly tài nguyên I/O**; phải đo truy vấn/index nếu muốn tuyên bố hiệu năng.
+**Lưu ý kiến trúc:** tách nhóm bảng `oltp` / `olap` trong cùng một **MySQL 8.0** giúp quản lý dữ liệu rõ ràng, nhưng **không tự động cách ly tài nguyên I/O**; phải đo truy vấn/index nếu muốn tuyên bố hiệu năng.
 
 ### WF-09. Upload, hồ sơ, tài liệu [MVP tối thiểu]
 
@@ -419,7 +419,7 @@ Giữ gần cấu trúc 5 TV trong báo cáo gốc để tránh mất phần vi�
 | **TV1 — Admin & Menu/Tables** | Bàn, phiên QR, menu, topping, quản lý cấu hình | UI + API + validation + migration/tests | Auth chung, TV2, TV3 |
 | **TV2 — Customer QR Web** | Mobile menu, shared cart, tạo đơn, trạng thái | Responsive UI + API integration + AT-06–10 | TV1, TV4 |
 | **TV3 — KDS & POS** | Bếp, hóa đơn, thanh toán, đóng bàn | State transitions + permissions + AT-11–17 | TV1, TV4, TV5 |
-| **TV4 — Core Integration & Realtime** | Auth/RBAC phối hợp, Redis/WebSocket, idempotency, CI/test hạ tầng | Realtime contract + middleware + tích hợp E2E | Tất cả |
+| **TV4 — Core Integration & Data Pipeline** | Auth/RBAC đa tầng, `SharedCartService` REST, Idempotency-Key, Docker & test suite (`run_tests.php`) | REST/Data contract + bảo mật + tích hợp E2E | Tất cả |
 | **TV5 — BI & Quality** | Báo cáo, ETL, audit/export + phụ trách đối soát test | BI integrity + test data + AT-18–24 | TV3, TV4 |
 
 **Phân chia liên chức năng bắt buộc:**
@@ -452,7 +452,7 @@ Giữ gần cấu trúc 5 TV trong báo cáo gốc để tránh mất phần vi�
 
 ### 12.1 Thứ tự hợp nhất (critical path)
 
-`Chốt stack & ERD → Auth/RBAC → Bàn/Menu/Session → Order & Redis/Realtime → KDS → POS/Payment → Close session → BI/ETL → Security regression/E2E`.
+`Chốt stack PHP 8.2 & ERD MySQL → Auth/RBAC → Bàn/Menu/Session → Order & SharedCart REST → KDS → POS/Payment → Close session → BI/ETL → Security regression/E2E`.
 
 Không lấy ảnh dashboard đẹp thay thế cho một luồng nghiệp vụ hoàn chỉnh.
 
@@ -481,15 +481,14 @@ Một task chỉ được coi là **DONE** khi:
 - `code-security` — secure coding review.
 - `semgrep` — hỗ trợ quét SAST khi runtime Semgrep đã được cài.
 - `webapp-testing` — kiểm thử giao diện bằng Playwright (cần các dependency thực tế).
-- `supabase-postgres-best-practices` — thiết kế/tối ưu PostgreSQL dù không dùng Supabase.
-- **Chưa cài skill Laravel/React theo stack khi chưa chốt công nghệ.**
+- Không dùng framework ngoài (Laravel/React) — dự án triển khai **PHP 8.2 thuần + PDO MySQL** để bám sát cấu trúc bài tập lớn.
 
 ### 14.2 Skill nội bộ cần tạo sau [ĐỀ XUẤT, chưa có sẵn]
 
 1. `dineflow-business-domain` — thực thể/use cases/invariants/permissions.
 2. `dineflow-secure-authorization` — threat model, RBAC, QR policy, negative tests.
 3. `dineflow-order-payment-state-machine` — trạng thái, tiền, transaction, idempotency.
-4. `dineflow-realtime-consistency` — Redis/WebSocket, ordering/duplicates/reconnect.
+4. `dineflow-rest-sync-consistency` — SharedCart REST sync, idempotency, retries/reconciliation.
 5. `dineflow-e2e-acceptance` — chuyển bảng AT thành bài test.
 
 Nội dung `SKILL.md` phải tham chiếu tài liệu này; không cho AI tự phát minh thêm nghiệp vụ không được duyệt.
@@ -525,8 +524,8 @@ Nội dung `SKILL.md` phải tham chiếu tài liệu này; không cho AI tự p
 
 ## 17. CÂU HỎI NHÓM CẦN CHỐT Ở BUỔI HỌP ĐẦU
 
-- [x] Thầy/cô có **bắt buộc framework/ngôn ngữ** cho môn Web không?
-  - Bắt buộc sử dụng Framework PHP kết hợp HTML5, CSS3, FORM, JavaScript & HTML DOM theo chuẩn môn Lập trình Web.
+- [x] Thầy/cô có **yêu cầu công nghệ cụ thể** cho môn Web không?
+  - Bắt buộc sử dụng **PHP 8.2 thuần + PDO MySQL 8.0 + Docker** kết hợp HTML5, CSS3, FORM, JavaScript & HTML DOM theo chuẩn bài tập lớn (`tai lieu/new.md`).
   
 - [x] Giữ stack cũ hay viết lại UI/backend? Kế hoạch migration, deadline và người chịu trách nhiệm?
   - cái này thì để các thành viên ở trong nhóm liên quan tới fontend chịu trách nhiệm, trách nhiệm của tôi là thành viên 4 nên không cần quan trọng mấy cái đó thứ tôi cần quan tâm là kế hoạch và deadline tôi là người đúng ra chịu trách nhiệm
