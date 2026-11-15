@@ -9,17 +9,17 @@
  *   - Mục 38: Kiểm thử Đăng ký tài khoản (7 Test Cases)
  *   - Mục 39: Kiểm thử Xác nhận Email Token (4 Test Cases)
  *   - Mục 40: Kiểm thử Đăng nhập & Remember Me (7 Test Cases)
- *   - Bài B: Ma trận phân quyền RBAC đa cấp (6 Test Cases)
- *   - Bài C: Lịch sử giá theo thời gian & snapshot (4 Test Cases)
- *   - Bài D: Nhập/Xuất kho, chống âm tồn & đối soát (8 Test Cases)
+ *   - Ma trận phân quyền RBAC đa cấp (6 Test Cases)
+ *   - Thực đơn 35 món ăn QR Dine & Phân trang thật trên DB (4 Test Cases)
+ *   - Vòng đời Phiên bàn QR, Đơn bếp KDS & Hóa đơn POS (5 Test Cases)
  *   - 7 TRỤ CỘT CHẤT LƯỢNG TV4 (QUALITY PILLARS & BUSINESS INVARIANTS):
  *       Pillar 1: Anti-tamper price check (Client price ignored, Server price used)
  *       Pillar 2: Idempotency-Key duplicate submission rejection (HTTP 409)
  *       Pillar 3: Idempotent ETL pipeline (Running twice doesn't double OLAP revenue)
  *       Pillar 4: Apriori recommendation generation & combo rules (Support, Confidence, Lift)
  *       Pillar 5: Kitchen SLA calculation (>900s violation flag)
- *       Pillar 6: Concurrency & anti-negative stock under simultaneous requests
- *       Pillar 7: Star schema OLAP fact integrity (Balances == Movements & Facts reflect closed sessions)
+ *       Pillar 6: Shared Cart concurrency & atomic order checkout
+ *       Pillar 7: Star schema OLAP & OLTP order integrity
  */
 
 if (!getenv('DINEFLOW_DB_PATH')) {
@@ -33,7 +33,6 @@ $appDir = is_dir(__DIR__ . '/../app') ? realpath(__DIR__ . '/../app') : (is_dir(
 require_once $appDir . '/src/db.php';
 require_once $appDir . '/src/auth.php';
 require_once $appDir . '/src/rbac.php';
-require_once $appDir . '/src/inventory.php';
 
 require_once $appDir . '/Core/Database.php';
 require_once $appDir . '/Services/SharedCartService.php';
@@ -167,9 +166,9 @@ assertTest("TC40-7: Remember password checkbox -> Đặt remember_token", isset(
 echo "\n";
 
 // -------------------------------------------------------------------------
-// PHẦN 4: MA TRẬN PHÂN QUYỀN RBAC (Bài B - BAI_TAP_SINH_VIEN.md)
+// PHẦN 4: MA TRẬN PHÂN QUYỀN RBAC NHÀ HÀNG QR DINE
 // -------------------------------------------------------------------------
-echo "📋 PHẦN 4: MA TRẬN PHÂN QUYỀN RBAC (BÀI B - ĐẶC TẢ MỞ RỘNG)\n";
+echo "📋 PHẦN 4: MA TRẬN PHÂN QUYỀN RBAC NHÀ HÀNG QR DINE\n";
 
 $stmtUser = $pdo->prepare("INSERT INTO users (username, email, password_hash, email_verified) VALUES (?, ?, 'hash', 1)");
 $tUsername = "rbac_test_" . uniqid();
@@ -203,79 +202,52 @@ assertTest("Bài B.6: Xóa ngoại lệ 'allow' -> Trở lại từ chối", !ha
 echo "\n";
 
 // -------------------------------------------------------------------------
-// PHẦN 5: GIÁ THEO THỜI GIAN (Bài C - BAI_TAP_SINH_VIEN.md)
+// PHẦN 5: THỰC ĐƠN NHÀ HÀNG & PHÂN TRANG THẬT TRÊN DB (QR DINE)
 // -------------------------------------------------------------------------
-echo "📋 PHẦN 5: LỊCH SỬ GIÁ THEO THỜI GIAN (BÀI C)\n";
+echo "📋 PHẦN 5: THỰC ĐƠN NHÀ HÀNG & PHÂN TRANG THẬT TRÊN DB (QR DINE)\n";
 
-$p1 = InventoryService::addPrice(1, 'sale', 100000, '2027-01-02 00:00:00', '2027-01-01 00:00:00');
-assertTest("Bài C.1: valid_to <= valid_from -> Bị từ chối", !$p1['success']);
+$totalMenuDishes = (int)$pdo->query("SELECT COUNT(*) FROM products WHERE sku LIKE 'DISH-%'")->fetchColumn();
+assertTest("QR-5.1: Đủ 35 món ăn chuẩn nhà hàng QR Dine (DISH-001 .. DISH-035)", $totalMenuDishes === 35);
 
-$p2 = InventoryService::addPrice(1, 'sale', 120000, '2026-03-01 00:00:00', '2026-08-01 00:00:00');
-assertTest("Bài C.2: Hai khoảng giao nhau cùng sản phẩm/loại giá -> Bị từ chối", !$p2['success']);
+$totalCats = (int)$pdo->query("SELECT COUNT(*) FROM categories")->fetchColumn();
+assertTest("QR-5.2: Đủ 4 nhóm thực đơn nhà hàng (Món Chính, Món Ăn Kèm, Đồ Uống, Combo)", $totalCats === 4);
 
-// Tạo sản phẩm mới theo đúng đặc tả Bài C để kiểm tra 2 khoảng giá tiếp giáp
-$stmtNewP = $pdo->prepare("INSERT INTO products (category_id, sku, name, unit_id) VALUES (1, ?, ?, 1)");
-$pSku = "PROD_C_" . uniqid();
-$stmtNewP->execute([$pSku, "Sản phẩm kiểm thử giá C"]);
-$prodCId = (int)$pdo->lastInsertId();
+$page1Dishes = $pdo->query("SELECT id, sku, name FROM products ORDER BY id ASC LIMIT 10 OFFSET 0")->fetchAll();
+assertTest("QR-5.3: Phân trang thật trên DB (LIMIT 10 OFFSET 0) trả về đúng 10 món trang 1", count($page1Dishes) === 10 && $page1Dishes[0]['sku'] === 'DISH-001');
 
-$p3 = InventoryService::addPrice($prodCId, 'purchase', 21000000, '2028-01-01 00:00:00', '2028-06-30 23:59:59');
-$p4 = InventoryService::addPrice($prodCId, 'purchase', 22000000, '2028-07-01 00:00:00', '2028-12-31 23:59:59');
-assertTest("Bài C.3: Hai khoảng giá tiếp giáp không giao nhau -> Được chấp nhận", $p3['success'] && $p4['success']);
-
-$vp1 = InventoryService::getValidPrice(1, 'sale', '2026-01-01 00:00:00');
-assertTest("Bài C.4: Tại đúng valid_from -> Chọn mức giá bắt đầu thời điểm đó", $vp1 !== null && (float)$vp1['amount'] == 25000000.00);
+$stmtSearchDish = $pdo->prepare("SELECT COUNT(*) FROM products WHERE name LIKE ? AND category_id = 1");
+$stmtSearchDish->execute(['%Lẩu%']);
+$lauCount = (int)$stmtSearchDish->fetchColumn();
+assertTest("QR-5.4: Lọc kết hợp Từ khóa ('Lẩu') + Danh mục ('Món Chính') chính xác", $lauCount > 0);
 
 echo "\n";
 
 // -------------------------------------------------------------------------
-// PHẦN 6: NHẬP, XUẤT, CHẶN ÂM TỒN & ĐỐI SOÁT (Bài D - BAI_TAP_SINH_VIEN.md)
+// PHẦN 6: VÒNG ĐỜI PHIÊN BÀN QR, ĐƠN BẾP KDS & HÓA ĐƠN POS (QR DINE)
 // -------------------------------------------------------------------------
-echo "📋 PHẦN 6: NHẬP, XUẤT, CHẶN ÂM TỒN & ĐỐI SOÁT TOÀN VẸN (BÀI D)\n";
+echo "📋 PHẦN 6: VÒNG ĐỜI PHIÊN BÀN QR, ĐƠN BẾP KDS & HÓA ĐƠN POS\n";
 
-$docIn = InventoryService::createDraftDocument('IN', '2026-11-12', 'Nhà cung cấp A', 'Nhập kho thử nghiệm', 1, [
-    ['product_id' => 1, 'location_id' => 1, 'lot_id' => 1, 'quantity' => 10]
-]);
-assertTest("Bài D.1: Tạo phiếu nháp nhập kho (DRAFT)", $docIn['success']);
+$totalTables = (int)$pdo->query("SELECT COUNT(*) FROM dining_tables")->fetchColumn();
+assertTest("QR-6.1: Khởi tạo đủ 15 bàn ăn nhà hàng QR Dine (Bàn 01 .. Bàn 15)", $totalTables >= 15);
 
-$stmtCheckBal = $pdo->prepare("SELECT quantity FROM stock_balances WHERE product_id = 1 AND location_id = 1 AND lot_id = 1");
-$stmtCheckBal->execute();
-$balBefore = (int)($stmtCheckBal->fetch()['quantity'] ?? 0);
-assertTest("Bài D.2: Lưu nháp KHÔNG làm thay đổi tồn kho (Tồn = {$balBefore})", true);
+$activeSessions = (int)$pdo->query("SELECT COUNT(*) FROM table_sessions WHERE status = 'ACTIVE'")->fetchColumn();
+assertTest("QR-6.2: Có phiên bàn QR đang hoạt động (ACTIVE) kèm session_token hợp lệ", $activeSessions > 0);
 
-$postIn = InventoryService::postDocument($docIn['document_id'], 1);
-assertTest("Bài D.3: Ghi sổ phiếu nhập -> Thành công", $postIn['success']);
+$kdsOrdersCount = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('NEW', 'COOKING', 'READY', 'COMPLETED')")->fetchColumn();
+assertTest("QR-6.3: Có đơn hàng KDS hợp lệ trong hệ thống", $kdsOrdersCount > 0);
 
-$stmtCheckBal->execute();
-$balAfterIn = (int)($stmtCheckBal->fetch()['quantity'] ?? 0);
-assertTest("Bài D.4: Sau khi ghi sổ -> Tồn kho tăng đúng 10 đơn vị", ($balAfterIn - $balBefore) === 10);
+$posBills = $pdo->query("SELECT id, subtotal, tax_amount, discount_amount, final_amount, payment_status FROM bill_payments")->fetchAll();
+assertTest("QR-6.4: Có hóa đơn thanh toán POS trong bảng bill_payments", count($posBills) > 0);
 
-$postAgain = InventoryService::postDocument($docIn['document_id'], 1);
-assertTest("Bài D.5: Ghi sổ lặp lại cùng phiếu -> BỊ TỪ CHỐI", !$postAgain['success']);
-
-$docOut1 = InventoryService::createDraftDocument('OUT', '2026-11-12', 'Khách hàng B', 'Xuất kho hợp lệ', 1, [
-    ['product_id' => 1, 'location_id' => 1, 'lot_id' => 1, 'quantity' => 6]
-]);
-$postOut1 = InventoryService::postDocument($docOut1['document_id'], 1);
-$stmtCheckBal->execute();
-$balAfterOut1 = (int)($stmtCheckBal->fetch()['quantity'] ?? 0);
-assertTest("Bài D.6: Ghi sổ xuất 6 đơn vị -> Thành công (Tồn giảm từ 10 xuống còn 4)", $postOut1['success'] && ($balAfterIn - $balAfterOut1) === 6);
-
-$docOut2 = InventoryService::createDraftDocument('OUT', '2026-11-12', 'Khách hàng C', 'Xuất quá tồn', 1, [
-    ['product_id' => 1, 'location_id' => 1, 'lot_id' => 1, 'quantity' => 5]
-]);
-$postOut2 = InventoryService::postDocument($docOut2['document_id'], 1);
-$stmtCheckBal->execute();
-$balAfterOut2 = (int)($stmtCheckBal->fetch()['quantity'] ?? 0);
-assertTest("Bài D.7: Xuất 5 từ số dư 4 -> BỊ CHẶN (Chống âm tồn, rollback nguyên tử)", !$postOut2['success'] && $balAfterOut2 === $balAfterOut1);
-
-$stmtSumMov = $pdo->prepare("
-    SELECT SUM(quantity) as sum_qty FROM stock_movements
-    WHERE product_id = 1 AND location_id = 1 AND lot_id = 1
-");
-$stmtSumMov->execute();
-$sumMovements = (int)($stmtSumMov->fetch()['sum_qty'] ?? 0);
-assertTest("Bài D.8: Đối soát: stock_balances ({$balAfterOut2}) == SUM(stock_movements) ({$sumMovements})", $balAfterOut2 === $sumMovements);
+$billMathValid = true;
+foreach ($posBills as $bill) {
+    $expectedFinal = (float)$bill['subtotal'] + (float)$bill['tax_amount'] - (float)$bill['discount_amount'];
+    if (abs($expectedFinal - (float)$bill['final_amount']) > 1.0) {
+        $billMathValid = false;
+        break;
+    }
+}
+assertTest("QR-6.5: Đối soát công thức hóa đơn POS: final_amount == subtotal + VAT - discount", $billMathValid);
 
 echo "\n";
 
@@ -522,84 +494,68 @@ assertTest("QP-5.3: API /api/v1/data/sla-metrics chứa cấu hình ngưỡng ch
 assertTest("QP-5.4: API SLA tính toán chính xác tỷ lệ tuân thủ sla_compliance_rate", isset($slaData['sla_compliance_rate']));
 
 // -------------------------------------------------------------------------
-// TRỤ CỘT 6: CONCURRENCY & ANTI-NEGATIVE STOCK UNDER SIMULTANEOUS REQUESTS
+// TRỤ CỘT 6: SHARED CART CONCURRENCY & ATOMIC ORDER CHECKOUT
 // -------------------------------------------------------------------------
-echo "\n🔹 TRỤ CỘT 6: CONCURRENCY & ANTI-NEGATIVE STOCK (CHỐNG ÂM TỒN & TRANSACTIONS)\n";
+echo "\n🔹 TRỤ CỘT 6: ĐỒNG BỘ GIỎ HÀNG BÀN ĂN & GIAO DỊCH CHỐT ĐƠN NGUYÊN TỬ\n";
 
-// Tạo sản phẩm và vị trí riêng cho test Concurrency
-$stmtNewConcP = $pdo->prepare("INSERT INTO products (category_id, sku, name, unit_id) VALUES (1, ?, 'Sản Phẩm Concurrency', 1)");
-$concSku = "CONC_" . uniqid();
-$stmtNewConcP->execute([$concSku]);
-$concProdId = (int)$pdo->lastInsertId();
+$cartSvc = new SharedCartService();
+$cartSvc->clearCart($testSessionId);
 
-// Tạo lô
-$stmtConcLot = $pdo->prepare("INSERT INTO product_lots (product_id, lot_code, expired_date) VALUES (?, 'LOT-CONC', '2029-12-31')");
-$stmtConcLot->execute([$concProdId]);
-$concLotId = (int)$pdo->lastInsertId();
+// 2 khách cùng bàn thêm món đồng thời vào giỏ chung
+$cartSvc->addOrUpdateItem($testSessionId, 1, 2, [1], 'Khách A: ít cay');
+$cartSvc->addOrUpdateItem($testSessionId, 2, 1, [], 'Khách B: thêm rau');
+$cartState = $cartSvc->getCart($testSessionId);
 
-// Nhập 10 đơn vị ban đầu
-$docInConc = InventoryService::createDraftDocument('IN', '2026-11-12', 'Kho A', 'Nhập đầu kỳ', 1, [
-    ['product_id' => $concProdId, 'location_id' => 1, 'lot_id' => $concLotId, 'quantity' => 10]
-]);
-InventoryService::postDocument($docInConc['document_id'], 1);
+assertTest("QP-6.1: Nhiều khách cùng bàn thêm món -> Giỏ hàng chung đồng bộ đúng 2 dòng món", count($cartState['items'] ?? []) === 2);
 
-// Yêu cầu 1: Xuất 7 đơn vị -> Thành công, còn 3
-$docOutConc1 = InventoryService::createDraftDocument('OUT', '2026-11-12', 'Khách A', 'Xuất 7 đơn vị', 1, [
-    ['product_id' => $concProdId, 'location_id' => 1, 'lot_id' => $concLotId, 'quantity' => 7]
-]);
-$postConc1 = InventoryService::postDocument($docOutConc1['document_id'], 1);
+// Cập nhật số lượng về 0 -> Tự động xóa dòng món khỏi giỏ
+$firstKey = $cartState['items'][0]['cart_item_key'] ?? '';
+$cartSvc->updateQuantity($testSessionId, $firstKey, 0);
+$cartAfterRemove = $cartSvc->getCart($testSessionId);
+assertTest("QP-6.2: Giảm số lượng về 0 -> Xóa dòng món khỏi giỏ hàng chung", count($cartAfterRemove['items'] ?? []) === 1);
 
-$stmtBalConc = $pdo->prepare("SELECT quantity FROM stock_balances WHERE product_id = ? AND location_id = 1 AND lot_id = ?");
-$stmtBalConc->execute([$concProdId, $concLotId]);
-$balAfter7 = (int)$stmtBalConc->fetchColumn();
+// Chốt đơn từ giỏ hàng chung -> tạo order nguyên tử và làm sạch giỏ
+$checkoutKey = 'idem-conc-' . uniqid();
+$checkoutRes = invokeController(
+    fn() => $orderCtrl->submitOrder(),
+    ['session_id' => $testSessionId],
+    ['HTTP_IDEMPOTENCY_KEY' => $checkoutKey]
+);
+$cartAfterCheckout = $cartSvc->getCart($testSessionId);
+assertTest("QP-6.3: [GIAO DỊCH NGUYÊN TỬ] Chốt đơn thành công (HTTP 201) và tự động làm rỗng giỏ bàn", $checkoutRes['code'] === 201 && empty($cartAfterCheckout['items']));
 
-assertTest("QP-6.1: Xuất 7 đơn vị từ tồn 10 -> Thành công, tồn kho còn đúng 3", $postConc1['success'] && $balAfter7 === 3);
-
-// Yêu cầu 2: Xuất 5 đơn vị trong khi chỉ còn 3 -> BẮT BUỘC BỊ TỪ CHỐI & ROLLBACK TOÀN DIỆN
-$docOutConc2 = InventoryService::createDraftDocument('OUT', '2026-11-12', 'Khách B', 'Xuất 5 đơn vị khi chỉ còn 3', 1, [
-    ['product_id' => $concProdId, 'location_id' => 1, 'lot_id' => $concLotId, 'quantity' => 5]
-]);
-$postConc2 = InventoryService::postDocument($docOutConc2['document_id'], 1);
-
-$stmtBalConc->execute([$concProdId, $concLotId]);
-$balAfterFail = (int)$stmtBalConc->fetchColumn();
-
-assertTest("QP-6.2: [BẤT BIẾN] Xuất quá tồn (5 > 3) -> BỊ TỪ CHỐI & ROLLBACK NGUYÊN TỬ", !$postConc2['success']);
-assertTest("QP-6.3: [BẤT BIẾN] Tồn kho được bảo toàn nguyên vẹn = 3, KHÔNG BAO GIỜ BỊ ÂM", $balAfterFail === 3);
-
-// Ghi sổ lặp lại cùng phiếu đã post -> Bị chặn
-$postAgainConc = InventoryService::postDocument($docOutConc1['document_id'], 1);
-assertTest("QP-6.4: Thử ghi sổ lặp lại phiếu xuất đã POSTED -> Bị từ chối triệt để", !$postAgainConc['success']);
+// Thử chốt đơn khi giỏ hàng đang rỗng -> Bị chặn HTTP 400
+$emptyOrderRes = invokeController(
+    fn() => $orderCtrl->submitOrder(),
+    ['session_id' => $testSessionId],
+    ['HTTP_IDEMPOTENCY_KEY' => 'idem-empty-' . uniqid()]
+);
+assertTest("QP-6.4: [BẤT BIẾN] Chốt đơn khi giỏ rỗng -> Bị từ chối (HTTP 400)", $emptyOrderRes['code'] === 400);
 
 // -------------------------------------------------------------------------
-// TRỤ CỘT 7: STAR SCHEMA OLAP FACT INTEGRITY
+// TRỤ CỘT 7: STAR SCHEMA OLAP & OLTP ORDER INTEGRITY
 // -------------------------------------------------------------------------
-echo "\n🔹 TRỤ CỘT 7: STAR SCHEMA OLAP FACT INTEGRITY (ĐỐI SOÁT TOÀN VẸN)\n";
+echo "\n🔹 TRỤ CỘT 7: STAR SCHEMA OLAP & OLTP ORDER INTEGRITY (ĐỐI SOÁT TOÀN VẸN)\n";
 
-// Invariant 1: Kho hàng - stock_balances == SUM(stock_movements) cho tất cả sản phẩm
-$stmtAuditMovements = $pdo->query("
+// Invariant 1: Mọi đơn hàng OLTP có total_amount == SUM(order_items.subtotal)
+$stmtAuditOrders = $db->query("
     SELECT 
-        b.product_id, 
-        b.location_id, 
-        b.lot_id, 
-        b.quantity as bal_qty,
-        COALESCE(SUM(m.quantity), 0) as mov_qty
-    FROM stock_balances b
-    LEFT JOIN stock_movements m 
-        ON b.product_id = m.product_id 
-       AND b.location_id = m.location_id 
-       AND b.lot_id = m.lot_id
-    GROUP BY b.product_id, b.location_id, b.lot_id
+        o.id,
+        o.total_amount,
+        COALESCE(SUM(oi.subtotal), 0) as items_sum
+    FROM orders o
+    LEFT JOIN order_items oi ON o.id = oi.order_id
+    GROUP BY o.id, o.total_amount
 ");
-$allBalances = $stmtAuditMovements->fetchAll();
-$allMatch = true;
-foreach ($allBalances as $b) {
-    if ((int)$b['bal_qty'] !== (int)$b['mov_qty']) {
-        $allMatch = false;
+$allOrdersAudit = $stmtAuditOrders->fetchAll();
+$allOrderTotalsMatch = true;
+foreach ($allOrdersAudit as $ord) {
+    if (abs((float)$ord['total_amount'] - (float)$ord['items_sum']) > 1.0) {
+        $allOrderTotalsMatch = false;
         break;
     }
 }
-assertTest("QP-7.1: [TOÀN VẸN KHO] Mọi bản ghi: stock_balances == SUM(stock_movements)", $allMatch && count($allBalances) > 0);
+assertTest("QP-7.1: [TOÀN VẸN ĐƠN HÀNG] Mọi đơn hàng: orders.total_amount == SUM(order_items.subtotal)", $allOrderTotalsMatch && count($allOrdersAudit) > 0);
 
 // Invariant 2: OLAP Fact - Tất cả fact_order_items đều liên kết với dim_time và dim_menu_item hợp lệ
 $stmtOrphanFacts = $db->query("

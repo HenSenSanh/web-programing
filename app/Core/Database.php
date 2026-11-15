@@ -40,11 +40,10 @@ class Database
         $pass = getenv('DB_PASSWORD') ?: 'login_password';
 
         try {
+            require_once __DIR__ . '/../src/encoding.php';
             $dsn = sprintf("mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4", $host, $port, $dbname);
-            self::$pdo = new PDO($dsn, $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
+            self::$pdo = new PDO($dsn, $user, $pass, dineflow_mysql_pdo_options());
+            dineflow_ensure_utf8_connection(self::$pdo, "{$host}:{$port}/{$dbname}");
             return self::$pdo;
         } catch (PDOException $e) {
             // 3. Fallback to local SQLite if MySQL is unavailable

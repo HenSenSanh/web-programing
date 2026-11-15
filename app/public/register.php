@@ -1,4 +1,7 @@
 <?php
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    header('Content-Type: text/html; charset=UTF-8');
+}
 require_once __DIR__ . '/../src/auth.php';
 
 $message = "";

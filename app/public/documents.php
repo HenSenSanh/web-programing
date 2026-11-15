@@ -1,51 +1,29 @@
 <?php
+if (PHP_SAPI !== 'cli' && !headers_sent()) {
+    header('Content-Type: text/html; charset=UTF-8');
+}
 require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/rbac.php';
-require_once __DIR__ . '/../src/inventory.php';
 
 requireLogin();
 requirePermission('documents.print');
 
 $pdo = getDatabaseConnection();
 $userId = (int)$_SESSION['user_id'];
-$canPostDoc = hasPermission($userId, 'documents.post');
 $message = "";
 $isError = false;
 
-// 1. Xử lý ghi sổ phiếu (POST) theo logic Bài D
-if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['action']) && $_POST['action'] === 'post_document') {
-    requirePermission('documents.post');
-    $docId = (int)($_POST['document_id'] ?? 0);
-    $res = InventoryService::postDocument($docId, $userId);
-    $message = $res['message'];
-    $isError = !$res['success'];
-}
-
-// 2. Lấy danh sách hóa đơn thanh toán nhà hàng DineFlow
+// 1. Lấy danh sách hóa đơn thanh toán nhà hàng DineFlow (QRDine)
 $stmtBills = $pdo->query("
     SELECT bp.*, t.table_number
     FROM bill_payments bp
     LEFT JOIN dining_tables t ON bp.table_id = t.id
     ORDER BY bp.id DESC
-    LIMIT 10
+    LIMIT 20
 ");
 $bills = $stmtBills ? $stmtBills->fetchAll() : [];
 
-// 3. Lấy danh sách chứng từ hệ thống (Bài D - tương thích MySQL 8 ONLY_FULL_GROUP_BY)
-$stmtDocs = $pdo->query("
-    SELECT d.*, u.username as creator_name, p.username as poster_name,
-           COUNT(l.id) as total_lines,
-           COALESCE(SUM(l.subtotal), 0) as total_amount
-    FROM inventory_documents d
-    JOIN users u ON d.created_by = u.id
-    LEFT JOIN users p ON d.posted_by = p.id
-    LEFT JOIN inventory_lines l ON d.id = l.document_id
-    GROUP BY d.id, d.document_code, d.doc_type, d.doc_date, d.partner_name, d.note, d.status, d.created_by, d.posted_by, d.posted_at, d.created_at, u.username, p.username
-    ORDER BY d.id DESC
-");
-$documents = $stmtDocs ? $stmtDocs->fetchAll() : [];
-
-// 4. Nếu đang xem / in hóa đơn cụ thể
+// 2. Nếu đang xem / in hóa đơn cụ thể
 $viewBillId = !empty($_GET['bill_id']) ? (int)$_GET['bill_id'] : 0;
 $viewBill = null;
 $billItems = [];
@@ -271,75 +249,6 @@ if ($viewBillId > 0) {
                                         <a href="documents.php?bill_id=<?php echo $b['id']; ?>" class="px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition border border-indigo-200">
                                             Xem & In Bill
                                         </a>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Danh sách Chứng từ Nhập/Xuất Kho (Bài D: DRAFT -> POSTED) -->
-        <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-xs no-print">
-            <div class="flex items-center justify-between mb-4">
-                <div>
-                    <h2 class="text-base font-bold text-slate-900">Danh Sách Chứng Từ Nhập / Xuất Kho (Bài D)</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Kiểm soát vòng đời DRAFT ➔ POSTED với Transaction nguyên tử và kiểm tra quyền <code class="bg-slate-100 px-1 rounded text-indigo-700">documents.post</code>.</p>
-                </div>
-            </div>
-
-            <div class="border border-slate-200 rounded-xl overflow-hidden">
-                <table class="w-full text-xs text-left">
-                    <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                        <tr>
-                            <th class="px-4 py-3">Mã Phiếu</th>
-                            <th class="px-4 py-3">Loại</th>
-                            <th class="px-4 py-3">Ngày Lập</th>
-                            <th class="px-4 py-3">Đối Tác</th>
-                            <th class="px-4 py-3 text-center">Số Dòng</th>
-                            <th class="px-4 py-3 text-right">Tổng Giá Trị</th>
-                            <th class="px-4 py-3 text-center">Trạng Thái</th>
-                            <th class="px-4 py-3 text-center">Thao Tác</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100 text-slate-700">
-                        <?php if (empty($documents)): ?>
-                            <tr>
-                                <td colspan="8" class="px-4 py-6 text-center text-slate-400 italic">Chưa có chứng từ kho nào trong hệ thống.</td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($documents as $doc): ?>
-                                <tr class="hover:bg-slate-50 transition">
-                                    <td class="px-4 py-3 font-mono font-bold text-slate-900"><?php echo htmlspecialchars($doc['document_code']); ?></td>
-                                    <td class="px-4 py-3 font-semibold"><?php echo $doc['doc_type'] === 'IN' ? 'Nhập kho (IN)' : 'Xuất kho (OUT)'; ?></td>
-                                    <td class="px-4 py-3 text-slate-500"><?php echo htmlspecialchars($doc['doc_date']); ?></td>
-                                    <td class="px-4 py-3"><?php echo htmlspecialchars($doc['partner_name'] ?? '—'); ?></td>
-                                    <td class="px-4 py-3 text-center font-semibold"><?php echo (int)$doc['total_lines']; ?></td>
-                                    <td class="px-4 py-3 text-right font-bold"><?php echo number_format((float)$doc['total_amount'], 0, ',', '.'); ?> đ</td>
-                                    <td class="px-4 py-3 text-center">
-                                        <?php if ($doc['status'] === 'POSTED'): ?>
-                                            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">POSTED</span>
-                                        <?php elseif ($doc['status'] === 'CANCELLED'): ?>
-                                            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">CANCELLED</span>
-                                        <?php else: ?>
-                                            <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">DRAFT</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="px-4 py-3 text-center">
-                                        <?php if ($doc['status'] === 'DRAFT' && $canPostDoc): ?>
-                                            <form method="POST" action="documents.php" class="inline">
-                                                <input type="hidden" name="action" value="post_document">
-                                                <input type="hidden" name="document_id" value="<?php echo (int)$doc['id']; ?>">
-                                                <button type="submit" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition">
-                                                    Ghi Sổ (Post)
-                                                </button>
-                                            </form>
-                                        <?php elseif ($doc['status'] === 'DRAFT'): ?>
-                                            <span class="text-[11px] text-slate-400 italic">Thiếu quyền post</span>
-                                        <?php else: ?>
-                                            <span class="text-[11px] text-slate-400">Đã khóa sổ</span>
-                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

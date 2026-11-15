@@ -20,16 +20,15 @@ function getDatabaseConnection(): PDO
 
     // Thử kết nối MySQL theo cấu hình
     try {
+        require_once __DIR__ . '/encoding.php';
         $dsn = sprintf(
             "mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4",
             $db['host'],
             $db['port'],
             $db['database']
         );
-        $pdoInstance = new PDO($dsn, $db['username'], $db['password'], [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
+        $pdoInstance = new PDO($dsn, $db['username'], $db['password'], dineflow_mysql_pdo_options());
+        dineflow_ensure_utf8_connection($pdoInstance, "{$db['host']}:{$db['port']}/{$db['database']}");
         return $pdoInstance;
     } catch (PDOException $e) {
         // Fallback sang SQLite để có thể chạy kiểm thử độc lập mà không bắt buộc Docker MySQL bật
