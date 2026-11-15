@@ -230,6 +230,21 @@
         </div>
     </div>
 
+    <div id="qr-zoom-modal" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.75); z-index: 2000; align-items: center; justify-content: center; padding: 16px;" onclick="if(event.target===this) closeQrZoomModal()">
+        <div style="background: #ffffff; border-radius: 14px; padding: 24px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.35);">
+            <h2 id="qr-modal-title" style="color: #0f172a; margin-bottom: 12px; font-size: 20px;">Mã QR Gọi Món</h2>
+            <div id="qr-modal-warn" style="display: none; margin-bottom: 10px; padding: 8px 10px; background: #fef3c7; color: #92400e; border-radius: 6px; font-size: 12px; text-align: left;"></div>
+            <div style="background: #ffffff; padding: 12px; display: inline-block; border-radius: 10px; border: 1px solid #e2e8f0;">
+                <img id="qr-modal-img" src="" alt="QR Code" style="display: block; max-width: 100%; height: auto; image-rendering: pixelated; background: #ffffff;">
+            </div>
+            <div id="qr-modal-url" style="margin-top: 10px; font-size: 11px; color: #475569; word-break: break-all; background: #f8fafc; padding: 8px; border-radius: 6px;"></div>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
+                <button type="button" id="qr-modal-copy" onclick="copyQrLink(this)" style="background: #0ea5e9; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">📋 Copy link</button>
+                <button type="button" onclick="closeQrZoomModal()" style="background: #334155; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Đóng</button>
+            </div>
+        </div>
+    </div>
+
     <script src="../js/qrcode.js"></script>
     <script>
         // ⚠️ QUAN TRỌNG: Địa chỉ API backend
@@ -269,7 +284,7 @@
             const isLocalOnly = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(current);
             if (isLocalOnly || !location.protocol.startsWith('http')) {
                 warn.style.display = 'block';
-                warn.textContent = '⚠️ QR đang dùng localhost — điện thoại cùng Wi-Fi sẽ không truy cập được "localhost". Hãy nhập IP LAN máy tính (VD: http://192.168.x.x:8080) rồi bấm Lưu URL QR.';
+                warn.textContent = '⚠️ QR đang dùng localhost — điện thoại không truy cập được "localhost". Trên Windows mở cmd gõ ipconfig → lấy IPv4 Address của mục Wi-Fi (tránh IP WSL/VPN), nhập http://<IP-WiFi>:8080 rồi bấm Lưu URL QR. Đảm bảo ĐT dùng chung Wi-Fi & Firewall Windows không chặn cổng 8080.';
             } else {
                 warn.style.display = 'none';
             }
@@ -306,6 +321,46 @@
                 prompt('Copy link đặt món:', url);
             }
         }
+
+        function openQrZoomModal(btn) {
+            const url = (btn && btn.dataset && btn.dataset.qrUrl) ? btn.dataset.qrUrl : '';
+            const tableName = (btn && btn.dataset && btn.dataset.tableName) ? btn.dataset.tableName : '';
+            if (!url) return;
+            const modal = document.getElementById('qr-zoom-modal');
+            const img = document.getElementById('qr-modal-img');
+            const title = document.getElementById('qr-modal-title');
+            const urlBox = document.getElementById('qr-modal-url');
+            const warn = document.getElementById('qr-modal-warn');
+            const copyBtn = document.getElementById('qr-modal-copy');
+            if (!modal || !img) return;
+            title.textContent = tableName ? `Mã QR - ${tableName}` : 'Mã QR Gọi Món';
+            urlBox.textContent = url;
+            copyBtn.dataset.qrUrl = url;
+            const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+            if (isLocal) {
+                warn.style.display = 'block';
+                warn.textContent = '⚠️ Link đang dùng localhost — điện thoại quét xong sẽ không mở được trang. Hãy đổi Địa chỉ gốc QR sang IP Wi-Fi (VD: http://192.168.x.x:8080).';
+            } else {
+                warn.style.display = 'none';
+            }
+            try {
+                img.src = window.DineFlowQR.toPngDataUrl
+                    ? window.DineFlowQR.toPngDataUrl(url, 4, 6)
+                    : window.DineFlowQR.toSvgDataUrl(url, 4, 6);
+            } catch (e) {
+                console.error('QR zoom error:', e);
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeQrZoomModal() {
+            const modal = document.getElementById('qr-zoom-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeQrZoomModal();
+        });
 
         syncQrHostUI();
 
@@ -401,7 +456,9 @@
 
                         let qrImageSrc = '';
                         try {
-                            qrImageSrc = window.DineFlowQR.toSvgDataUrl(qrOrderUrl, 4);
+                            qrImageSrc = window.DineFlowQR.toPngDataUrl
+                                ? window.DineFlowQR.toPngDataUrl(qrOrderUrl, 4, 4)
+                                : window.DineFlowQR.toSvgDataUrl(qrOrderUrl, 4, 4);
                         } catch (qrErr) {
                             console.error('QR build error:', qrErr);
                         }
@@ -409,17 +466,19 @@
                         const qrImgHtml = qrImageSrc
                             ? `<img src="${qrImageSrc}"
                                     alt="QR Code Bàn ${escapeHtml(tableId)}"
-                                    style="display: block; margin: 10px auto; border: 2px solid #4CAF50; border-radius: 8px; padding: 6px; background: white; cursor: pointer;"
-                                    width="168" height="168">`
+                                    style="display: block; margin: 10px auto; max-width: 100%; height: auto; border: 2px solid #4CAF50; border-radius: 8px; padding: 8px; background: #ffffff; cursor: pointer; image-rendering: pixelated;">`
                             : `<div style="margin: 10px auto; padding: 12px; border: 1px dashed #ef4444; color: #b91c1c; border-radius: 6px; font-size: 12px;">Không thể tạo ảnh QR (URL quá dài)</div>`;
 
                         actionHTML = `
                             <div class="session-info" style="text-align: center;">
                                 <strong style="color: #4CAF50;">📱 QR Code cho khách quét:</strong><br>
-                                <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" title="Bấm vào ảnh QR để mở Menu khách trên máy này">
+                                <button type="button" data-table-name="${escapeHtml(tableDisplayName)}" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="openQrZoomModal(this)" title="Bấm để phóng to mã QR dễ quét bằng điện thoại" style="background: none; border: none; padding: 0; cursor: pointer;">
                                     ${qrImgHtml}
-                                </a>
+                                </button>
                                 <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 6px 0;">
+                                    <button type="button" data-table-name="${escapeHtml(tableDisplayName)}" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="openQrZoomModal(this)" style="background: #6366f1; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                                        🔍 Phóng to QR
+                                    </button>
                                     <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" style="display: inline-block; background: #4CAF50; color: white; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px;">
                                         👉 Mở Menu (TV2)
                                     </a>

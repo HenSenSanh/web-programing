@@ -86,7 +86,7 @@ SharedCartService::addItem($token, [
     'quantity' => 2
 ]);
 $cartMulti = SharedCartService::getCart($token);
-assertTv4("TC-CART-5: Giỏ hàng nhiều món -> Tính đúng tổng số lượng (4) và tổng tiền", $cartMulti['total_quantity'] === 4 && (float)$cartMulti['total_amount'] === (2 * 65000 + 2 * 32000));
+assertTv4("TC-CART-5: Giỏ hàng nhiều món -> Tính đúng tổng số lượng (4) và tổng tiền", $cartMulti['total_quantity'] === 4 && abs((float)$cartMulti['total_amount'] - (float)(2 * 65000 + 2 * 32000)) < 0.01);
 
 // Xóa giỏ hàng
 SharedCartService::clearCart($token);
@@ -125,13 +125,13 @@ $itemBId = (int)$db->lastInsertId();
 // Item 1: Nấu 500s (< 900s -> SLA Đạt)
 $db->prepare("
     INSERT INTO order_items (order_id, menu_item_id, item_name, unit_price, quantity, subtotal, status, created_at, completed_at)
-    VALUES (?, ?, 'Món A Nhanh', 50000, 1, 50000, 'COMPLETED', datetime('now', '-20 minutes'), datetime('now', '-11 minutes 40 seconds'))
+    VALUES (?, ?, 'Món A Nhanh', 50000, 1, 50000, 'COMPLETED', datetime('now', '-20 minutes'), datetime('now', '-11 minutes', '-40 seconds'))
 ")->execute([$tOrderId, $itemAId]);
 
 // Item 2: Nấu 1000s (> 900s -> Vi phạm SLA)
 $db->prepare("
     INSERT INTO order_items (order_id, menu_item_id, item_name, unit_price, quantity, subtotal, status, created_at, completed_at)
-    VALUES (?, ?, 'Món B Lâu (SLA Violated)', 200000, 1, 200000, 'COMPLETED', datetime('now', '-25 minutes'), datetime('now', '-8 minutes 20 seconds'))
+    VALUES (?, ?, 'Món B Lâu (SLA Violated)', 200000, 1, 200000, 'COMPLETED', datetime('now', '-25 minutes'), datetime('now', '-8 minutes', '-20 seconds'))
 ")->execute([$tOrderId, $itemBId]);
 
 // Chạy ETL lần 1

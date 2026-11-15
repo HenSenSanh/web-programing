@@ -419,10 +419,12 @@
         return { size, version, mask: bestMask, modules: bestGrid };
     }
 
-    function toSvgString(text, quietZone) {
+    function toSvgString(text, quietZone, scale) {
         const margin = typeof quietZone === "number" ? quietZone : 4;
+        const pxPerMod = typeof scale === "number" && scale > 0 ? scale : 8;
         const { size, modules } = encodeMatrix(text);
         const full = size + margin * 2;
+        const dim = full * pxPerMod;
         const parts = [];
         for (let r = 0; r < size; r++) {
             for (let c = 0; c < size; c++) {
@@ -431,17 +433,46 @@
                 }
             }
         }
-        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${full} ${full}" shape-rendering="crispEdges"><rect width="${full}" height="${full}" fill="#ffffff"/><path d="${parts.join("")}" fill="#000000"/></svg>`;
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${dim}" height="${dim}" viewBox="0 0 ${full} ${full}" shape-rendering="crispEdges"><rect width="${full}" height="${full}" fill="#ffffff"/><path d="${parts.join("")}" fill="#000000"/></svg>`;
     }
 
-    function toSvgDataUrl(text, quietZone) {
-        const svg = toSvgString(text, quietZone);
+    function toSvgDataUrl(text, quietZone, scale) {
+        const svg = toSvgString(text, quietZone, scale);
         return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+    }
+
+    function toPngDataUrl(text, quietZone, moduleSize) {
+        const margin = typeof quietZone === "number" ? quietZone : 4;
+        const scale = typeof moduleSize === "number" && moduleSize >= 2 ? Math.floor(moduleSize) : 6;
+        if (typeof document === "undefined" || !document.createElement) {
+            return toSvgDataUrl(text, margin, scale);
+        }
+        const { size, modules } = encodeMatrix(text);
+        const full = size + margin * 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = full * scale;
+        canvas.height = full * scale;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+            return toSvgDataUrl(text, margin, scale);
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#000000";
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                if (modules[r][c] === 1) {
+                    ctx.fillRect((c + margin) * scale, (r + margin) * scale, scale, scale);
+                }
+            }
+        }
+        return canvas.toDataURL("image/png");
     }
 
     global.DineFlowQR = {
         encodeMatrix,
         toSvgString,
         toSvgDataUrl,
+        toPngDataUrl,
     };
 })(window);

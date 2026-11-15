@@ -67,7 +67,7 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
   * **Trang Đăng nhập & Đăng ký:** Xây dựng giao diện `login.php` và `register.php`, tích hợp mã hóa mật khẩu, ghi nhớ đăng nhập `Remember Me` và gửi email kích hoạt tài khoản qua SMTP.
   * **Quản lý Bàn ăn & QR:** Xem trạng thái các bàn (Trống / Đang ăn / Đang chờ thanh toán), mở bàn cho khách và tự động tạo mã QR chứa `session_token`.
   * **Quản lý Thực đơn (Bài A — Phân trang thật):** Thêm, sửa, xóa món ăn, chỉnh sửa đơn giá, bật/tắt trạng thái còn món/hết món. Áp dụng kỹ thuật phân trang thật bằng `COUNT(*)`, `LIMIT`, `OFFSET` trên MySQL, giữ nguyên bộ lọc tìm kiếm trên thanh URL.
-* **Các file phụ trách:** `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `frontend/tv1/table-management.html`, `frontend/tv1/menu-management.html`.
+* **Các file phụ trách:** `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `app/public/frontend/admin/table-management.html`, `app/public/frontend/admin/menu-management.html`.
 
 ---
 
@@ -77,16 +77,16 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
   * **Giỏ hàng thời gian thực:** Thao tác trên cây HTML DOM mượt mà không tải lại trang, đồng bộ giỏ hàng chung giữa nhiều thiết bị cùng bàn qua REST API (`/api/v1/client/session/{token}/cart`).
   * **Gửi đơn đặt món an toàn:** Gửi danh sách món xuống bếp kèm mã `Idempotency-Key` (chặn gửi trùng khi bấm đúp chuột), hỗ trợ khách gọi thêm nhiều đợt vào cùng một phiên bàn.
   * **Gợi ý món ăn kèm:** Hiển thị thanh "🔥 Món hay được gọi kèm" trên popup chọn món lấy từ API gợi ý của TV4.
-* **Các file phụ trách:** `frontend/menu/index.html`, `frontend/js/menu.js`, `frontend/css/menu.css`.
+* **Các file phụ trách:** `app/public/frontend/menu/index.html`, `app/public/frontend/js/menu.js`, `app/public/frontend/css/menu.css`.
 
 ---
 
 ### 👤 THÀNH VIÊN 3 (TV3) — Điều Phối Bếp KDS, Thu Ngân POS & In Hóa Đơn
 * **Trách nhiệm chính:**
-  * **Màn hình Bếp KDS (`/frontend/kds.html`):** Bếp nhận đơn hàng định kỳ qua API, hiển thị thời gian chờ món, đổi trạng thái món theo quy trình: `PENDING` (Chờ nấu) $\rightarrow$ `COOKING` (Đang nấu) $\rightarrow$ `COMPLETED` (Hoàn thành; API cũng hỗ trợ `READY` / `SERVED`).
-  * **Thu ngân POS (`/frontend/pos.html`):** Xem chi tiết các món bàn đã gọi, tạm tính tiền, áp dụng thuế VAT 8%, phí dịch vụ 0đ, làm tròn số tiền theo mốc 500đ chuẩn Việt Nam (`KdsPosController.php`).
+  * **Màn hình Bếp KDS (`/frontend/kds/`):** Bếp nhận đơn hàng định kỳ qua API, hiển thị thời gian chờ món, đổi trạng thái món theo quy trình: `PENDING` (Chờ nấu) $\rightarrow$ `COOKING` (Đang nấu) $\rightarrow$ `COMPLETED` (Hoàn thành; API cũng hỗ trợ `READY` / `SERVED`).
+  * **Thu ngân POS (`/frontend/pos/`):** Xem chi tiết các món bàn đã gọi, tạm tính tiền, áp dụng thuế VAT 8%, phí dịch vụ 0đ, làm tròn số tiền theo mốc 500đ chuẩn Việt Nam (`KdsPosController.php`).
   * **Thanh toán & In hóa đơn nhà hàng:** Xác nhận thanh toán theo phương thức (`CASH` / `TRANSFER`), chốt đóng bàn, kích hoạt ETL tự động và hỗ trợ **in hóa đơn thanh toán theo chuẩn `@media print`** tại `app/public/documents.php`.
-* **Các file phụ trách:** `frontend/kds.html`, `frontend/pos.html`, `frontend/js/kds.js`, `frontend/js/pos.js`, `app/public/documents.php`.
+* **Các file phụ trách:** `app/public/frontend/kds/`, `app/public/frontend/pos/`, `app/public/documents.php`.
 
 ---
 
@@ -123,12 +123,12 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **Dashboard Tổng quan** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
 | **Quản lý Thực đơn (Phân trang)** | `http://localhost:8080/products.php` | TV1 |
 | **Hóa đơn & In phiếu thanh toán** | `http://localhost:8080/documents.php` | TV3 & TV4 |
-| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/tv1/table-management.html` | TV1 |
-| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/tv1/menu-management.html` | TV1 |
+| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/admin/table-management.html` | TV1 |
+| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/admin/menu-management.html` | TV1 |
 | **TV2 - Menu Khách Quét QR** | `http://localhost:8080/frontend/menu/index.html?token=tbl-01-sess` | TV2 |
-| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds.html` | TV3 |
-| **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos.html` | TV3 |
-| **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/tv4_data_pipeline.html` | TV4 |
+| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds/` | TV3 |
+| **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos/` | TV3 |
+| **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/live-ops/` | TV4 |
 | **Simulator Demo Toàn Luồng E2E** | `http://localhost:8080/demo_tester.html` | TV4 & TV5 |
 | **Quản trị Cơ sở dữ liệu phpMyAdmin** | `http://localhost:8081/` | TV4 & Cả nhóm |
 
