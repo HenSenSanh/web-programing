@@ -31,7 +31,7 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 
 ### 1.2 Hiện trạng kiến trúc triển khai của Repository
 
-- Backend **PHP 8.2 thuần** (`app/public/api_router.php`, `app/Controllers/`, `app/Services/`, `app/src/`) cung cấp REST API và các trang PHP server-rendered (`login.php`, `register.php`, `dashboard.php`, `products.php`, `documents.php`); giao diện frontend dùng HTML5/CSS3/FORM/Vanilla JS & HTML DOM (`frontend/`, `demo_tester.html`).
+- Backend **PHP 8.2 thuần** (`app/public/api_router.php`, `app/Controllers/`, `app/Services/`, `app/src/`) cung cấp REST API và các trang PHP server-rendered (`login.php`, `register.php`, `dashboard.php`, `products.php`, `documents.php`); giao diện frontend dùng HTML5/CSS3/FORM/Vanilla JS & HTML DOM (`app/public/frontend/`, `app/public/demo_tester.html`).
 - CSDL **MySQL 8.0** trong Docker (`database/init.sql`, kèm SQLite fallback `database/schema.sql` cho CLI local) gồm nhóm bảng `oltp` (bàn, phiên, thực đơn, toppings, combo_rules, shared_carts, đơn hàng, thanh toán), nhóm RBAC/Kho (`users`, `roles`, `permissions`, `products`, `inventory_*`) và Star Schema `olap` (`dim_time`, `dim_menu_item`, `dim_chef`, `fact_order_items`, `fact_clickstream`).
 - `SharedCartService` lưu giỏ hàng chung theo `session_token` (file lock + bảng `shared_carts` qua REST API `/cart`); giao diện menu QR, admin menu/bàn, KDS, POS, BI, ETL/Apriori được phân công rõ cho 5 thành viên.
 - Mọi kết luận về tính năng hoàn thiện hay mở rộng sau MVP phải đối chiếu trực tiếp với mã nguồn repository và [`TASK_CHECKLIST_DINEFLOW_PHP.md`](file:///D:/code/test%20Dl/TASK_CHECKLIST_DINEFLOW_PHP.md).
@@ -86,11 +86,11 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 | `/dashboard.php` | `/portal` | Nhân viên | Trang tổng quan ca trực & KPI |
 | `/products.php` | `/portal/menu` | Admin / Nhân viên | Quản lý thực đơn 35 món & phân trang thật SQL |
 | `/documents.php` | `/portal/documents` | Admin / Thu ngân / Viewer | Quản lý & in hóa đơn thanh toán `@media print` |
-| `/frontend/tv1/table-management.html` | `/portal/tables` | ADMIN | Quản lý bàn & mở phiên QR |
-| `/frontend/tv1/menu-management.html` | `/portal/menu` | ADMIN | Danh mục món ăn, topping & bật/tắt hết món |
-| `/frontend/kds.html` | `/portal/kds` | CHEF / ADMIN | Điều phối chế biến KDS |
-| `/frontend/pos.html` | `/portal/pos` | CASHIER / ADMIN | Xem hóa đơn (VAT 8%, làm tròn 500đ) & thanh toán |
-| `/frontend/tv4_data_pipeline.html` | `/portal/live-ops` | TV4 / ADMIN | Giám sát Live Ops, Combo Rule Apriori, SLA & ETL |
+| `/frontend/admin/table-management.html` | `/portal/tables` | ADMIN | Quản lý bàn & mở phiên QR |
+| `/frontend/admin/menu-management.html` | `/portal/menu` | ADMIN | Danh mục món ăn, topping & bật/tắt hết món |
+| `/frontend/kds/` | `/portal/kds` | CHEF / ADMIN | Điều phối chế biến KDS |
+| `/frontend/pos/` | `/portal/pos` | CASHIER / ADMIN | Xem hóa đơn (VAT 8%, làm tròn 500đ) & thanh toán |
+| `/frontend/live-ops/` | `/portal/live-ops` | TV4 / ADMIN | Giám sát Live Ops, Combo Rule Apriori, SLA & ETL |
 | `/demo_tester.html` | Simulator E2E + BI | Nhóm & Giảng viên | Kiểm thử toàn luồng TV1→TV5 & biểu đồ BI |
 
 > Bảng trên ánh xạ trực tiếp từ route đặc tả ban đầu sang đường dẫn đang phục vụ trên Apache (`http://localhost:8080/...`) để toàn nhóm và giảng viên kiểm thử thống nhất.

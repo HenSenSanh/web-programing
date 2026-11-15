@@ -103,8 +103,8 @@ $tablesList = $stmtTablesList->fetchAll();
                 <a href="documents.php" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Bài D: Hóa đơn & In ấn">
                     🧾 Hóa Đơn & In (Bài D)
                 </a>
-                <a href="/frontend/tv4_data_pipeline.html" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition shadow-xs flex items-center gap-1">
-                    <span>⚡ TV4 Data Pipeline</span>
+                <a href="/frontend/live-ops/" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition shadow-xs flex items-center gap-1">
+                    <span>⚡ Live Ops</span>
                 </a>
                 <div class="h-4 w-px bg-slate-300 mx-1"></div>
                 <a href="logout.php" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
@@ -215,7 +215,7 @@ $tablesList = $stmtTablesList->fetchAll();
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
-                <a href="/frontend/tv1/table-management.html" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/admin/table-management.html" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base">🪑</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Quản Lý Bàn Ăn & Mã QR (TV1)</strong>
@@ -239,7 +239,7 @@ $tablesList = $stmtTablesList->fetchAll();
                     </div>
                 </a>
 
-                <a href="/frontend/kds.html" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/kds/" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-base">👨‍🍳</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Màn Hình Điều Phối Bếp KDS (TV3)</strong>
@@ -255,7 +255,7 @@ $tablesList = $stmtTablesList->fetchAll();
                     </div>
                 </a>
 
-                <a href="/frontend/tv4_data_pipeline.html" class="p-3.5 rounded-xl border border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 transition flex items-center gap-3">
+                <a href="/frontend/live-ops/" class="p-3.5 rounded-xl border border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base">⚡</div>
                     <div>
                         <strong class="text-indigo-900 block text-xs">Data Pipeline & Live Ops (TV4)</strong>
@@ -272,8 +272,8 @@ $tablesList = $stmtTablesList->fetchAll();
                     <h3 class="text-sm font-bold text-slate-900">Sơ Đồ Bàn Ăn Hiện Tại Trong Nhà Hàng</h3>
                     <p class="text-xs text-slate-500 mt-0.5">Theo dõi trạng thái phục vụ và phiên bàn đang hoạt động</p>
                 </div>
-                <a href="/frontend/tv4_data_pipeline.html" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                    <span>Xem giám sát chi tiết tại TV4</span>
+                <a href="/frontend/live-ops/" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                    <span>Xem giám sát chi tiết tại Live Ops</span>
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
             </div>

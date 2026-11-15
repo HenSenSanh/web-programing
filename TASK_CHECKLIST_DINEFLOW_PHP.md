@@ -42,12 +42,12 @@
 
 - [x] **TASK-2.1 [TV1]:** Xây dựng [`app/src/auth.php`](file:///D:/code/test%20Dl/app/src/auth.php), [`app/src/mailer.php`](file:///D:/code/test%20Dl/app/src/mailer.php) và các trang `login.php`, `register.php`, `verify_email.php` (validate form client/server, `Remember Me`, kích hoạt email SMTP qua PHPMailer).
 - [x] **TASK-2.2 [TV1 + TV4]:** Xây dựng lõi RBAC [`app/src/rbac.php`](file:///D:/code/test%20Dl/app/src/rbac.php) (`deny riêng > allow riêng > nhóm > 403`), bảo vệ cả GET và POST trên `dashboard.php`, `products.php`, `documents.php`.
-- [ ] **TASK-2.3 [TV1 + Cả nhóm]:** Hợp nhất giao diện Staff Portal dùng chung thanh điều hướng & `requirePermission` đồng nhất giữa các trang HTML frontend (`/frontend/tv1/*`, `kds.html`, `pos.html`) và trang PHP (`/dashboard.php`, `/products.php`, `/documents.php`).
-- [x] **TASK-2.4 [TV1]:** Xây dựng [`app/Controllers/AdminCatalogController.php`](file:///D:/code/test%20Dl/app/Controllers/AdminCatalogController.php) & giao diện Quản lý Bàn ([`frontend/tv1/table-management.html`](file:///D:/code/test%20Dl/frontend/tv1/table-management.html)):
+- [ ] **TASK-2.3 [TV1 + Cả nhóm]:** Hợp nhất giao diện Staff Portal dùng chung thanh điều hướng & `requirePermission` đồng nhất giữa các trang HTML frontend (`/frontend/admin/*`, `/frontend/kds/`, `/frontend/pos/`) và trang PHP (`/dashboard.php`, `/products.php`, `/documents.php`).
+- [x] **TASK-2.4 [TV1]:** Xây dựng [`app/Controllers/AdminCatalogController.php`](file:///D:/code/test%20Dl/app/Controllers/AdminCatalogController.php) & giao diện Quản lý Bàn ([`app/public/frontend/admin/table-management.html`](file:///D:/code/test%20Dl/app/public/frontend/admin/table-management.html)):
   - [x] Mở bàn & sinh mã QR với `session_token`
   - [x] Chặn mở đè bàn khi bàn đang `OCCUPIED` (**`INV-6`**)
   - [ ] Nghiệp vụ **Chuyển bàn** và **Gộp bàn** trên giao diện UI (mở rộng sau MVP)
-- [x] **TASK-2.5 [TV1]:** Xây dựng Quản lý Thực đơn ([`frontend/tv1/menu-management.html`](file:///D:/code/test%20Dl/frontend/tv1/menu-management.html)) & Bài A Phân trang thật SQL (`LIMIT/OFFSET`, giữ bộ lọc URL) tại [`app/public/products.php`](file:///D:/code/test%20Dl/app/public/products.php):
+- [x] **TASK-2.5 [TV1]:** Xây dựng Quản lý Thực đơn ([`app/public/frontend/admin/menu-management.html`](file:///D:/code/test%20Dl/app/public/frontend/admin/menu-management.html)) & Bài A Phân trang thật SQL (`LIMIT/OFFSET`, giữ bộ lọc URL) tại [`app/public/products.php`](file:///D:/code/test%20Dl/app/public/products.php):
   - [x] Thêm món mới, bật/tắt trạng thái Còn món / Tạm hết cho món ăn & topping.
   - [ ] Upload file ảnh món trực tiếp qua PHP storage an toàn (mở rộng).
 
@@ -56,7 +56,7 @@
 ## 📱 GIAI ĐOẠN 3 (SPRINT S2): MENU KHÁCH QR, GIỎ HÀNG CHUNG REST & GỬI ĐƠN AN TOÀN
 > **Chủ trì:** **TV2** | **Phối hợp & Kiểm duyệt (INV-1, INV-2):** **TV4**
 
-- [x] **TASK-3.1 [TV2]:** Xây dựng giao diện Mobile Khách quét QR ([`frontend/menu/index.html`](file:///D:/code/test%20Dl/frontend/menu/index.html), [`frontend/js/menu.js`](file:///D:/code/test%20Dl/frontend/js/menu.js)):
+- [x] **TASK-3.1 [TV2]:** Xây dựng giao diện Mobile Khách quét QR ([`app/public/frontend/menu/index.html`](file:///D:/code/test%20Dl/app/public/frontend/menu/index.html), [`app/public/frontend/js/menu.js`](file:///D:/code/test%20Dl/app/public/frontend/js/menu.js)):
   - [x] Lấy thông tin phiên bàn theo `session_token` (`/api/v1/client/session/{token}`) và tải catalog (`/api/v1/admin/menu-catalog`).
   - [x] Dùng JavaScript & **HTML DOM** để lọc món, chọn topping, cập nhật giỏ hàng mượt mà không cần tải lại trang.
 - [x] **TASK-3.2 [TV4 + TV2]:** Tích hợp [`app/Services/SharedCartService.php`](file:///D:/code/test%20Dl/app/Services/SharedCartService.php) lưu giỏ hàng chung (file lock + bảng `shared_carts`) và đồng bộ qua REST API `/api/v1/client/session/{token}/cart` (polling 4s).
@@ -71,11 +71,11 @@
 ## 👨‍🍳 GIAI ĐOẠN 4 (SPRINT S3): ĐIỀU PHỐI BẾP KDS, THU NGÂN POS & KHO BÀI D
 > **Chủ trì:** **TV3** | **Kiểm duyệt Transaction & SLA:** **TV4**
 
-- [x] **TASK-4.1 [TV3]:** Xây dựng màn hình Bếp KDS ([`frontend/kds.html`](file:///D:/code/test%20Dl/frontend/kds.html), [`frontend/js/kds.js`](file:///D:/code/test%20Dl/frontend/js/kds.js), [`app/Controllers/KdsPosController.php`](file:///D:/code/test%20Dl/app/Controllers/KdsPosController.php)):
+- [x] **TASK-4.1 [TV3]:** Xây dựng màn hình Bếp KDS ([`app/public/frontend/kds/index.html`](file:///D:/code/test%20Dl/app/public/frontend/kds/index.html), [`app/public/frontend/kds/kds.js`](file:///D:/code/test%20Dl/app/public/frontend/kds/kds.js), [`app/Controllers/KdsPosController.php`](file:///D:/code/test%20Dl/app/Controllers/KdsPosController.php)):
   - [x] Nhận đơn mới định kỳ từ `/api/v1/staff/kds/items` và cập nhật lên HTML DOM an toàn (`escapeHtml`).
   - [x] Chuyển trạng thái từng món: `PENDING` $\rightarrow$ `COOKING` $\rightarrow$ `COMPLETED` (hỗ trợ `READY`, `SERVED`), tính `completed_at` để phục vụ SLA.
   - [ ] Giao diện/chính sách **Hủy món** có lý do & audit log (mở rộng).
-- [x] **TASK-4.2 [TV3]:** Xây dựng màn hình Thu ngân POS ([`frontend/pos.html`](file:///D:/code/test%20Dl/frontend/pos.html), [`frontend/js/pos.js`](file:///D:/code/test%20Dl/frontend/js/pos.js)):
+- [x] **TASK-4.2 [TV3]:** Xây dựng màn hình Thu ngân POS ([`app/public/frontend/pos/index.html`](file:///D:/code/test%20Dl/app/public/frontend/pos/index.html), [`app/public/frontend/pos/pos.js`](file:///D:/code/test%20Dl/app/public/frontend/pos/pos.js)):
   - [x] Xem hóa đơn `/api/v1/staff/pos/bill/{session_id}`: Cộng **VAT 8%**, **Phí phục vụ 0đ**, và **làm tròn mốc 500đ**.
   - [ ] Tích hợp sinh mã **VietQR động chuẩn Napas 247** hiển thị trên màn hình POS (mở rộng).
 - [x] **TASK-4.3 [TV3 + TV4]:** Xây dựng API Chốt Thanh toán & Đóng bàn (`POST /api/v1/staff/pos/checkout/{session_id}`) & In hóa đơn ([`app/public/documents.php`](file:///D:/code/test%20Dl/app/public/documents.php)):
@@ -89,8 +89,8 @@
 
 - [x] **TASK-5.1 [TV4]:** Hoàn thiện [`app/Services/EtlService.php`](file:///D:/code/test%20Dl/app/Services/EtlService.php) và API `POST /api/v1/data/trigger-batch-etl` đảm bảo tính **Idempotent** (`is_etl_processed = 1`).
 - [x] **TASK-5.2 [TV4]:** Hoàn thiện [`app/Services/AprioriService.php`](file:///D:/code/test%20Dl/app/Services/AprioriService.php) và [`app/Controllers/DataPipelineController.php`](file:///D:/code/test%20Dl/app/Controllers/DataPipelineController.php) (Apriori Support/Confidence/Lift, Combo Rules, Kitchen SLA > 900s).
-- [x] **TASK-5.3 [TV4]:** Hoàn thiện giao diện Điều phối Thời gian thực ([`frontend/tv4_data_pipeline.html`](file:///D:/code/test%20Dl/frontend/tv4_data_pipeline.html)) auto-refresh 5s qua REST API.
-- [x] **TASK-5.4 [TV5]:** Xây dựng API BI (`/api/v1/bi/dashboard-summary`, `/api/v1/bi/revenue-over-time`, `/api/v1/bi/menu-engineering-matrix`), giao diện biểu đồ trên [`demo_tester.html`](file:///D:/code/test%20Dl/demo_tester.html) và [`app/public/dashboard.php`](file:///D:/code/test%20Dl/app/public/dashboard.php):
+- [x] **TASK-5.3 [TV4]:** Hoàn thiện giao diện Điều phối Thời gian thực ([`app/public/frontend/live-ops/index.html`](file:///D:/code/test%20Dl/app/public/frontend/live-ops/index.html)) auto-refresh 5s qua REST API.
+- [x] **TASK-5.4 [TV5]:** Xây dựng API BI (`/api/v1/bi/dashboard-summary`, `/api/v1/bi/revenue-over-time`, `/api/v1/bi/menu-engineering-matrix`), giao diện biểu đồ trên [`app/public/demo_tester.html`](file:///D:/code/test%20Dl/app/public/demo_tester.html) và [`app/public/dashboard.php`](file:///D:/code/test%20Dl/app/public/dashboard.php):
   - [ ] Bổ sung chức năng xuất báo cáo doanh thu ra tệp **Excel (`.xlsx`)** riêng (mở rộng).
 
 ---
@@ -99,6 +99,6 @@
 > **Chủ trì:** **TV4 (Quality & Integration Lead)** | **Tham gia:** Toàn bộ 5 thành viên
 
 - [x] **TASK-6.1 [TV4]:** Xây dựng bộ kiểm thử tự động PHP CLI [`tests/run_tests.php`](file:///D:/code/test%20Dl/tests/run_tests.php) (**64 ca kiểm thử** bao phủ Mục 38–40, Bài B–D và 7 Trụ cột Chất lượng TV4).
-- [x] **TASK-6.2 [TV4]:** Xây dựng bộ kiểm thử lõi E2E TV4 tại [`tests/test_tv4_core.php`](file:///D:/code/test%20Dl/tests/test_tv4_core.php) và trang kiểm thử luồng tích hợp [`demo_tester.html`](file:///D:/code/test%20Dl/demo_tester.html).
+- [x] **TASK-6.2 [TV4]:** Xây dựng bộ kiểm thử lõi E2E TV4 tại [`tests/test_tv4_core.php`](file:///D:/code/test%20Dl/tests/test_tv4_core.php) và trang kiểm thử luồng tích hợp [`app/public/demo_tester.html`](file:///D:/code/test%20Dl/app/public/demo_tester.html).
 - [ ] **TASK-6.3 [TV4]:** Khởi động Docker Desktop và chạy xác nhận lại cả 2 bộ kiểm thử (`docker compose exec php-app php /var/www/tests/run_tests.php` và `test_tv4_core.php`) đạt **100% PASS** trên bản cập nhật mới nhất.
 - [ ] **TASK-6.4 [Cả nhóm]:** Chuẩn bị kịch bản Demo bảo vệ đồ án và phân vai trả lời phản biện trước Hội đồng.
