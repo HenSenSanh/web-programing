@@ -23,16 +23,16 @@
 > **Chủ trì:** **TV4** | **Hỗ trợ:** TV1, TV5
 
 - [x] **TASK-1.1 [TV4]:** Cấu hình Docker Compose 3 dịch vụ (`php-app`, `mysql`, `phpmyadmin`), `docker/php/Dockerfile` cài Composer/PHPMailer (`php_vendor` volume), và cấu hình `.env` / `app/src/config.php` kết nối PDO MySQL (`ERRMODE_EXCEPTION`, `FETCH_ASSOC`) + SQLite fallback.
-- [x] **TASK-1.2 [TV4]:** Hoàn thiện CSDL **`oltp` & RBAC/Kho** trong [`database/init.sql`](file:///D:/code/test%20Dl/database/init.sql) và [`database/schema.sql`](file:///D:/code/test%20Dl/database/schema.sql):
-  - [x] `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `user_permissions` (RBAC Bài B)
+- [x] **TASK-1.2 [TV4]:** Hoàn thiện CSDL **`oltp` & RBAC Nhà hàng** trong [`database/init.sql`](file:///D:/code/test%20Dl/database/init.sql) và [`database/schema.sql`](file:///D:/code/test%20Dl/database/schema.sql):
+  - [x] `users`, `roles`, `permissions`, `user_roles`, `role_permissions`, `user_permissions` (RBAC Nhà hàng)
   - [x] `dining_tables`, `table_sessions` (vòng đời phiên bàn & `session_token` QR)
   - [x] `categories`, `menu_items` (`DECIMAL(12,2)` / `DECIMAL(10,2)`), `toppings`, `combo_rules`, `shared_carts`
   - [x] `orders`, `order_items`, `bill_payments` (lưu snapshot giá, số lượng, topping, trạng thái bếp)
-  - [x] `products`, `product_lots`, `product_prices`, `stock_balances`, `stock_movements`, `inventory_documents`, `inventory_lines` (Bài A, C, D)
+  - [x] `products`, `units` (35 món ăn nhà hàng `DISH-001`..`DISH-035` phục vụ phân trang thật SQL)
 - [x] **TASK-1.3 [TV4]:** Hoàn thiện Star Schema **`olap`** trong [`database/init.sql`](file:///D:/code/test%20Dl/database/init.sql) và `database/schema.sql`:
   - [x] 3 bảng chiều: `dim_time`, `dim_menu_item`, `dim_chef`
   - [x] 2 bảng sự kiện: `fact_order_items`, `fact_clickstream`
-- [x] **TASK-1.4 [TV4]:** Nạp dữ liệu mẫu tự động qua `database/init.sql` (MySQL Docker) & [`database/seed.php`](file:///D:/code/test%20Dl/database/seed.php) (SQLite fallback): tài khoản mẫu, bàn ăn, thực đơn, toppings, combo rules và phiếu kho nháp.
+- [x] **TASK-1.4 [TV4]:** Nạp dữ liệu mẫu tự động qua `database/init.sql` (MySQL Docker) & [`database/seed.php`](file:///D:/code/test%20Dl/database/seed.php) (SQLite fallback): tài khoản mẫu, 15 bàn ăn, 35 món thực đơn, toppings, combo rules và hóa đơn mẫu.
 - [x] **TASK-1.5 [TV4]:** Xây dựng lớp kết nối & truy vấn chuẩn PDO: [`app/Core/Database.php`](file:///D:/code/test%20Dl/app/Core/Database.php), [`app/src/db.php`](file:///D:/code/test%20Dl/app/src/db.php), và bộ định tuyến API [`app/public/api_router.php`](file:///D:/code/test%20Dl/app/public/api_router.php).
 
 ---
@@ -78,9 +78,9 @@
 - [x] **TASK-4.2 [TV3]:** Xây dựng màn hình Thu ngân POS ([`frontend/pos.html`](file:///D:/code/test%20Dl/frontend/pos.html), [`frontend/js/pos.js`](file:///D:/code/test%20Dl/frontend/js/pos.js)):
   - [x] Xem hóa đơn `/api/v1/staff/pos/bill/{session_id}`: Cộng **VAT 8%**, **Phí phục vụ 0đ**, và **làm tròn mốc 500đ**.
   - [ ] Tích hợp sinh mã **VietQR động chuẩn Napas 247** hiển thị trên màn hình POS (mở rộng).
-- [x] **TASK-4.3 [TV3 + TV4]:** Xây dựng API Chốt Thanh toán & Đóng bàn (`POST /api/v1/staff/pos/checkout/{session_id}`) & Kho Bài D ([`app/public/documents.php`](file:///D:/code/test%20Dl/app/public/documents.php), [`app/src/inventory.php`](file:///D:/code/test%20Dl/app/src/inventory.php)):
+- [x] **TASK-4.3 [TV3 + TV4]:** Xây dựng API Chốt Thanh toán & Đóng bàn (`POST /api/v1/staff/pos/checkout/{session_id}`) & In hóa đơn ([`app/public/documents.php`](file:///D:/code/test%20Dl/app/public/documents.php)):
   - [x] Chốt thanh toán trong `PDO Transaction`, chặn thanh toán lặp lại trên phiên đã đóng, giải phóng bàn `AVAILABLE`, xóa Shared Cart và tự động gọi `EtlService::processClosedSession($sessionId)`.
-  - [x] Quản lý phiếu nhập/xuất kho `DRAFT -> POSTED`, chống âm tồn nguyên tử và in chứng từ chuẩn `@media print`.
+  - [x] Quản lý và in hóa đơn thanh toán nhà hàng chuẩn `@media print`.
 
 ---
 

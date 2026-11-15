@@ -85,19 +85,19 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
 * **Trách nhiệm chính:**
   * **Màn hình Bếp KDS (`/frontend/kds.html`):** Bếp nhận đơn hàng định kỳ qua API, hiển thị thời gian chờ món, đổi trạng thái món theo quy trình: `PENDING` (Chờ nấu) $\rightarrow$ `COOKING` (Đang nấu) $\rightarrow$ `COMPLETED` (Hoàn thành; API cũng hỗ trợ `READY` / `SERVED`).
   * **Thu ngân POS (`/frontend/pos.html`):** Xem chi tiết các món bàn đã gọi, tạm tính tiền, áp dụng thuế VAT 8%, phí dịch vụ 0đ, làm tròn số tiền theo mốc 500đ chuẩn Việt Nam (`KdsPosController.php`).
-  * **Thanh toán & In chứng từ (Bài D):** Xác nhận thanh toán theo phương thức (`CASH` / `TRANSFER`), chốt đóng bàn, kích hoạt ETL tự động và hỗ trợ **lập/ghi sổ/in phiếu kho & hóa đơn theo chuẩn `@media print`** tại `app/public/documents.php` (sinh mã VietQR động là hạng mục mở rộng tiếp theo).
+  * **Thanh toán & In hóa đơn nhà hàng:** Xác nhận thanh toán theo phương thức (`CASH` / `TRANSFER`), chốt đóng bàn, kích hoạt ETL tự động và hỗ trợ **in hóa đơn thanh toán theo chuẩn `@media print`** tại `app/public/documents.php`.
 * **Các file phụ trách:** `frontend/kds.html`, `frontend/pos.html`, `frontend/js/kds.js`, `frontend/js/pos.js`, `app/public/documents.php`.
 
 ---
 
 ### 👤 THÀNH VIÊN 4 (TV4) — Kiến Trúc Hệ Thống, Quản Trị Dữ Liệu & Kiểm Thử Chất Lượng
 * **Trách nhiệm chính:**
-  * **Hạ tầng Docker & CSDL Kép:** Xây dựng file `docker-compose.yml`, `Dockerfile`, thiết kế CSDL MySQL 8.0 gồm nhóm bảng vận hành (`oltp`) và kho dữ liệu hình sao (`olap`).
-  * **Phân quyền RBAC nâng cao (Bài B):** Xây dựng lõi kiểm tra quyền theo thứ tự ưu tiên: `deny riêng > allow riêng > nhóm > từ chối 403`.
-  * **Lịch sử giá theo thời gian (Bài C):** Quản lý khoảng giá `[valid_from, valid_to]`, chặn giao khoảng, chụp đơn giá snapshot vào chi tiết hóa đơn.
-  * **Bảo vệ Giao dịch & Chống âm tồn (Bài D):** Bọc các thao tác chốt đơn/thanh toán trong Database Transaction với khóa dòng, đảm bảo toàn vẹn: $\text{stock\_balances} = \sum(\text{stock\_movements})$.
+  * **Hạ tầng Docker & CSDL Kép:** Xây dựng file `docker-compose.yml`, `Dockerfile`, thiết kế CSDL MySQL 8.0 gồm nhóm bảng vận hành nhà hàng (`oltp`) và kho dữ liệu hình sao (`olap`).
+  * **Phân quyền RBAC nâng cao:** Xây dựng lõi kiểm tra quyền theo thứ tự ưu tiên: `deny riêng > allow riêng > nhóm > từ chối 403`.
+  * **Bảo mật Đơn giá & Chống giả mạo (Anti-Tamper):** Chụp đơn giá chuẩn từ bảng `menu_items`/`toppings` phía Server vào `order_items` khi khách đặt món.
+  * **Bảo vệ Giao dịch & Đồng bộ Giỏ hàng chung:** Bọc các thao tác chốt đơn/thanh toán trong Database Transaction, đảm bảo toàn vẹn tổng tiền hóa đơn và `Idempotency-Key` chống gửi trùng đơn.
   * **Data Pipeline (ETL) & Gợi ý Apriori:** Vận hành luồng ETL tự động đổ dữ liệu sang OLAP khi thanh toán, tính toán luật kết hợp Apriori (Support, Confidence, Lift) và giám sát vi phạm SLA bếp (> 15 phút).
-  * **Cổng Kiểm thử Tự động:** Xây dựng và chạy bộ test `tests/run_tests.php` (**64 ca kiểm thử**) và `tests/test_tv4_core.php` kiểm chứng các module cốt lõi.
+  * **Cổng Kiểm thử Tự động:** Xây dựng và chạy bộ test `tests/run_tests.php` (**61 ca kiểm thử**) và `tests/test_tv4_core.php` kiểm chứng các module cốt lõi.
 * **Các file phụ trách:** `tv4.md`, `docker-compose.yml`, `database/init.sql`, `app/src/`, `app/Services/`, `app/Controllers/`, `tests/run_tests.php`, `tests/test_tv4_core.php`.
 
 ---
@@ -106,7 +106,7 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
 * **Trách nhiệm chính:**
   * **BI Dashboard (`dashboard.php` & `demo_tester.html`):** Hiển thị KPI tổng quan, doanh thu theo giờ/ngày từ API `/api/v1/bi/dashboard-summary` và `/api/v1/bi/revenue-over-time` (truy vấn từ kho Star Schema).
   * **Ma trận Menu Engineering (`/api/v1/bi/menu-engineering-matrix`):** Thống kê lượt xem (clickstream), số lượng bán, doanh thu và tỷ lệ chuyển đổi theo từng món ăn trên `demo_tester.html`.
-  * **Báo cáo Hiệu suất & SLA:** Theo dõi chỉ số SLA bếp và báo cáo tồn kho/doanh thu tại `dashboard.php` (tính năng xuất file Excel `.xlsx` riêng là hạng mục mở rộng sau MVP).
+  * **Báo cáo Hiệu suất & SLA:** Theo dõi chỉ số SLA bếp và báo cáo doanh thu tại `dashboard.php` (tính năng xuất file Excel `.xlsx` riêng là hạng mục mở rộng sau MVP).
 * **Các file phụ trách:** `app/public/dashboard.php`, `app/Controllers/DataPipelineController.php` (BI endpoints), phần biểu đồ BI trong `demo_tester.html`.
 
 ---
@@ -122,7 +122,7 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **Đăng nhập hệ thống** | `http://localhost:8080/login.php` | TV1 |
 | **Dashboard Tổng quan** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
 | **Quản lý Thực đơn (Phân trang)** | `http://localhost:8080/products.php` | TV1 |
-| **Phiếu kho & In hóa đơn** | `http://localhost:8080/documents.php` | TV3 & TV4 |
+| **Hóa đơn & In phiếu thanh toán** | `http://localhost:8080/documents.php` | TV3 & TV4 |
 | **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/tv1/table-management.html` | TV1 |
 | **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/tv1/menu-management.html` | TV1 |
 | **TV2 - Menu Khách Quét QR** | `http://localhost:8080/frontend/menu/index.html?token=tbl-01-sess` | TV2 |
@@ -133,10 +133,10 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **Quản trị Cơ sở dữ liệu phpMyAdmin** | `http://localhost:8081/` | TV4 & Cả nhóm |
 
 ### 🔑 Tài khoản mẫu có sẵn trong MySQL Docker (`database/init.sql`):
-* **Tài khoản Admin (Toàn quyền):** `admin` (`admin@dineflow.vn`) — Mật khẩu: `Admin@123` (hoặc `123456`)
-* **Tài khoản Người lập phiếu (`CREATOR`):** `creator` (`creator@example.com`) — Mật khẩu: `123456`
-* **Tài khoản Thủ kho (`KEEPER`):** `keeper` (`keeper@example.com`) — Mật khẩu: `123456`
-* **Tài khoản Chỉ xem (`VIEWER`):** `viewer` (`viewer@example.com`) — Mật khẩu: `123456`
+* **Tài khoản Quản trị nhà hàng (`ADMIN`):** `admin` (`admin@dineflow.vn`) — Mật khẩu: `Admin@123` (hoặc `123456`)
+* **Tài khoản Thu ngân & Phục vụ (`CREATOR`):** `creator` (`creator@dineflow.vn`) — Mật khẩu: `123456`
+* **Tài khoản Điều phối Bếp KDS (`KEEPER`):** `keeper` (`keeper@dineflow.vn`) — Mật khẩu: `123456`
+* **Tài khoản Giám sát & Báo cáo BI (`VIEWER`):** `viewer` (`viewer@dineflow.vn`) — Mật khẩu: `123456`
 * *(Lưu ý: `database/seed.php` chỉ dùng riêng cho SQLite fallback với `admin`/`admin123`, `cashier1`/`cashier123`, `chef_hung`/`chef123`.)*
 
 ---
@@ -150,13 +150,13 @@ docker compose exec php-app php /var/www/tests/run_tests.php
 docker compose exec php-app php /var/www/tests/test_tv4_core.php
 ```
 
-Màn hình console `run_tests.php` sẽ tự động thực thi **64 ca kiểm thử** bao phủ toàn bộ:
+Màn hình console `run_tests.php` sẽ tự động thực thi **61 ca kiểm thử** bao phủ toàn bộ:
 * 7 ca kiểm thử đăng ký tài khoản (Mục 38)
 * 4 ca kiểm thử xác nhận email qua token (Mục 39)
 * 7 ca kiểm thử đăng nhập và ghi nhớ cookie (Mục 40)
-* 6 ca kiểm thử ma trận phân quyền RBAC (Bài B)
-* 4 ca kiểm thử lịch sử giá theo thời gian không giao khoảng (Bài C)
-* 8 ca kiểm thử nhập/xuất kho, chặn âm tồn và đối soát dữ liệu (Bài D)
-* 28 ca kiểm thử 7 Trụ cột Chất lượng & Bất biến Nghiệp vụ TV4 (Phần 7: Anti-Tamper, Idempotency-Key, ETL Idempotent, Apriori, Kitchen SLA >900s, Chống âm tồn, Star Schema Integrity).
+* 6 ca kiểm thử ma trận phân quyền RBAC
+* 4 ca kiểm thử Thực đơn 35 món ăn QR Dine & Phân trang thật trên DB
+* 5 ca kiểm thử Vòng đời Phiên bàn QR, Đơn bếp KDS & Hóa đơn POS
+* 28 ca kiểm thử 7 Trụ cột Chất lượng & Bất biến Nghiệp vụ TV4 (Phần 7: Anti-Tamper, Idempotency-Key, ETL Idempotent, Apriori, Kitchen SLA >900s, Shared Cart Transaction, Star Schema Integrity).
 
-Kết quả mong đợi: **`64 PASSED / 64 TOTAL (100% PASS)`**.
+Kết quả mong đợi: **`61 PASSED / 61 TOTAL (100% PASS)`**.

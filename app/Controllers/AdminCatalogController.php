@@ -11,13 +11,13 @@ class AdminCatalogController
     {
         $db = Database::getConnection();
         $stmt = $db->query("
-            SELECT dt.*, ts.session_token, ts.session_token as current_session_token, ts.total_amount, ts.created_at as session_started_at
+            SELECT dt.*, ts.session_token, ts.session_token as current_session_token, ts.status as session_status, ts.total_amount, ts.created_at as session_started_at
             FROM dining_tables dt
-            LEFT JOIN table_sessions ts ON dt.current_session_id = ts.id
+            LEFT JOIN table_sessions ts ON dt.current_session_id = ts.id AND ts.status = 'ACTIVE'
             ORDER BY dt.id ASC
         ");
         $tables = $stmt->fetchAll();
-        echo json_encode($tables);
+        echo json_encode($tables, JSON_UNESCAPED_UNICODE);
     }
 
     public function createTable(): void
@@ -51,6 +51,39 @@ class AdminCatalogController
         if (!$table) {
             http_response_code(404);
             echo json_encode(['error' => 'Table not found']);
+            return;
+        }
+
+        // Bảo vệ phiên đang hoạt động (tránh vô tình xoay mất token QR của bàn đang có khách)
+        if (!empty($table['current_session_id'])) {
+            $stmtActive = $db->prepare("SELECT id, session_token FROM table_sessions WHERE id = ? AND status = 'ACTIVE' LIMIT 1");
+            $stmtActive->execute([$table['current_session_id']]);
+            $activeSess = $stmtActive->fetch();
+            if ($activeSess) {
+                http_response_code(409);
+                echo json_encode([
+                    'error' => 'Bàn này đang có phiên phục vụ hoạt động',
+                    'session_id' => $activeSess['id'],
+                    'session_token' => $activeSess['session_token'],
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+        }
+
+        // Tự động khôi phục nếu bàn OCCUPIED bị đứt liên kết current_session_id nhưng vẫn còn phiên ACTIVE
+        $stmtOrphan = $db->prepare("SELECT id, session_token FROM table_sessions WHERE table_id = ? AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1");
+        $stmtOrphan->execute([$tableId]);
+        $orphanSess = $stmtOrphan->fetch();
+        if ($orphanSess) {
+            $db->prepare("UPDATE dining_tables SET status = 'OCCUPIED', current_session_id = ? WHERE id = ?")
+                ->execute([$orphanSess['id'], $tableId]);
+            echo json_encode([
+                'status' => 'success',
+                'recovered' => true,
+                'table_id' => $tableId,
+                'session_id' => $orphanSess['id'],
+                'session_token' => $orphanSess['session_token'],
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 

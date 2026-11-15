@@ -209,12 +209,20 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>️ Quản lý Bàn ăn</h1>
+            <h1>🪑 Quản lý Bàn ăn</h1>
             <a href="menu-management.html" class="nav-link">🍽️ Sang Quản lý Menu</a>
         </div>
         <p class="subtitle">Hệ thống DINEFLOW - Theo dõi và quản lý trạng thái bàn ăn</p>
         
         <button class="refresh-btn" onclick="loadTables()">🔄 Tải lại danh sách bàn</button>
+
+        <div id="qr-host-config" style="margin: 12px 0; padding: 12px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <label for="qr-base-input" style="font-weight: 600; font-size: 13px; color: #334155;">📡 Địa chỉ gốc cho QR (để điện thoại quét):</label>
+            <input id="qr-base-input" type="url" placeholder="VD: http://192.168.1.10:8080" style="flex: 1; min-width: 220px; padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 13px;">
+            <button type="button" onclick="saveQrBaseUrl()" style="background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Lưu URL QR</button>
+            <button type="button" onclick="resetQrBaseUrl()" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">Mặc định</button>
+            <div id="qr-host-warning" style="width: 100%; font-size: 12px; color: #b45309; display: none;"></div>
+        </div>
         
         <div id="message-area"></div>
         <div id="table-grid" class="table-grid">
@@ -222,9 +230,84 @@
         </div>
     </div>
 
+    <script src="../js/qrcode.js"></script>
     <script>
         // ⚠️ QUAN TRỌNG: Địa chỉ API backend
         const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getDefaultHttpOrigin() {
+            return location.protocol.startsWith('http') ? location.origin : 'http://localhost:8080';
+        }
+
+        function getQrBaseUrl() {
+            const saved = (localStorage.getItem('dineflow_qr_base_url') || '').trim();
+            return (saved || getDefaultHttpOrigin()).replace(/\/+$/, '');
+        }
+
+        function getMenuPath() {
+            if (location.protocol.startsWith('http') && location.pathname.includes('/frontend/')) {
+                return location.pathname.replace(/\/frontend\/.*$/, '/frontend/menu/index.html');
+            }
+            return '/frontend/menu/index.html';
+        }
+
+        function syncQrHostUI() {
+            const input = document.getElementById('qr-base-input');
+            const warn = document.getElementById('qr-host-warning');
+            if (!input || !warn) return;
+            const current = getQrBaseUrl();
+            input.value = current;
+            const isLocalOnly = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(current);
+            if (isLocalOnly || !location.protocol.startsWith('http')) {
+                warn.style.display = 'block';
+                warn.textContent = '⚠️ QR đang dùng localhost — điện thoại cùng Wi-Fi sẽ không truy cập được "localhost". Hãy nhập IP LAN máy tính (VD: http://192.168.x.x:8080) rồi bấm Lưu URL QR.';
+            } else {
+                warn.style.display = 'none';
+            }
+        }
+
+        function saveQrBaseUrl() {
+            const input = document.getElementById('qr-base-input');
+            const raw = (input ? input.value : '').trim().replace(/\/+$/, '');
+            if (!raw || !/^https?:\/\/.+/i.test(raw)) {
+                alert('Vui lòng nhập URL hợp lệ bắt đầu bằng http:// hoặc https://');
+                return;
+            }
+            localStorage.setItem('dineflow_qr_base_url', raw);
+            syncQrHostUI();
+            loadTables();
+        }
+
+        function resetQrBaseUrl() {
+            localStorage.removeItem('dineflow_qr_base_url');
+            syncQrHostUI();
+            loadTables();
+        }
+
+        function copyQrLink(btn) {
+            const url = (btn && btn.dataset && btn.dataset.qrUrl) ? btn.dataset.qrUrl : '';
+            if (!url) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    const prev = btn.textContent;
+                    btn.textContent = '✅ Đã copy';
+                    setTimeout(() => { btn.textContent = prev; }, 1500);
+                });
+            } else {
+                prompt('Copy link đặt món:', url);
+            }
+        }
+
+        syncQrHostUI();
 
         // Hàm hiển thị thông báo (toast)
         function showToast(message, isError = false) {
@@ -300,32 +383,59 @@
                 if (isAvailable) {
                     actionHTML = `<button class="btn-open" onclick="openTable(${tableId})">Mở bàn & Tạo QR</button>`;
                 } else {
-                    // 🎯 TẠO URL CHỨA SESSION TOKEN ĐỂ KHÁCH QUÉT (Mở trực tiếp từ thư mục frontend/menu đã gộp)
                     const sessToken = table.current_session_token || table.session_token || '';
-                    const orderPageUrl = new URL(`../menu/index.html?table=${tableId}&token=${encodeURIComponent(sessToken)}`, window.location.href).href;
-                    
-                    // 📸 TẠO LINK ẢNH QR CODE TỰ ĐỘNG
-                    const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(orderPageUrl)}`;
+                    if (!sessToken) {
+                        actionHTML = `
+                            <div class="session-info" style="text-align: center;">
+                                <div style="color: #b45309; font-size: 13px; margin-bottom: 8px; font-weight: 600;">
+                                    ⚠️ Bàn đang OCCUPIED nhưng thiếu phiên QR hoạt động.
+                                </div>
+                                <button class="btn-open" onclick="openTable(${tableId})">🔄 Khôi phục / Tạo lại QR</button>
+                            </div>
+                        `;
+                    } else {
+                        const menuPath = getMenuPath();
+                        const query = `?table=${encodeURIComponent(tableId)}&token=${encodeURIComponent(sessToken)}`;
+                        const qrOrderUrl = `${getQrBaseUrl()}${menuPath}${query}`;
+                        const localOrderUrl = `${getDefaultHttpOrigin()}${menuPath}${query}`;
 
-                    actionHTML = `
-                        <div class="session-info" style="text-align: center;">
-                            <strong style="color: #4CAF50;">📱 QR Code cho khách quét:</strong><br>
-                            <a href="${orderPageUrl}" target="_blank" title="Bấm vào ảnh QR để mở Menu khách">
-                                <img src="${qrCodeImageUrl}" 
-                                    alt="QR Code" 
-                                    style="margin: 10px auto; border: 2px solid #4CAF50; border-radius: 8px; padding: 5px; background: white; cursor: pointer;"
-                                    width="150" height="150">
-                            </a>
-                            <div style="margin: 6px 0;">
-                                <a href="${orderPageUrl}" target="_blank" style="display: inline-block; background: #4CAF50; color: white; padding: 6px 12px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px;">
-                                    👉 Mở Menu Đặt Món (TV2)
+                        let qrImageSrc = '';
+                        try {
+                            qrImageSrc = window.DineFlowQR.toSvgDataUrl(qrOrderUrl, 4);
+                        } catch (qrErr) {
+                            console.error('QR build error:', qrErr);
+                        }
+
+                        const qrImgHtml = qrImageSrc
+                            ? `<img src="${qrImageSrc}"
+                                    alt="QR Code Bàn ${escapeHtml(tableId)}"
+                                    style="display: block; margin: 10px auto; border: 2px solid #4CAF50; border-radius: 8px; padding: 6px; background: white; cursor: pointer;"
+                                    width="168" height="168">`
+                            : `<div style="margin: 10px auto; padding: 12px; border: 1px dashed #ef4444; color: #b91c1c; border-radius: 6px; font-size: 12px;">Không thể tạo ảnh QR (URL quá dài)</div>`;
+
+                        actionHTML = `
+                            <div class="session-info" style="text-align: center;">
+                                <strong style="color: #4CAF50;">📱 QR Code cho khách quét:</strong><br>
+                                <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" title="Bấm vào ảnh QR để mở Menu khách trên máy này">
+                                    ${qrImgHtml}
                                 </a>
+                                <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 6px 0;">
+                                    <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" style="display: inline-block; background: #4CAF50; color: white; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px;">
+                                        👉 Mở Menu (TV2)
+                                    </a>
+                                    <button type="button" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="copyQrLink(this)" style="background: #0ea5e9; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                                        📋 Copy link QR
+                                    </button>
+                                </div>
+                                <div style="font-size: 11px; color: #475569; word-break: break-all; margin-top: 4px;">
+                                    ${escapeHtml(qrOrderUrl)}
+                                </div>
+                                <div style="font-size: 11px; color: #64748b; word-break: break-all; margin-top: 2px;">
+                                    Token: ${escapeHtml(sessToken)}
+                                </div>
                             </div>
-                            <div style="font-size: 11px; color: #666; word-break: break-all;">
-                                Token: ${sessToken || 'N/A'}
-                            </div>
-                        </div>
-                    `;
+                        `;
+                    }
                 }
                 
                 card.innerHTML = `

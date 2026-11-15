@@ -59,7 +59,7 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 
 ### 2.1 Kiến trúc chính thức hiện tại
 
-- **Mục tiêu môn Web (Chính thức):** Sử dụng **PHP 8.2 thuần (Vanilla PHP Modular Monolith) + PDO** kết hợp HTML5, CSS3, FORM, JavaScript & HTML DOM theo đúng yêu cầu bài tập lớn (`tai lieu/new.md`, `tai lieu/DE_XUAT_MO_RONG.md`, `tai lieu/BAI_TAP_SINH_VIEN.md`).
+- **Mục tiêu môn Web (Chính thức):** Sử dụng **PHP 8.2 thuần (Vanilla PHP Modular Monolith) + PDO** kết hợp HTML5, CSS3, FORM, JavaScript & HTML DOM theo đúng yêu cầu bài tập lớn.
 - **Quyết định kiến trúc chính thức:** Chạy 3 container Docker (`php-app` PHP 8.2 + Apache, `mysql` 8.0, `phpmyadmin`), sử dụng `PDO` Prepared Statements (`ERRMODE_EXCEPTION`, `FETCH_ASSOC`), không phụ thuộc framework ngoài (Laravel/Redis/WebSocket server riêng).
 - **Kế hoạch triển khai:** Áp dụng bản thiết kế thực thể dữ liệu (ERD), hợp đồng REST API (`/api/v1/*`), các bất biến nghiệp vụ và thuật toán Apriori trực tiếp trên `app/Controllers/`, `app/Services/`, `app/src/` và SQL chuẩn hóa tại `database/init.sql`.
 
@@ -84,8 +84,8 @@ Không coi tập hợp các trang HTML CRUD độc lập hay Swagger API là s�
 | `/frontend/menu/index.html?token={session_token}` | `/m/{session_token}` | Khách | Menu QR, giỏ hàng chung REST, gửi đơn, xem gợi ý |
 | `/login.php`, `/register.php`, `/verify_email.php` | `/login` | Nhân viên | Đăng nhập, đăng ký & kích hoạt email SMTP |
 | `/dashboard.php` | `/portal` | Nhân viên | Trang tổng quan ca trực & KPI |
-| `/products.php` | `/portal/menu` (Bài A) | Admin / Thủ kho | Quản lý danh mục & phân trang thật SQL |
-| `/documents.php` | `/portal/documents` (Bài D) | Admin / Thủ kho / Viewer | Lập phiếu, ghi sổ chống âm tồn & in `@media print` |
+| `/products.php` | `/portal/menu` | Admin / Nhân viên | Quản lý thực đơn 35 món & phân trang thật SQL |
+| `/documents.php` | `/portal/documents` | Admin / Thu ngân / Viewer | Quản lý & in hóa đơn thanh toán `@media print` |
 | `/frontend/tv1/table-management.html` | `/portal/tables` | ADMIN | Quản lý bàn & mở phiên QR |
 | `/frontend/tv1/menu-management.html` | `/portal/menu` | ADMIN | Danh mục món ăn, topping & bật/tắt hết món |
 | `/frontend/kds.html` | `/portal/kds` | CHEF / ADMIN | Điều phối chế biến KDS |

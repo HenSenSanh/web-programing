@@ -76,7 +76,11 @@
     toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2400);
   }
   function updateTableLabel() {
-    const label = tableNumber ? `Bàn ${tableNumber}` : "Menu DineFlow";
+    let label = "Menu DineFlow";
+    if (tableNumber) {
+      const raw = String(tableNumber).trim();
+      label = /^bàn\b/i.test(raw) ? raw : `Bàn ${raw}`;
+    }
     els.table.textContent = sessionToken ? label : `${label} · Xem thử`;
   }
 
