@@ -13,6 +13,8 @@
     table: $("#table-label"), notice: $("#notice"), categories: $("#category-list"), grid: $("#menu-grid"), featured: $("#featured-grid"), search: $("#search-input"),
     cartBar: $("#cart-bar"), cartCount: $("#cart-count"), cartTotal: $("#cart-total"), overlay: $("#overlay"), panel: $("#cart-panel"),
     cartItems: $("#cart-items"), panelTotal: $("#panel-total"), submit: $("#submit-order"), dialog: $("#item-dialog"), dialogContent: $("#dialog-content"), toast: $("#toast"),
+    orders: $("#sent-orders"), orderList: $("#sent-order-list"), ordersToggle: $("#orders-toggle"), ordersCount: $("#orders-count"),
+    ordersTotal: $("#sent-orders-total"), closeOrders: $("#close-orders"), ordersOverlay: $("#orders-overlay"),
   };
   let categories = [];
   let menuItems = [];
@@ -22,15 +24,30 @@
   let activeItem = null;
   let cartSyncTimer = null;
   let isSyncingCart = false;
-  let pendingIdempotencyKey = null;
+  const idempotencyStorageKey = `pending-order:${sessionToken}`;
+  let pendingIdempotencyKey = sessionStorage.getItem(idempotencyStorageKey) || null;
   let toastTimer = null;
   let submitting = false;
+  let sentOrders = [];
+  let ordersPanelOpen = false;
+  let ordersPollTimer = null;
+  let loadingOrders = false;
+
+  const orderStatusLabels = {
+    PENDING: "Đang chờ bếp",
+    COOKING: "Đang nấu",
+    COMPLETED: "Nấu xong",
+    SERVED: "Đã phục vụ",
+    CANCELLED: "Đã hủy",
+  };
 
   const money = (amount) => new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND", maximumFractionDigits: 0 }).format(Number(amount) || 0);
   const escapeHTML = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   function resolveImageUrl(source) {
     const raw = String(source || "").trim();
     if (!raw) return "";
+    if (raw.startsWith("/")) return new URL(raw, API_BASE).href;
+    
     if (/^(https?:|data:image\/|blob:)/i.test(raw)) {
       const url = new URL(raw, FRONTEND_ROOT);
       if (["localhost", "127.0.0.1"].includes(url.hostname) && !["localhost", "127.0.0.1"].includes(location.hostname)) url.hostname = location.hostname;
@@ -75,6 +92,138 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => els.toast.classList.remove("show"), 2400);
   }
+
+  function normalizeOrderHistory(data) {
+    if (Array.isArray(data?.orders)) {
+      return data.orders.map((order) => ({
+        id: order.order_id ?? order.id ?? order.order_code ?? "—",
+        time: order.created_at || order.time || "",
+        items: (order.items || []).map((item) => ({
+          ...item,
+          id: Number(item.order_item_id ?? item.id),
+          name: item.name || item.item_name || "Món ăn",
+          line_total: Number(item.line_total ?? item.subtotal ?? (Number(item.unit_price || 0) * Number(item.quantity || 0))),
+          note: item.note || item.notes || "",
+          status: item.status || "PENDING",
+        })),
+      }));
+    }
+
+    const rows = Array.isArray(data) ? data : (data?.items || []);
+    const groups = new Map();
+    for (const row of rows) {
+      const orderKey = String(row.order_id ?? row.order_code ?? "Đơn");
+      if (!groups.has(orderKey)) {
+        groups.set(orderKey, {
+          id: row.order_code || row.order_id || orderKey,
+          time: row.created_at || row.order_created_at || "",
+          items: [],
+        });
+      }
+      groups.get(orderKey).items.push({
+        ...row,
+        id: Number(row.order_item_id ?? row.id),
+        name: row.name || row.item_name || "Món ăn",
+        quantity: Number(row.quantity || 0),
+        unit_price: Number(row.unit_price || 0),
+        line_total: Number(row.line_total ?? row.subtotal ?? (Number(row.unit_price || 0) * Number(row.quantity || 0))),
+        note: row.note || row.notes || "",
+        status: row.status || "PENDING",
+      });
+    }
+    return [...groups.values()];
+  }
+
+  function renderSentOrders() {
+    if (!els.orders || !els.orderList) return;
+    const itemCount = sentOrders.reduce((count, order) => count + order.items.length, 0);
+    const total = sentOrders.reduce((sum, order) => sum + order.items.reduce((itemsSum, item) => {
+      return itemsSum + (item.status === "CANCELLED" ? 0 : Number(item.line_total || 0));
+    }, 0), 0);
+
+    els.orders.classList.toggle("open", ordersPanelOpen && sentOrders.length > 0);
+    els.orders.setAttribute("aria-hidden", String(!ordersPanelOpen));
+    if (els.ordersOverlay) els.ordersOverlay.hidden = !ordersPanelOpen || sentOrders.length === 0;
+    if (els.ordersToggle) {
+      els.ordersToggle.hidden = sentOrders.length === 0 || ordersPanelOpen;
+      els.ordersToggle.setAttribute("aria-expanded", String(ordersPanelOpen));
+    }
+    if (els.ordersCount) els.ordersCount.textContent = String(itemCount);
+    if (els.ordersTotal) els.ordersTotal.textContent = money(total);
+
+    if (!sentOrders.length) {
+      els.orderList.innerHTML = '<p class="cart-empty">Chưa có món nào được gửi đến bếp.</p>';
+      return;
+    }
+
+    els.orderList.innerHTML = [...sentOrders].reverse().map((order) => `
+      <article class="sent-order-card">
+        <header>
+          <strong>Đơn #${escapeHTML(order.id)}</strong>
+          <time>${escapeHTML(order.time ? new Date(order.time).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "")}</time>
+        </header>
+        ${order.items.map((item) => `
+          <div class="sent-order-item">
+            <div>
+              <strong>${escapeHTML(item.name)}</strong>
+              <small>${Number(item.quantity || 0)} phần · ${money(item.line_total)}${item.note ? ` · Ghi chú: ${escapeHTML(item.note)}` : ""}</small>
+            </div>
+            <div class="sent-order-actions">
+              <span class="order-status" data-status="${escapeHTML(item.status)}">${escapeHTML(orderStatusLabels[item.status] || item.status)}</span>
+              ${item.status === "PENDING" && item.id ? `<button type="button" class="cancel-order-button" data-cancel-order-item="${Number(item.id)}">Hủy món</button>` : ""}
+            </div>
+          </div>`).join("")}
+      </article>`).join("");
+  }
+
+  async function loadSentOrders() {
+    if (!sessionToken || loadingOrders) return;
+    loadingOrders = true;
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/status`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      sentOrders = normalizeOrderHistory(data);
+      renderSentOrders();
+    } catch (error) {
+      console.info("Chưa tải được lịch sử đơn:", error.message);
+    } finally {
+      loadingOrders = false;
+    }
+  }
+  async function cancelSentItem(orderItemId) {
+    if (!sessionToken || !orderItemId) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/order-items/${orderItemId}/cancel`, {
+        method: "POST",
+        headers: { Accept: "application/json" },
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || result.detail || `Không thể hủy món (HTTP ${response.status})`);
+      toast("Đã hủy món.");
+      await loadSentOrders();
+    } catch (error) {
+      toast(error.message || "Không thể hủy món lúc này.");
+    }
+  }
+
+  function connectOrderUpdates() {
+    if (!sessionToken) return;
+
+    clearInterval(ordersPollTimer);
+    ordersPollTimer = setInterval(loadSentOrders, 5000);
+  }
+  function openOrdersPanel() {
+    ordersPanelOpen = true;
+    renderSentOrders();
+  }
+
+  function closeOrdersPanel() {
+    ordersPanelOpen = false;
+    renderSentOrders();
+  }
   function updateTableLabel() {
     let label = "Menu DineFlow";
     if (tableNumber) {
@@ -118,7 +267,7 @@
         toppings = [];
       } else {
         categories = (data.categories || []).map((category) => ({ ...category, items: category.items || [] }));
-        toppings = data.available_toppings || [];
+        toppings = (data.available_toppings || []).filter((topping) => topping.is_available !== false);
       }
       menuItems = categories.flatMap((category) => category.items.map((item) => ({ ...item, category: category.name })));
       if (!menuItems.length) showNotice("Menu từ máy chủ hiện chưa có món. Hãy chạy dữ liệu mẫu hoặc kiểm tra danh mục món.");
@@ -367,6 +516,8 @@
     if (!cart.length) {
       els.cartItems.innerHTML = '<div class="cart-empty">Giỏ hàng của bạn đang trống.<br>Hãy chọn món từ thực đơn bên dưới.</div>';
       els.panelTotal.textContent = money(0);
+      els.cartTotal.textContent = money(0);
+      els.cartCount.textContent = "0";
       els.cartBar.hidden = true;
       return;
     }
@@ -404,6 +555,7 @@
 
   async function syncCart() {
     pendingIdempotencyKey = null;
+    sessionStorage.removeItem(idempotencyStorageKey);
     renderCartPanel();
     if (!sessionToken) return;
     isSyncingCart = true;
@@ -439,7 +591,10 @@
     els.submit.disabled = true;
     els.submit.innerHTML = 'Đang gửi đến bếp… <span>→</span>';
     if (!pendingIdempotencyKey) {
-      pendingIdempotencyKey = `menu-${sessionToken}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      pendingIdempotencyKey = typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `menu-${sessionToken}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      sessionStorage.setItem(idempotencyStorageKey, pendingIdempotencyKey);
     }
 
     try {
@@ -466,6 +621,7 @@
       if (!response.ok) throw new Error(result.error || result.detail || `Không gửi được đơn (HTTP ${response.status})`);
       cart = [];
       pendingIdempotencyKey = null;
+      sessionStorage.removeItem(idempotencyStorageKey);
       await syncCart();
       closeCart();
       toast(`Đã gửi đơn #${result.order_id} xuống bếp thành công!`);
@@ -567,10 +723,22 @@
     syncCart();
   });
   els.submit.addEventListener("click", submitOrder);
+  if (els.ordersToggle) els.ordersToggle.addEventListener("click", openOrdersPanel);
+  if (els.closeOrders) els.closeOrders.addEventListener("click", closeOrdersPanel);
+  if (els.ordersOverlay) els.ordersOverlay.addEventListener("click", closeOrdersPanel);
+  if (els.orderList) {
+    els.orderList.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-cancel-order-item]");
+      if (button) cancelSentItem(button.dataset.cancelOrderItem);
+    });
+  }
 
   updateTableLabel();
   loadSessionInfo();
   loadMenu();
+  renderSentOrders();
+  loadSentOrders();
+  connectOrderUpdates();
   connectSharedCart();
   if (!sessionToken) showNotice("Đây là chế độ xem thử. Hãy mở liên kết QR có token phiên hợp lệ để đồng bộ giỏ hàng và gửi đơn.");
 })();

@@ -160,3 +160,5 @@ Màn hình console `run_tests.php` sẽ tự động thực thi **61 ca kiểm t
 * 28 ca kiểm thử 7 Trụ cột Chất lượng & Bất biến Nghiệp vụ TV4 (Phần 7: Anti-Tamper, Idempotency-Key, ETL Idempotent, Apriori, Kitchen SLA >900s, Shared Cart Transaction, Star Schema Integrity).
 
 Kết quả mong đợi: **`61 PASSED / 61 TOTAL (100% PASS)`**.
+
+[README P2](README_P2.md)

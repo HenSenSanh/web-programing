@@ -9,6 +9,8 @@ use PDO;
 
 class KdsPosController
 {
+    private bool $sqliteWriteTransaction = false;
+
     public function getKdsActiveItems(): void
     {
         $db = Database::getConnection();
@@ -18,35 +20,61 @@ class KdsPosController
             JOIN orders o ON oi.order_id = o.id
             JOIN table_sessions ts ON o.session_id = ts.id
             JOIN dining_tables dt ON ts.table_id = dt.id
-            WHERE oi.status IN ('PENDING', 'COOKING', 'READY')
+            WHERE oi.status IN ('PENDING', 'COOKING')
             ORDER BY oi.id ASC
         ");
         echo json_encode($stmt->fetchAll());
     }
 
-    public function updateItemStatus(): void
+    public function updateItemStatus(?array $data = null): void
     {
-        $data = json_decode(file_get_contents('php://input'), true);
+        $data = $data ?? json_decode(file_get_contents('php://input'), true);
+        if (!is_array($data)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Invalid request body']);
+            return;
+        }
+
         $itemId = (int)($data['item_id'] ?? $data['order_item_id'] ?? 0);
         $newStatus = strtoupper(trim($data['status'] ?? $data['new_status'] ?? ''));
         $chefId = !empty($data['chef_id']) ? (int)$data['chef_id'] : null;
 
-        $validStatuses = ['PENDING', 'COOKING', 'READY', 'SERVED', 'COMPLETED', 'CANCELLED'];
-        if (!in_array($newStatus, $validStatuses)) {
+        $expectedStatus = match ($newStatus) {
+            'COOKING' => 'PENDING',
+            'COMPLETED' => 'COOKING',
+            default => null,
+        };
+        if ($itemId < 1 || $expectedStatus === null) {
             http_response_code(400);
-            echo json_encode(['error' => 'Invalid status']);
+            echo json_encode(['error' => 'Chỉ chấp nhận chuyển PENDING → COOKING hoặc COOKING → COMPLETED']);
             return;
         }
 
         $db = Database::getConnection();
-        $completedAt = in_array($newStatus, ['READY', 'SERVED', 'COMPLETED']) ? date('Y-m-d H:i:s') : null;
+        $completedAt = $newStatus === 'COMPLETED' ? date('Y-m-d H:i:s') : null;
 
         $stmt = $db->prepare("
             UPDATE order_items
             SET status = ?, chef_id = COALESCE(?, chef_id), completed_at = COALESCE(?, completed_at)
-            WHERE id = ?
+            WHERE id = ? AND status = ?
         ");
-        $stmt->execute([$newStatus, $chefId, $completedAt, $itemId]);
+        $stmt->execute([$newStatus, $chefId, $completedAt, $itemId, $expectedStatus]);
+        if ($stmt->rowCount() !== 1) {
+            $stmtCurrent = $db->prepare("SELECT status FROM order_items WHERE id = ?");
+            $stmtCurrent->execute([$itemId]);
+            $currentStatus = $stmtCurrent->fetchColumn();
+            if ($currentStatus === false) {
+                http_response_code(404);
+                echo json_encode(['error' => 'Không tìm thấy món']);
+                return;
+            }
+            http_response_code(409);
+            echo json_encode([
+                'error' => "Không thể chuyển món từ {$currentStatus} sang {$newStatus}",
+                'current_status' => $currentStatus,
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         echo json_encode([
             'status' => 'success',
@@ -97,7 +125,7 @@ class KdsPosController
             SELECT oi.id, oi.item_name, oi.unit_price, oi.quantity, oi.subtotal, oi.status
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
-            WHERE o.session_id = ?
+            WHERE o.session_id = ? AND oi.status <> 'CANCELLED'
             ORDER BY oi.id ASC
         ");
         $stmtItems->execute([$tableInfo['session_id']]);
@@ -131,33 +159,35 @@ class KdsPosController
     public function checkout(string $sessionIdentifier): void
     {
         $db = Database::getConnection();
-        if (ctype_digit($sessionIdentifier)) {
-            $stmt = $db->prepare("SELECT * FROM table_sessions WHERE (id = ? OR table_id = ?) AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1");
-            $stmt->execute([$sessionIdentifier, (int)$sessionIdentifier]);
-        } else {
-            $stmt = $db->prepare("SELECT * FROM table_sessions WHERE (id = ? OR session_token = ?) AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1");
-            $stmt->execute([$sessionIdentifier, $sessionIdentifier]);
-        }
-        $session = $stmt->fetch();
-
-        if (!$session) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Phiên bàn không tồn tại hoặc đã được thanh toán trước đó']);
-            return;
-        }
-
-        $actualSessionId = $session['id'];
-        $payload = json_decode(file_get_contents('php://input'), true) ?: [];
-        $paymentMethod = $payload['payment_method'] ?? 'CASH';
-
-        $db->beginTransaction();
         try {
+            $this->beginWriteTransaction($db);
+            $lockSuffix = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            if (ctype_digit($sessionIdentifier)) {
+                $stmt = $db->prepare("SELECT * FROM table_sessions WHERE (id = ? OR table_id = ?) AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1{$lockSuffix}");
+                $stmt->execute([$sessionIdentifier, (int)$sessionIdentifier]);
+            } else {
+                $stmt = $db->prepare("SELECT * FROM table_sessions WHERE (id = ? OR session_token = ?) AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1{$lockSuffix}");
+                $stmt->execute([$sessionIdentifier, $sessionIdentifier]);
+            }
+            $session = $stmt->fetch();
+
+            if (!$session) {
+                $this->rollbackWriteTransaction($db);
+                http_response_code(400);
+                echo json_encode(['error' => 'Phiên bàn không tồn tại hoặc đã được thanh toán trước đó']);
+                return;
+            }
+
+            $actualSessionId = $session['id'];
+            $payload = json_decode(file_get_contents('php://input'), true) ?: [];
+            $paymentMethod = $payload['payment_method'] ?? 'CASH';
+
             // Tính tổng tiền từ order_items
             $stmtSum = $db->prepare("
                 SELECT COALESCE(SUM(oi.subtotal), 0) as subtotal
                 FROM order_items oi
                 JOIN orders o ON oi.order_id = o.id
-                WHERE o.session_id = ?
+                WHERE o.session_id = ? AND oi.status <> 'CANCELLED'
             ");
             $stmtSum->execute([$actualSessionId]);
             $subtotal = (float)$stmtSum->fetch()['subtotal'];
@@ -183,7 +213,7 @@ class KdsPosController
             $stmtTable = $db->prepare("UPDATE dining_tables SET status = 'AVAILABLE', current_session_id = NULL WHERE id = ?");
             $stmtTable->execute([$session['table_id']]);
 
-            $db->commit();
+            $this->commitWriteTransaction($db);
 
             // Dọn giỏ hàng & tự động kích hoạt luồng ETL chuyển dữ liệu sang kho OLAP
             if (!empty($session['session_token'])) {
@@ -204,9 +234,44 @@ class KdsPosController
                 'message' => 'Thanh toán thành công! Dữ liệu đã tự động đồng bộ sang kho OLAP.'
             ]);
         } catch (\Throwable $e) {
-            $db->rollBack();
+            $this->rollbackWriteTransaction($db);
             http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);
+        }
+    }
+
+    private function beginWriteTransaction(PDO $db): void
+    {
+        if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $db->exec('BEGIN IMMEDIATE');
+            $this->sqliteWriteTransaction = true;
+            return;
+        }
+
+        $db->beginTransaction();
+    }
+
+    private function commitWriteTransaction(PDO $db): void
+    {
+        if ($this->sqliteWriteTransaction) {
+            $db->exec('COMMIT');
+            $this->sqliteWriteTransaction = false;
+            return;
+        }
+
+        $db->commit();
+    }
+
+    private function rollbackWriteTransaction(PDO $db): void
+    {
+        if ($this->sqliteWriteTransaction) {
+            $db->exec('ROLLBACK');
+            $this->sqliteWriteTransaction = false;
+            return;
+        }
+
+        if ($db->inTransaction()) {
+            $db->rollBack();
         }
     }
 }

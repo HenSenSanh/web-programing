@@ -481,7 +481,7 @@ CREATE TABLE IF NOT EXISTS orders (
     order_code VARCHAR(50) UNIQUE NOT NULL,
     status VARCHAR(20) DEFAULT 'CONFIRMED',
     total_amount DECIMAL(12, 2) NOT NULL,
-    idempotency_key VARCHAR(64) NULL,
+    idempotency_key VARCHAR(64) NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_order_sess (session_id),
     INDEX idx_order_idem (idempotency_key),

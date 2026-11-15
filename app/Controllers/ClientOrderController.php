@@ -8,6 +8,8 @@ use PDO;
 
 class ClientOrderController
 {
+    private bool $sqliteWriteTransaction = false;
+
     public function getSessionInfo(string $token): void
     {
         $db = Database::getConnection();
@@ -49,89 +51,172 @@ class ClientOrderController
     public function submitOrder(string $token, ?array $customPayload = null): void
     {
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT * FROM table_sessions WHERE session_token = ? AND status = 'ACTIVE'");
-        $stmt->execute([$token]);
-        $session = $stmt->fetch();
-
-        if (!$session) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Phiên bàn không tồn tại hoặc đã đóng']);
-            return;
-        }
-
-        $idempotencyKey = $_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? null;
-        if ($idempotencyKey) {
-            $stmtCheck = $db->prepare("SELECT * FROM orders WHERE idempotency_key = ?");
-            $stmtCheck->execute([$idempotencyKey]);
-            $existing = $stmtCheck->fetch();
-            if ($existing) {
-                http_response_code(409);
-                echo json_encode(['error' => 'Đơn hàng trùng lặp đã được tiếp nhận', 'order_id' => $existing['id']]);
-                return;
-            }
-        }
-
         $payload = $customPayload ?? json_decode(file_get_contents('php://input') ?: '[]', true);
         $items = is_array($payload) && isset($payload['items']) ? $payload['items'] : $payload;
 
         if (empty($items) || !is_array($items)) {
             http_response_code(422);
-            echo json_encode(['error' => 'Danh sách món đặt không được rỗng']);
+            echo json_encode([
+                'error' => 'Danh sách món đặt không được rỗng',
+                'code' => 'EMPTY_ORDER',
+            ], JSON_UNESCAPED_UNICODE);
             return;
         }
 
-        $db->beginTransaction();
         try {
+            $this->beginWriteTransaction($db);
+            $lockSuffix = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+
+            $stmt = $db->prepare("
+                SELECT ts.*
+                FROM table_sessions ts
+                JOIN dining_tables dt
+                  ON dt.id = ts.table_id
+                 AND dt.current_session_id = ts.id
+                WHERE ts.session_token = ? AND ts.status = 'ACTIVE'
+                {$lockSuffix}
+            ");
+            $stmt->execute([$token]);
+            $session = $stmt->fetch();
+            if (!$session) {
+                $this->rejectOrder($db, 400, 'INVALID_SESSION', 'Phiên bàn không tồn tại hoặc đã đóng');
+                return;
+            }
+
+            $idempotencyKey = trim($_SERVER['HTTP_IDEMPOTENCY_KEY'] ?? '');
+            if ($idempotencyKey === '' || strlen($idempotencyKey) > 64) {
+                $this->rejectOrder($db, 422, 'INVALID_IDEMPOTENCY_KEY', 'Thiếu hoặc sai Idempotency-Key');
+                return;
+            }
+
+            $stmtCheck = $db->prepare("
+                SELECT id, order_code, total_amount
+                FROM orders
+                WHERE session_id = ? AND idempotency_key = ?
+            ");
+            $stmtCheck->execute([$session['id'], $idempotencyKey]);
+            $existing = $stmtCheck->fetch();
+
+            if ($existing) {
+                $stmtItems = $db->prepare("
+                    SELECT id, menu_item_id, item_name, unit_price, quantity, subtotal, status, notes
+                    FROM order_items
+                    WHERE order_id = ?
+                    ORDER BY id ASC
+                ");
+                $stmtItems->execute([$existing['id']]);
+                $existingItems = $stmtItems->fetchAll();
+
+                $this->rollbackWriteTransaction($db);
+                echo json_encode([
+                    'status' => 'success',
+                    'order_id' => (int)$existing['id'],
+                    'order_code' => $existing['order_code'],
+                    'total_amount' => (float)$existing['total_amount'],
+                    'items' => $existingItems,
+                    'duplicate' => true,
+                    'message' => 'Đơn này đã được tiếp nhận trước đó'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
             $orderCode = 'ORD-' . strtoupper(substr(md5(uniqid()), 0, 8));
             $orderTotal = 0.0;
             $orderItemsToInsert = [];
 
-            // Query items from DB to enforce Server-side price (INV-1: Anti-Tamper)
-            $stmtItem = $db->prepare("SELECT id, name, price, is_available FROM menu_items WHERE id = ?");
+            $stmtItem = $db->prepare("SELECT id, name, price, is_available FROM menu_items WHERE id = ?{$lockSuffix}");
+            $stmtTop = $db->prepare("SELECT id, name, price, is_available FROM toppings WHERE id = ?{$lockSuffix}");
 
-            foreach ($items as $item) {
-                $itemId = (int)($item['menu_item_id'] ?? $item['id'] ?? 0);
-                $qty = max(1, (int)($item['quantity'] ?? 1));
+            foreach ($items as $index => $item) {
+                if (!is_array($item)) {
+                    $this->rejectOrder($db, 422, 'INVALID_ITEM', 'Chi tiết món không hợp lệ', ['item_index' => $index]);
+                    return;
+                }
+
+                $itemId = $this->parsePositiveInteger($item['menu_item_id'] ?? $item['id'] ?? null);
+                if ($itemId === null) {
+                    $this->rejectOrder($db, 422, 'INVALID_ITEM_ID', 'Mã món không hợp lệ', ['item_index' => $index]);
+                    return;
+                }
+
+                $rawQuantity = $item['quantity'] ?? 1;
+                $quantity = $this->parsePositiveInteger($rawQuantity);
+                if ($quantity === null) {
+                    $this->rejectOrder($db, 422, 'INVALID_QUANTITY', 'Số lượng món phải là số nguyên dương', [
+                        'item_index' => $index,
+                    ]);
+                    return;
+                }
 
                 $stmtItem->execute([$itemId]);
                 $realItem = $stmtItem->fetch();
                 if (!$realItem) {
-                    throw new \Exception("Món ăn ID #{$itemId} không tồn tại trên thực đơn");
+                    $this->rejectOrder($db, 404, 'MENU_ITEM_NOT_FOUND', 'Món ăn không tồn tại trên thực đơn', [
+                        'item_index' => $index,
+                        'menu_item_id' => $itemId,
+                    ]);
+                    return;
+                }
+                if ((int)$realItem['is_available'] !== 1) {
+                    $this->rejectOrder($db, 409, 'MENU_ITEM_UNAVAILABLE', 'Món ăn hiện không còn phục vụ', [
+                        'item_index' => $index,
+                        'menu_item_id' => $itemId,
+                    ]);
+                    return;
                 }
 
                 // Luôn lấy giá từ Database, KHÔNG tin giá từ Client
                 $unitPrice = (float)$realItem['price'];
 
-                // Cộng thêm tiền topping từ DB nếu khách có chọn topping
                 $toppingExtra = 0.0;
                 $rawToppings = $item['selected_toppings'] ?? $item['toppings'] ?? [];
-                if (is_array($rawToppings) && !empty($rawToppings)) {
-                    try {
-                        $stmtTop = $db->prepare("SELECT price FROM toppings WHERE id = ? AND is_available = 1");
-                        foreach ($rawToppings as $top) {
-                            $topId = is_array($top) ? (int)($top['id'] ?? 0) : (int)$top;
-                            if ($topId > 0) {
-                                $stmtTop->execute([$topId]);
-                                $topRow = $stmtTop->fetch();
-                                if ($topRow) {
-                                    $toppingExtra += (float)$topRow['price'];
-                                }
-                            }
-                        }
-                    } catch (\Throwable $e) {
-                        // Ignore if toppings table not present in minimal SQLite schema
-                    }
+                if (!is_array($rawToppings)) {
+                    $this->rejectOrder($db, 422, 'INVALID_TOPPINGS', 'Danh sách topping không hợp lệ', [
+                        'item_index' => $index,
+                    ]);
+                    return;
                 }
-                $unitPrice += $toppingExtra;
+                $seenToppingIds = [];
+                foreach ($rawToppings as $toppingIndex => $rawTopping) {
+                    $topId = $this->parsePositiveInteger(
+                        is_array($rawTopping) ? ($rawTopping['id'] ?? null) : $rawTopping
+                    );
+                    if ($topId === null || isset($seenToppingIds[$topId])) {
+                        $this->rejectOrder($db, 422, 'INVALID_TOPPING_ID', 'Mã topping không hợp lệ hoặc bị lặp', [
+                            'item_index' => $index,
+                            'topping_index' => $toppingIndex,
+                        ]);
+                        return;
+                    }
+                    $seenToppingIds[$topId] = true;
 
-                $subtotal = $unitPrice * $qty;
+                    $stmtTop->execute([$topId]);
+                    $topRow = $stmtTop->fetch();
+                    if (!$topRow) {
+                        $this->rejectOrder($db, 404, 'TOPPING_NOT_FOUND', 'Topping không tồn tại', [
+                            'item_index' => $index,
+                            'topping_id' => $topId,
+                        ]);
+                        return;
+                    }
+                    if ((int)$topRow['is_available'] !== 1) {
+                        $this->rejectOrder($db, 409, 'TOPPING_UNAVAILABLE', 'Topping hiện không còn phục vụ', [
+                            'item_index' => $index,
+                            'topping_id' => $topId,
+                        ]);
+                        return;
+                    }
+                    $toppingExtra += (float)$topRow['price'];
+                }
+
+                $unitPrice += $toppingExtra;
+                $subtotal = $unitPrice * $quantity;
                 $orderTotal += $subtotal;
 
                 $orderItemsToInsert[] = [
                     'menu_item_id' => $realItem['id'],
                     'item_name' => $realItem['name'],
                     'unit_price' => $unitPrice,
-                    'quantity' => $qty,
+                    'quantity' => $quantity,
                     'subtotal' => $subtotal,
                     'notes' => $item['notes'] ?? ($item['note'] ?? '')
                 ];
@@ -166,12 +251,16 @@ class ClientOrderController
             }
 
             // Cập nhật tổng tiền phiên bàn
-            $stmtUpdateSession = $db->prepare("UPDATE table_sessions SET total_amount = total_amount + ? WHERE id = ?");
+            $stmtUpdateSession = $db->prepare("UPDATE table_sessions SET total_amount = total_amount + ? WHERE id = ? AND status = 'ACTIVE'");
             $stmtUpdateSession->execute([$orderTotal, $session['id']]);
+            if ($stmtUpdateSession->rowCount() !== 1) {
+                $this->rejectOrder($db, 409, 'INVALID_SESSION', 'Phiên bàn đã đóng, không thể gửi đơn');
+                return;
+            }
 
-            $db->commit();
+            $this->commitWriteTransaction($db);
 
-            // Dọn giỏ hàng
+            // Dọn giỏ hàng chỉ sau khi transaction được xác nhận.
             SharedCartService::clearCart($token);
 
             echo json_encode([
@@ -182,12 +271,74 @@ class ClientOrderController
                 'total_amount' => $orderTotal,
                 'items_count' => count($orderItemsToInsert),
                 'message' => 'Đã gửi đơn xuống Bếp KDS thành công!'
-            ]);
+            ], JSON_UNESCAPED_UNICODE);
         } catch (\Throwable $e) {
-            $db->rollBack();
-            http_response_code(400);
-            echo json_encode(['error' => $e->getMessage()]);
+            $this->rollbackWriteTransaction($db);
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Không thể gửi đơn lúc này',
+                'code' => 'ORDER_SUBMISSION_FAILED',
+            ], JSON_UNESCAPED_UNICODE);
+            error_log('Order submission failed: ' . $e->getMessage());
         }
+    }
+
+    private function beginWriteTransaction(PDO $db): void
+    {
+        if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
+            $db->exec('BEGIN IMMEDIATE');
+            $this->sqliteWriteTransaction = true;
+            return;
+        }
+
+        $db->beginTransaction();
+    }
+
+    private function commitWriteTransaction(PDO $db): void
+    {
+        if ($this->sqliteWriteTransaction) {
+            $db->exec('COMMIT');
+            $this->sqliteWriteTransaction = false;
+            return;
+        }
+
+        $db->commit();
+    }
+
+    private function rollbackWriteTransaction(PDO $db): void
+    {
+        if ($this->sqliteWriteTransaction) {
+            $db->exec('ROLLBACK');
+            $this->sqliteWriteTransaction = false;
+            return;
+        }
+
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+    }
+
+    private function rejectOrder(PDO $db, int $statusCode, string $code, string $message, array $context = []): void
+    {
+        $this->rollbackWriteTransaction($db);
+        http_response_code($statusCode);
+        echo json_encode(array_merge([
+            'error' => $message,
+            'code' => $code,
+        ], $context), JSON_UNESCAPED_UNICODE);
+    }
+
+    private function parsePositiveInteger(mixed $value): ?int
+    {
+        if (is_int($value)) {
+            return $value > 0 ? $value : null;
+        }
+        if (!is_string($value) || !preg_match('/^[1-9][0-9]*$/D', $value)) {
+            return null;
+        }
+
+        $integer = filter_var($value, FILTER_VALIDATE_INT);
+        return $integer !== false && $integer > 0 ? $integer : null;
     }
 
     public function getOrderStatus(string $token): void

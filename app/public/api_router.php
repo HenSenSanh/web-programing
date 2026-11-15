@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 require_once __DIR__ . '/../Core/Database.php';
 require_once __DIR__ . '/../Controllers/AdminCatalogController.php';
 require_once __DIR__ . '/../Controllers/ClientOrderController.php';
+require_once __DIR__ . '/../Controllers/ClientCancellationController.php';
 require_once __DIR__ . '/../Controllers/KdsPosController.php';
 require_once __DIR__ . '/../Controllers/DataPipelineController.php';
 require_once __DIR__ . '/../Services/SharedCartService.php';
@@ -20,6 +21,7 @@ require_once __DIR__ . '/../Services/AprioriService.php';
 require_once __DIR__ . '/../Services/EtlService.php';
 
 use App\Controllers\AdminCatalogController;
+use App\Controllers\ClientCancellationController;
 use App\Controllers\ClientOrderController;
 use App\Controllers\KdsPosController;
 use App\Controllers\DataPipelineController;
@@ -32,6 +34,7 @@ $path = preg_replace('#^/api/v1#', '', $uri);
 
 $admin = new AdminCatalogController();
 $client = new ClientOrderController();
+$cancellation = new ClientCancellationController();
 $kdsPos = new KdsPosController();
 $data = new DataPipelineController();
 
@@ -99,6 +102,10 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/submit-order$#', $path, $m) &
 }
 if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/status$#', $path, $m) && $method === 'GET') {
     $client->getOrderStatus($m[1]);
+    exit;
+}
+if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/order-items/(\d+)/cancel$#', $path, $m) && $method === 'POST') {
+    $cancellation->cancelItem($m[1], (int)$m[2]);
     exit;
 }
 
