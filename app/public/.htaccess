@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+
+    # Redirect root tv4_data_pipeline.html to frontend/tv4_data_pipeline.html
+    RewriteRule ^tv4_data_pipeline\.html$ /frontend/tv4_data_pipeline.html [R=302,L]
+
+    # Route all API requests to api_router.php
+    RewriteRule ^api/v1/(.*)$ api_router.php [QSA,L]
+    RewriteRule ^api/v1$ api_router.php [QSA,L]
+</IfModule>
