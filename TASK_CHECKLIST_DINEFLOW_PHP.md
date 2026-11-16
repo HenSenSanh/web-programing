@@ -42,7 +42,7 @@
 
 - [x] **TASK-2.1 [TV1]:** Xây dựng [`app/src/auth.php`](file:///D:/code/test%20Dl/app/src/auth.php), [`app/src/mailer.php`](file:///D:/code/test%20Dl/app/src/mailer.php) và các trang `login.php`, `register.php`, `verify_email.php` (validate form client/server, `Remember Me`, kích hoạt email SMTP qua PHPMailer).
 - [x] **TASK-2.2 [TV1 + TV4]:** Xây dựng lõi RBAC [`app/src/rbac.php`](file:///D:/code/test%20Dl/app/src/rbac.php) (`deny riêng > allow riêng > nhóm > 403`), bảo vệ cả GET và POST trên `dashboard.php`, `products.php`, `documents.php`.
-- [ ] **TASK-2.3 [TV1 + Cả nhóm]:** Hợp nhất giao diện Staff Portal dùng chung thanh điều hướng & `requirePermission` đồng nhất giữa các trang HTML frontend (`/frontend/admin/*`, `/frontend/kds/`, `/frontend/pos/`) và trang PHP (`/dashboard.php`, `/products.php`, `/documents.php`).
+- [ ] **TASK-2.3 [TV1 + Cả nhóm]:** Hợp nhất giao diện Staff Portal bằng shared partial, thanh điều hướng lọc theo quyền, điều hướng cùng tab và `requirePermission` server-side trên `/frontend/admin/*`, `/frontend/kds/`, `/frontend/pos/`, `/frontend/live-ops/`, `/dashboard.php`, `/products.php` và `/documents.php`. Giữ URL `.html` cũ làm redirect alias; chỉ đánh dấu hoàn tất sau khi acceptance tests và kiểm tra thực tế đạt.
 - [x] **TASK-2.4 [TV1]:** Xây dựng [`app/Controllers/AdminCatalogController.php`](file:///D:/code/test%20Dl/app/Controllers/AdminCatalogController.php) & giao diện Quản lý Bàn ([`app/public/frontend/admin/table-management.html`](file:///D:/code/test%20Dl/app/public/frontend/admin/table-management.html)):
   - [x] Mở bàn & sinh mã QR với `session_token`
   - [x] Chặn mở đè bàn khi bàn đang `OCCUPIED` (**`INV-6`**)

@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Core\Database;
 use App\Services\EtlService;
+use App\Services\OrderToppingSnapshotService;
 use App\Services\SharedCartService;
 use PDO;
 
@@ -13,7 +14,7 @@ class KdsPosController
     {
         $db = Database::getConnection();
         $stmt = $db->query("
-            SELECT oi.*, dt.table_number, o.order_code, ts.session_token
+            SELECT oi.*, dt.table_number, o.order_code
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN table_sessions ts ON o.session_id = ts.id
@@ -21,7 +22,8 @@ class KdsPosController
             WHERE oi.status IN ('PENDING', 'COOKING', 'READY')
             ORDER BY oi.id ASC
         ");
-        echo json_encode($stmt->fetchAll());
+        $items = OrderToppingSnapshotService::attach($db, $stmt->fetchAll());
+        echo json_encode($items, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     public function updateItemStatus(): void
@@ -60,7 +62,7 @@ class KdsPosController
     {
         $db = Database::getConnection();
         $stmt = $db->query("
-            SELECT dt.id, dt.table_number, dt.status, ts.id as session_id, ts.session_token,
+            SELECT dt.id, dt.table_number, dt.status, ts.id as session_id,
                    ts.total_amount, ts.created_at as opened_at,
                    COUNT(oi.id) as total_items,
                    SUM(CASE WHEN oi.status = 'PENDING' THEN 1 ELSE 0 END) as pending_items
@@ -68,7 +70,7 @@ class KdsPosController
             LEFT JOIN table_sessions ts ON dt.current_session_id = ts.id AND ts.status = 'ACTIVE'
             LEFT JOIN orders o ON ts.id = o.session_id
             LEFT JOIN order_items oi ON o.id = oi.order_id
-            GROUP BY dt.id, dt.table_number, dt.status, ts.id, ts.session_token, ts.total_amount, ts.created_at
+            GROUP BY dt.id, dt.table_number, dt.status, ts.id, ts.total_amount, ts.created_at
             ORDER BY dt.id ASC
         ");
         echo json_encode($stmt->fetchAll());
@@ -78,7 +80,7 @@ class KdsPosController
     {
         $db = Database::getConnection();
         $stmt = $db->prepare("
-            SELECT dt.id as table_id, dt.table_number, ts.id as session_id, ts.session_token, ts.created_at as opened_at
+            SELECT dt.id as table_id, dt.table_number, ts.id as session_id, ts.created_at as opened_at
             FROM dining_tables dt
             JOIN table_sessions ts ON dt.current_session_id = ts.id
             WHERE dt.id = ? AND ts.status = 'ACTIVE'
@@ -94,14 +96,14 @@ class KdsPosController
 
         // Lấy chi tiết món
         $stmtItems = $db->prepare("
-            SELECT oi.id, oi.item_name, oi.unit_price, oi.quantity, oi.subtotal, oi.status
+            SELECT oi.id, oi.order_id, oi.item_name, oi.unit_price, oi.quantity, oi.subtotal, oi.status
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             WHERE o.session_id = ?
             ORDER BY oi.id ASC
         ");
         $stmtItems->execute([$tableInfo['session_id']]);
-        $items = $stmtItems->fetchAll();
+        $items = OrderToppingSnapshotService::attach($db, $stmtItems->fetchAll());
 
         $subtotal = 0.0;
         foreach ($items as $it) {

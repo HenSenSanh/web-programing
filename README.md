@@ -123,10 +123,10 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **Dashboard Tổng quan** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
 | **Quản lý Thực đơn (Phân trang)** | `http://localhost:8080/products.php` | TV1 |
 | **Hóa đơn & In phiếu thanh toán** | `http://localhost:8080/documents.php` | TV3 & TV4 |
-| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/admin/table-management.html` | TV1 |
-| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/admin/menu-management.html` | TV1 |
+| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/admin/table-management.php` | TV1 |
+| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/admin/menu-management.php` | TV1 |
 | **TV2 - Menu Khách Quét QR** | `http://localhost:8080/frontend/menu/index.html?token=tbl-01-sess` | TV2 |
-| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds/` | TV3 |
+| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds/index.php` | TV3 |
 | **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos/` | TV3 |
 | **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/live-ops/` | TV4 |
 | **Simulator Demo Toàn Luồng E2E** | `http://localhost:8080/demo_tester.html` | TV4 & TV5 |
@@ -139,6 +139,34 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 * **Tài khoản Giám sát & Báo cáo BI (`VIEWER`):** `viewer` (`viewer@dineflow.vn`) — Mật khẩu: `123456`
 * *(Lưu ý: `database/seed.php` chỉ dùng riêng cho SQLite fallback với `admin`/`admin123`, `cashier1`/`cashier123`, `chef_hung`/`chef123`.)*
 
+### Ma trận quyền theo role [MVP]
+
+| Role | Quyền nghiệp vụ |
+|---|---|
+| `ADMIN` | Toàn quyền quản trị bàn, menu, KDS, POS, báo cáo và dữ liệu. |
+| `CREATOR` | Xem/mở bàn, xem menu và theo dõi trạng thái món; không được cập nhật KDS hay xác nhận checkout/đóng phiên. Khách gọi món qua API QR với token phiên, không cần role nhân viên. |
+| `KEEPER` | Xem và cập nhật trạng thái món trên KDS; không được mở bàn hoặc checkout. |
+| `VIEWER` | Xem/cập nhật POS (xác nhận thanh toán và đóng phiên), xem/in hóa đơn và xem báo cáo. |
+
+API nhân viên kiểm tra permission server-side; chưa đăng nhập nhận `401`, thiếu quyền nhận `403`. Các API menu khách, giỏ hàng và gửi đơn QR tiếp tục dùng xác thực theo session token. Ma trận này phân quyền theo role toàn nhà hàng; schema hiện tại chưa có trường sở hữu bàn theo nhân viên.
+Sau đăng nhập, role được đưa tới màn hình hiện có phù hợp: `ADMIN` → dashboard, `CREATOR` → quản lý bàn, `KEEPER` → KDS, `VIEWER` → POS.
+
+- **[CHỐT]** Staff Portal dùng shared partial trên stack PHP hiện tại; riêng phần portal/RBAC không đổi schema hay state machine. Các trang/API tiếp tục kiểm tra đăng nhập và permission ở server-side; ẩn menu chỉ là trải nghiệm người dùng.
+- **[MVP]** Các trang nhân viên dùng chung thanh điều hướng theo quyền và chuyển trang cùng tab. URL `.html` cũ được giữ làm redirect alias để tương thích.
+- **[NÂNG CAO]** Portal hiện là multi-page, chưa phải SPA hoặc một URL duy nhất; chỉ cân nhắc nếu nhóm duyệt và có yêu cầu riêng.
+
+Với database MySQL đã khởi tạo trước đó, Docker không tự chạy lại file init khi volume còn tồn tại. Nếu catalog cũ thiếu permission mới, chạy phần seed `permissions` trong [`database/init.sql`](database/init.sql) trước. Sau đó [`database/seed_role_permissions.sql`](database/seed_role_permissions.sql) chỉ làm mới `role_permissions`, không tạo permission/role hay đổi schema; script kiểm tra catalog và role cần thiết đã có, nếu thiếu thì dừng.
+
+### Quản lý món, topping và lịch sử order
+
+- **[MVP]** `products.php` là màn hình hợp nhất quản lý món: phân trang/lọc, thống kê trạng thái toàn catalog, bật/tắt từng món, sửa món và gán topping trực tiếp cho từng món. CREATOR chỉ xem; thao tác sửa được kiểm tra quyền ở API.
+- **[MVP]** Topping khách chọn được kiểm tra theo liên kết trực tiếp với món và trạng thái còn hàng, chụp tên/giá vào order item, rồi hiển thị trong lịch sử QR, KDS và hóa đơn. `unit_price` đã gồm giá topping nên không cộng tiền lần hai. Order cũ không có snapshot được ghi rõ là chưa có dữ liệu lịch sử topping.
+- **[CHỐT]** Trạng thái bán/hết được bật tắt riêng từng món; bộ đếm là số liệu động trên toàn catalog, không làm bulk-toggle hay hardcode số 31/4. Một topping có thể gán cho nhiều món qua `menu_item_toppings`, không gán theo danh mục.
+- **[CHỐT]** Schema khởi tạo và migration bổ sung `audit_logs`, `menu_item_toppings`, `order_item_topping_snapshots`. Không tự gán topping cho món; quản trị viên cấu hình từng món để tránh gán sai nghiệp vụ.
+- **[NÂNG CAO]** Đơn cũ không có snapshot không thể khôi phục topping từ tổng tiền; không diễn giải việc thiếu snapshot thành “không chọn topping”.
+
+Với MySQL đã tồn tại, sau khi duyệt migration hãy chạy `database/migrations/20261117_menu_topping_audit.sql` một lần trên đúng database. Sau migration, quản trị viên cần cấu hình liên kết topping–món trong `products.php` trước khi khách có thể chọn các topping đó. Không chạy lại `database/init.sql` trên volume đang dùng.
+
 ---
 
 ## 🧪 4. HƯỚNG DẪN CHẠY BỘ KIỂM THỬ TỰ ĐỘNG BẰNG DOCKER
@@ -150,13 +178,13 @@ docker compose exec php-app php /var/www/tests/run_tests.php
 docker compose exec php-app php /var/www/tests/test_tv4_core.php
 ```
 
-Màn hình console `run_tests.php` sẽ tự động thực thi **61 ca kiểm thử** bao phủ toàn bộ:
+Màn hình console `run_tests.php` in tổng số ca thực thi. Bộ test bao phủ:
 * 7 ca kiểm thử đăng ký tài khoản (Mục 38)
 * 4 ca kiểm thử xác nhận email qua token (Mục 39)
 * 7 ca kiểm thử đăng nhập và ghi nhớ cookie (Mục 40)
-* 6 ca kiểm thử ma trận phân quyền RBAC
+* Ma trận RBAC theo role, ưu tiên `deny/allow`, phản hồi API `401/403` và trang đích sau đăng nhập
 * 4 ca kiểm thử Thực đơn 35 món ăn QR Dine & Phân trang thật trên DB
 * 5 ca kiểm thử Vòng đời Phiên bàn QR, Đơn bếp KDS & Hóa đơn POS
 * 28 ca kiểm thử 7 Trụ cột Chất lượng & Bất biến Nghiệp vụ TV4 (Phần 7: Anti-Tamper, Idempotency-Key, ETL Idempotent, Apriori, Kitchen SLA >900s, Shared Cart Transaction, Star Schema Integrity).
 
-Kết quả mong đợi: **`61 PASSED / 61 TOTAL (100% PASS)`**.
+Chỉ ghi nhận PASS sau khi chạy hai lệnh kiểm thử trên môi trường Docker hiện tại.

@@ -53,10 +53,94 @@ function hasPermission(int $userId, string $permissionCode): bool
     return false;
 }
 
+function apiPermissionDecision(?int $userId, string $permissionCode): array
+{
+    if ($userId === null || $userId <= 0) {
+        return [
+            'allowed' => false,
+            'http_status' => 401,
+            'error' => 'Authentication required',
+        ];
+    }
+
+    if (!hasPermission($userId, $permissionCode)) {
+        return [
+            'allowed' => false,
+            'http_status' => 403,
+            'error' => 'Permission denied',
+        ];
+    }
+
+    return [
+        'allowed' => true,
+        'http_status' => 200,
+        'error' => null,
+    ];
+}
+
+function getStaffLandingPath(int $userId): string
+{
+    if (hasPermission($userId, 'tables.manage') && hasPermission($userId, 'reports.view')) {
+        return 'dashboard.php';
+    }
+
+    if (hasPermission($userId, 'pos.view')) {
+        return 'frontend/pos/index.php';
+    }
+
+    if (hasPermission($userId, 'tables.open')) {
+        return 'frontend/admin/table-management.php';
+    }
+
+    if (hasPermission($userId, 'kds.view')) {
+        return 'frontend/kds/index.php';
+    }
+
+    return 'dashboard.php';
+}
+
+function getStaffPortalNavigation(int $userId): array
+{
+    $items = [
+        ['key' => 'tables', 'label' => 'Bàn & QR', 'href' => 'frontend/admin/table-management.php', 'permission' => 'tables.view'],
+        ['key' => 'products', 'label' => 'Quản lý món', 'href' => 'products.php', 'permission' => 'products.view'],
+        ['key' => 'kds', 'label' => 'Bếp KDS', 'href' => 'frontend/kds/index.php', 'permission' => 'kds.view'],
+        ['key' => 'pos', 'label' => 'Thu ngân POS', 'href' => 'frontend/pos/index.php', 'permission' => 'pos.view'],
+        ['key' => 'documents', 'label' => 'Hóa đơn', 'href' => 'documents.php', 'permission' => 'documents.print'],
+        ['key' => 'live-ops', 'label' => 'Live Ops', 'href' => 'frontend/live-ops/index.php', 'permission' => 'data.manage'],
+        ['key' => 'dashboard', 'label' => 'Dashboard', 'href' => 'dashboard.php', 'permission' => 'reports.view'],
+    ];
+
+    return array_values(array_filter(
+        $items,
+        static function (array $item) use ($userId): bool {
+            return hasPermission($userId, $item['permission']);
+        }
+    ));
+}
+
+function requireApiPermission(string $permissionCode): void
+{
+    $sessionUserId = filter_var($_SESSION['user_id'] ?? null, FILTER_VALIDATE_INT);
+    $userId = is_int($sessionUserId) && $sessionUserId > 0 ? $sessionUserId : null;
+    $decision = apiPermissionDecision($userId, $permissionCode);
+
+    if ($decision['allowed']) {
+        return;
+    }
+
+    http_response_code($decision['http_status']);
+    echo json_encode([
+        'error' => $decision['error'],
+        'permission' => $permissionCode,
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 function requirePermission(string $permissionCode): void
 {
     if (!isset($_SESSION['user_id'])) {
-        header("Location: login.php");
+        header("Location: /login.php");
         exit;
     }
 
@@ -67,7 +151,7 @@ function requirePermission(string $permissionCode): void
         echo "<body style='font-family: Arial; text-align: center; padding-top: 50px;'>";
         echo "<h1 style='color: #d32f2f;'>403 - Quyền truy cập bị từ chối</h1>";
         echo "<p>Bạn không có quyền thực hiện hành động: <strong>" . htmlspecialchars($permissionCode) . "</strong></p>";
-        echo "<a href='dashboard.php'>Quay lại Dashboard</a>";
+        echo "<a href='/dashboard.php'>Quay lại Dashboard</a>";
         echo "</body></html>";
         exit;
     }

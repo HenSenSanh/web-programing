@@ -4,9 +4,11 @@ if (PHP_SAPI !== 'cli' && !headers_sent()) {
 }
 require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/rbac.php';
+require_once __DIR__ . '/../Services/OrderToppingSnapshotService.php';
 
 requireLogin();
 requirePermission('documents.print');
+$staffPortalActive = 'documents';
 
 $pdo = getDatabaseConnection();
 $userId = (int)$_SESSION['user_id'];
@@ -47,7 +49,7 @@ if ($viewBillId > 0) {
             ORDER BY oi.id ASC
         ");
         $stmtLines->execute(["session_id" => $viewBill['session_id']]);
-        $billItems = $stmtLines->fetchAll();
+        $billItems = \App\Services\OrderToppingSnapshotService::attach($pdo, $stmtLines->fetchAll());
     }
 }
 ?>
@@ -56,6 +58,7 @@ if ($viewBillId > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/staff-portal.css">
     <title>DineFlow - Hóa Đơn & Chứng Từ Thanh Toán (Bài D: In Ấn & Transaction)</title>
     <!-- Google Fonts Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -81,44 +84,7 @@ if ($viewBillId > 0) {
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
-
-    <!-- Navbar -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs no-print">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 font-black text-lg">
-                    🧾
-                </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-bold text-slate-900 tracking-tight">DINEFLOW</span>
-                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">
-                            Hóa Đơn & Thu Ngân
-                        </span>
-                    </div>
-                    <p class="text-xs text-slate-500">Quản Lý Hóa Đơn Nhà Hàng • Bài D: Khóa Dòng, Giao Dịch & In Chuẩn @media print</p>
-                </div>
-            </div>
-
-            <nav class="flex items-center gap-2 text-xs font-medium">
-                <a href="dashboard.php" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
-                    Dashboard
-                </a>
-                <a href="products.php" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
-                    🍲 Thực Đơn (Bài A)
-                </a>
-                <a href="documents.php" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
-                    🧾 Hóa Đơn & In (Bài D)
-                </a>
-                <a href="/frontend/live-ops/" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition flex items-center gap-1">
-                    <span>⚡ Live Ops</span>
-                </a>
-                <a href="logout.php" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
-                    Đăng Xuất
-                </a>
-            </nav>
-        </div>
-    </header>
+    <?php require __DIR__ . '/partials/staff_portal_nav.php'; ?>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
@@ -159,7 +125,29 @@ if ($viewBillId > 0) {
                         <tbody class="divide-y divide-slate-100 text-slate-800">
                             <?php foreach ($billItems as $item): ?>
                                 <tr>
-                                    <td class="py-2 font-medium"><?php echo htmlspecialchars($item['item_name']); ?></td>
+                                    <td class="py-2 font-medium">
+                                        <?php echo htmlspecialchars($item['item_name'], ENT_QUOTES, 'UTF-8'); ?>
+                                        <div class="mt-1 text-[10px] font-normal text-slate-500">
+                                            <?php if (!($item['topping_details_recorded'] ?? false)): ?>
+                                                Chưa có dữ liệu lịch sử topping
+                                            <?php elseif (empty($item['toppings'])): ?>
+                                                Không chọn topping
+                                            <?php else: ?>
+                                                Topping:
+                                                <?php
+                                                $toppingLabels = array_map(
+                                                    static fn(array $topping): string => htmlspecialchars(
+                                                        $topping['name'] . ' (+' . number_format((float)$topping['unit_price'], 0, ',', '.') . ' đ)',
+                                                        ENT_QUOTES,
+                                                        'UTF-8'
+                                                    ),
+                                                    $item['toppings']
+                                                );
+                                                echo implode(', ', $toppingLabels);
+                                                ?>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                     <td class="py-2 text-center font-bold">x<?php echo $item['quantity']; ?></td>
                                     <td class="py-2 text-right"><?php echo number_format((float)$item['unit_price'], 0, ',', '.'); ?> đ</td>
                                     <td class="py-2 text-right font-semibold"><?php echo number_format((float)$item['subtotal'], 0, ',', '.'); ?> đ</td>

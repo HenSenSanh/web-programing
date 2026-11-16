@@ -11,7 +11,7 @@
   <div class="page-shell">
     <header class="topbar">
       <a class="brand" href="#top" aria-label="DineFlow trang chủ"><span class="brand-mark">d</span><span>Dine<span class="brand-accent">Flow</span></span></a>
-      <nav class="top-links" aria-label="Điều hướng"><a href="#favorites">Món nổi bật</a><a href="#menu">Thực đơn</a></nav>
+      <nav class="top-links" aria-label="Điều hướng"><a href="#favorites">Món nổi bật</a><a href="#menu">Thực đơn</a><a href="#order-history">Đơn đã gửi</a></nav>
       <label class="search-box"><span aria-hidden="true">⌕</span><input id="search-input" type="search" placeholder="Tìm món ăn…" aria-label="Tìm món ăn"></label>
       <div class="table-chip"><span class="live-dot"></span><span id="table-label">Đang tải bàn…</span></div>
     </header>
@@ -35,6 +35,16 @@
         <div class="section-heading"><div><p class="eyebrow">GỌI MÓN TẠI BÀN</p><h2>Tất cả món ăn</h2></div><span class="menu-caption">Giá đã niêm yết</span></div>
         <nav id="category-list" class="category-list" aria-label="Danh mục món"></nav>
         <div id="menu-grid" class="menu-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="order-history" class="menu-section order-history-section" aria-label="Lịch sử món đã gửi tới bếp">
+        <div class="section-heading">
+          <div><p class="eyebrow">THEO DÕI ĐƠN TẠI BÀN</p><h2>Món đã gửi tới bếp</h2></div>
+          <button id="refresh-order-history" class="section-link" type="button">Làm mới <span>↻</span></button>
+        </div>
+        <div id="order-history-list" class="order-history-list" aria-live="polite">
+          <p class="order-history-empty">Đang tải lịch sử đơn hàng…</p>
+        </div>
       </section>
     </main>
 

@@ -1,0 +1,573 @@
+<?php
+require_once __DIR__ . '/../../../src/auth.php';
+require_once __DIR__ . '/../../../src/rbac.php';
+requireLogin();
+requirePermission('tables.view');
+$staffPortalActive = 'tables';
+?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/staff-portal.css">
+    <title>Quản lý Bàn ăn - DINEFLOW</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .nav-link {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        .nav-link:hover {
+            background: #d9455a;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-bottom: 20px;
+            transition: background 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        .table-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .table-card {
+            border: 2px solid #ddd;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .table-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .table-card.available {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #f1f8f4 0%, #e8f5e9 100%);
+        }
+
+        .table-card.occupied {
+            border-color: #ff9800;
+            background: linear-gradient(135deg, #fff8f0 0%, #ffe0b2 100%);
+        }
+
+        .table-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            font-weight: bold;
+            margin: 10px 0;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .status.available {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .status.occupied {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-open {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+
+        .btn-open:hover {
+            background: #45a049;
+        }
+
+        .session-info {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 5px;
+            font-size: 11px;
+            word-break: break-all;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 18px;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            border-left: 4px solid #c62828;
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .toast.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <?php require __DIR__ . '/../../partials/staff_portal_nav.php'; ?>
+    <div class="container">
+        <div class="header">
+            <h1>🪑 Quản lý Bàn ăn</h1>
+        </div>
+        <p class="subtitle">Hệ thống DINEFLOW - Theo dõi và quản lý trạng thái bàn ăn</p>
+        
+        <button class="refresh-btn" onclick="loadTables()">🔄 Tải lại danh sách bàn</button>
+
+        <div id="qr-host-config" style="margin: 12px 0; padding: 12px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <label for="qr-base-input" style="font-weight: 600; font-size: 13px; color: #334155;">📡 Địa chỉ gốc cho QR (để điện thoại quét):</label>
+            <input id="qr-base-input" type="url" placeholder="VD: http://192.168.1.10:8080" style="flex: 1; min-width: 220px; padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 13px;">
+            <button type="button" onclick="saveQrBaseUrl()" style="background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Lưu URL QR</button>
+            <button type="button" onclick="resetQrBaseUrl()" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">Mặc định</button>
+            <div id="qr-host-warning" style="width: 100%; font-size: 12px; color: #b45309; display: none;"></div>
+        </div>
+        
+        <div id="message-area"></div>
+        <div id="table-grid" class="table-grid">
+            <div class="loading">Đang tải danh sách bàn...</div>
+        </div>
+    </div>
+
+    <div id="qr-zoom-modal" style="display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.75); z-index: 2000; align-items: center; justify-content: center; padding: 16px;" onclick="if(event.target===this) closeQrZoomModal()">
+        <div style="background: #ffffff; border-radius: 14px; padding: 24px; max-width: 400px; width: 100%; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.35);">
+            <h2 id="qr-modal-title" style="color: #0f172a; margin-bottom: 12px; font-size: 20px;">Mã QR Gọi Món</h2>
+            <div id="qr-modal-warn" style="display: none; margin-bottom: 10px; padding: 8px 10px; background: #fef3c7; color: #92400e; border-radius: 6px; font-size: 12px; text-align: left;"></div>
+            <div style="background: #ffffff; padding: 12px; display: inline-block; border-radius: 10px; border: 1px solid #e2e8f0;">
+                <img id="qr-modal-img" src="" alt="QR Code" style="display: block; max-width: 100%; height: auto; image-rendering: pixelated; background: #ffffff;">
+            </div>
+            <div id="qr-modal-url" style="margin-top: 10px; font-size: 11px; color: #475569; word-break: break-all; background: #f8fafc; padding: 8px; border-radius: 6px;"></div>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 14px;">
+                <button type="button" id="qr-modal-copy" onclick="copyQrLink(this)" style="background: #0ea5e9; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">📋 Copy link</button>
+                <button type="button" onclick="closeQrZoomModal()" style="background: #334155; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/qrcode.js"></script>
+    <script>
+        // ⚠️ QUAN TRỌNG: Địa chỉ API backend
+        const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getDefaultHttpOrigin() {
+            return location.protocol.startsWith('http') ? location.origin : 'http://localhost:8080';
+        }
+
+        function getQrBaseUrl() {
+            const saved = (localStorage.getItem('dineflow_qr_base_url') || '').trim();
+            return (saved || getDefaultHttpOrigin()).replace(/\/+$/, '');
+        }
+
+        function getMenuPath() {
+            if (location.protocol.startsWith('http') && location.pathname.includes('/frontend/')) {
+                return location.pathname.replace(/\/frontend\/.*$/, '/frontend/menu/index.html');
+            }
+            return '/frontend/menu/index.html';
+        }
+
+        function syncQrHostUI() {
+            const input = document.getElementById('qr-base-input');
+            const warn = document.getElementById('qr-host-warning');
+            if (!input || !warn) return;
+            const current = getQrBaseUrl();
+            input.value = current;
+            const isLocalOnly = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(current);
+            if (isLocalOnly || !location.protocol.startsWith('http')) {
+                warn.style.display = 'block';
+                warn.textContent = '⚠️ QR đang dùng localhost — điện thoại không truy cập được "localhost". Trên Windows mở cmd gõ ipconfig → lấy IPv4 Address của mục Wi-Fi (tránh IP WSL/VPN), nhập http://<IP-WiFi>:8080 rồi bấm Lưu URL QR. Đảm bảo ĐT dùng chung Wi-Fi & Firewall Windows không chặn cổng 8080.';
+            } else {
+                warn.style.display = 'none';
+            }
+        }
+
+        function saveQrBaseUrl() {
+            const input = document.getElementById('qr-base-input');
+            const raw = (input ? input.value : '').trim().replace(/\/+$/, '');
+            if (!raw || !/^https?:\/\/.+/i.test(raw)) {
+                alert('Vui lòng nhập URL hợp lệ bắt đầu bằng http:// hoặc https://');
+                return;
+            }
+            localStorage.setItem('dineflow_qr_base_url', raw);
+            syncQrHostUI();
+            loadTables();
+        }
+
+        function resetQrBaseUrl() {
+            localStorage.removeItem('dineflow_qr_base_url');
+            syncQrHostUI();
+            loadTables();
+        }
+
+        function copyQrLink(btn) {
+            const url = (btn && btn.dataset && btn.dataset.qrUrl) ? btn.dataset.qrUrl : '';
+            if (!url) return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(() => {
+                    const prev = btn.textContent;
+                    btn.textContent = '✅ Đã copy';
+                    setTimeout(() => { btn.textContent = prev; }, 1500);
+                });
+            } else {
+                prompt('Copy link đặt món:', url);
+            }
+        }
+
+        function openQrZoomModal(btn) {
+            const url = (btn && btn.dataset && btn.dataset.qrUrl) ? btn.dataset.qrUrl : '';
+            const tableName = (btn && btn.dataset && btn.dataset.tableName) ? btn.dataset.tableName : '';
+            if (!url) return;
+            const modal = document.getElementById('qr-zoom-modal');
+            const img = document.getElementById('qr-modal-img');
+            const title = document.getElementById('qr-modal-title');
+            const urlBox = document.getElementById('qr-modal-url');
+            const warn = document.getElementById('qr-modal-warn');
+            const copyBtn = document.getElementById('qr-modal-copy');
+            if (!modal || !img) return;
+            title.textContent = tableName ? `Mã QR - ${tableName}` : 'Mã QR Gọi Món';
+            urlBox.textContent = url;
+            copyBtn.dataset.qrUrl = url;
+            const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(url);
+            if (isLocal) {
+                warn.style.display = 'block';
+                warn.textContent = '⚠️ Link đang dùng localhost — điện thoại quét xong sẽ không mở được trang. Hãy đổi Địa chỉ gốc QR sang IP Wi-Fi (VD: http://192.168.x.x:8080).';
+            } else {
+                warn.style.display = 'none';
+            }
+            try {
+                img.src = window.DineFlowQR.toPngDataUrl
+                    ? window.DineFlowQR.toPngDataUrl(url, 4, 6)
+                    : window.DineFlowQR.toSvgDataUrl(url, 4, 6);
+            } catch (e) {
+                console.error('QR zoom error:', e);
+            }
+            modal.style.display = 'flex';
+        }
+
+        function closeQrZoomModal() {
+            const modal = document.getElementById('qr-zoom-modal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeQrZoomModal();
+        });
+
+        syncQrHostUI();
+
+        // Hàm hiển thị thông báo (toast)
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${isError ? 'error' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        // Hàm hiển thị lỗi
+        function showError(message) {
+            const area = document.getElementById('message-area');
+            area.innerHTML = `<div class="error">❌ ${message}</div>`;
+        }
+
+        // Hàm xóa thông báo lỗi
+        function clearError() {
+            document.getElementById('message-area').innerHTML = '';
+        }
+
+        // Hàm tải danh sách bàn từ API
+        async function loadTables() {
+            clearError();
+            const grid = document.getElementById('table-grid');
+            grid.innerHTML = '<div class="loading">Đang tải danh sách bàn...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/tables`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const tables = await response.json();
+                renderTables(tables);
+                showToast(`✅ Đã tải ${tables.length} bàn thành công`);
+            } catch (error) {
+                console.error('Lỗi khi tải bàn:', error);
+                showError(`Không thể kết nối đến server! Đảm bảo backend đang chạy tại ${API_BASE}. Chi tiết: ${error.message}`);
+                grid.innerHTML = '';
+            }
+        }
+
+        // Hàm hiển thị danh sách bàn lên giao diện
+        function renderTables(tables) {
+            const grid = document.getElementById('table-grid');
+            grid.innerHTML = '';
+
+            if (tables.length === 0) {
+                grid.innerHTML = '<div class="loading">Không có bàn nào</div>';
+                return;
+            }
+
+            tables.forEach(table => {
+                const card = document.createElement('div');
+                const isAvailable = table.status === 'AVAILABLE';
+                card.className = `table-card ${isAvailable ? 'available' : 'occupied'}`;
+                
+                const statusText = isAvailable ? '✅ Trống' : '🔴 Đang phục vụ';
+                const statusClass = isAvailable ? 'available' : 'occupied';
+                
+                // ✅ SỬA: Dùng đúng tên trường 'id' (không phải table_id)
+                const tableId = table.id;
+                
+                // ✅ SỬA: Dùng trực tiếp table_number vì nó đã là chuỗi "Bàn 01"
+                const tableDisplayName = table.table_number;
+                
+                let actionHTML = '';
+                if (isAvailable) {
+                    actionHTML = `<button class="btn-open" onclick="openTable(${tableId})">Mở bàn & Tạo QR</button>`;
+                } else {
+                    const sessToken = table.current_session_token || table.session_token || '';
+                    if (!sessToken) {
+                        actionHTML = `
+                            <div class="session-info" style="text-align: center;">
+                                <div style="color: #b45309; font-size: 13px; margin-bottom: 8px; font-weight: 600;">
+                                    ⚠️ Bàn đang OCCUPIED nhưng thiếu phiên QR hoạt động.
+                                </div>
+                                <button class="btn-open" onclick="openTable(${tableId})">🔄 Khôi phục / Tạo lại QR</button>
+                            </div>
+                        `;
+                    } else {
+                        const menuPath = getMenuPath();
+                        const query = `?table=${encodeURIComponent(tableId)}&token=${encodeURIComponent(sessToken)}`;
+                        const qrOrderUrl = `${getQrBaseUrl()}${menuPath}${query}`;
+                        const localOrderUrl = `${getDefaultHttpOrigin()}${menuPath}${query}`;
+
+                        let qrImageSrc = '';
+                        try {
+                            qrImageSrc = window.DineFlowQR.toPngDataUrl
+                                ? window.DineFlowQR.toPngDataUrl(qrOrderUrl, 4, 4)
+                                : window.DineFlowQR.toSvgDataUrl(qrOrderUrl, 4, 4);
+                        } catch (qrErr) {
+                            console.error('QR build error:', qrErr);
+                        }
+
+                        const qrImgHtml = qrImageSrc
+                            ? `<img src="${qrImageSrc}"
+                                    alt="QR Code Bàn ${escapeHtml(tableId)}"
+                                    style="display: block; margin: 10px auto; max-width: 100%; height: auto; border: 2px solid #4CAF50; border-radius: 8px; padding: 8px; background: #ffffff; cursor: pointer; image-rendering: pixelated;">`
+                            : `<div style="margin: 10px auto; padding: 12px; border: 1px dashed #ef4444; color: #b91c1c; border-radius: 6px; font-size: 12px;">Không thể tạo ảnh QR (URL quá dài)</div>`;
+
+                        actionHTML = `
+                            <div class="session-info" style="text-align: center;">
+                                <strong style="color: #4CAF50;">📱 QR Code cho khách quét:</strong><br>
+                                <button type="button" data-table-name="${escapeHtml(tableDisplayName)}" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="openQrZoomModal(this)" title="Bấm để phóng to mã QR dễ quét bằng điện thoại" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                    ${qrImgHtml}
+                                </button>
+                                <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin: 6px 0;">
+                                    <button type="button" data-table-name="${escapeHtml(tableDisplayName)}" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="openQrZoomModal(this)" style="background: #6366f1; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                                        🔍 Phóng to QR
+                                    </button>
+                                    <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" style="display: inline-block; background: #4CAF50; color: white; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px;">
+                                        👉 Mở Menu (TV2)
+                                    </a>
+                                    <button type="button" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="copyQrLink(this)" style="background: #0ea5e9; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">
+                                        📋 Copy link QR
+                                    </button>
+                                </div>
+                                <div style="font-size: 11px; color: #475569; word-break: break-all; margin-top: 4px;">
+                                    ${escapeHtml(qrOrderUrl)}
+                                </div>
+                                <div style="font-size: 11px; color: #64748b; word-break: break-all; margin-top: 2px;">
+                                    Token: ${escapeHtml(sessToken)}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+                
+                card.innerHTML = `
+                    <div class="table-number">${tableDisplayName}</div>
+                    <div class="status ${statusClass}">${statusText}</div>
+                    ${actionHTML}
+                `;
+                
+                grid.appendChild(card);
+            });
+        }
+
+        // Hàm mở bàn (tạo session mới)
+        async function openTable(tableId) {
+            if (!confirm(`Bạn có chắc muốn mở bàn #${tableId}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/admin/tables/${tableId}/open-session`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    let errorMsg = `Lỗi HTTP: ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        // Backend PHP trả lỗi trong trường 'error' hoặc 'detail'
+                        if (errorData.error) {
+                            errorMsg = errorData.error;
+                        } else if (errorData.detail) {
+                            // Nếu detail là mảng (lỗi validation), lấy thông báo đầu tiên
+                            if (Array.isArray(errorData.detail)) {
+                                errorMsg = errorData.detail[0].msg || JSON.stringify(errorData.detail);
+                            } else {
+                                errorMsg = errorData.detail;
+                            }
+                        } else {
+                            errorMsg = JSON.stringify(errorData);
+                        }
+                    } catch (e) {
+                        // Nếu không đọc được JSON, giữ nguyên mã lỗi HTTP
+                        console.error("Không thể parse lỗi JSON:", e);
+                    }
+                    throw new Error(errorMsg);
+                }
+                
+                const data = await response.json();
+                showToast(`✅ Đã mở bàn #${tableId} thành công!`);
+                
+                // Tải lại danh sách bàn sau 0.5 giây để cập nhật trạng thái mới
+                setTimeout(() => {
+                    loadTables();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Lỗi khi mở bàn:', error);
+                showToast(`❌ Không thể mở bàn! Chi tiết: ${error.message}`, true);
+            }
+        }
+
+        // Tải danh sách bàn khi trang web mở
+        window.addEventListener('DOMContentLoaded', () => {
+            loadTables();
+        });
+    </script>
+</body>
+</html>

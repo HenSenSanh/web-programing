@@ -13,6 +13,7 @@
     table: $("#table-label"), notice: $("#notice"), categories: $("#category-list"), grid: $("#menu-grid"), featured: $("#featured-grid"), search: $("#search-input"),
     cartBar: $("#cart-bar"), cartCount: $("#cart-count"), cartTotal: $("#cart-total"), overlay: $("#overlay"), panel: $("#cart-panel"),
     cartItems: $("#cart-items"), panelTotal: $("#panel-total"), submit: $("#submit-order"), dialog: $("#item-dialog"), dialogContent: $("#dialog-content"), toast: $("#toast"),
+    orderHistory: $("#order-history-list"), refreshHistory: $("#refresh-order-history"),
   };
   let categories = [];
   let menuItems = [];
@@ -99,6 +100,74 @@
       }
     } catch (error) {
       console.info("Không lấy được thông tin phiên bàn", error);
+    }
+  }
+
+  const orderStatusLabels = {
+    PENDING: "Chờ bếp nhận",
+    COOKING: "Đang chế biến",
+    READY: "Đã hoàn thành",
+    SERVED: "Đã phục vụ",
+    COMPLETED: "Đã hoàn thành",
+    CANCELLED: "Đã hủy",
+  };
+
+  async function loadOrderHistory() {
+    if (!sessionToken) {
+      els.orderHistory.innerHTML = '<p class="order-history-empty">Lịch sử đơn hàng chỉ có khi mở thực đơn bằng mã QR của phiên bàn.</p>';
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/status`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const items = await response.json();
+      if (!Array.isArray(items) || items.length === 0) {
+        els.orderHistory.innerHTML = '<p class="order-history-empty">Chưa có món nào được gửi tới bếp trong phiên này.</p>';
+        return;
+      }
+
+      const orders = new Map();
+      items.forEach((item) => {
+        const key = item.order_code || `order-${item.order_id}`;
+        if (!orders.has(key)) {
+          orders.set(key, { createdAt: item.order_created_at, items: [] });
+        }
+        orders.get(key).items.push(item);
+      });
+      els.orderHistory.innerHTML = [...orders.entries()].map(([orderCode, order]) => `
+        <article class="order-history-card">
+          <div class="order-history-heading">
+            <strong>${escapeHTML(orderCode)}</strong>
+            <time>${escapeHTML(order.createdAt || "")}</time>
+          </div>
+          <div class="order-history-items">
+            ${order.items.map((item) => {
+              const savedToppings = Array.isArray(item.toppings) ? item.toppings : [];
+              const toppingInfo = item.topping_details_recorded
+                ? (savedToppings.length
+                  ? `Topping: ${savedToppings.map((top) => `${escapeHTML(top.name)} (+${money(top.unit_price)})`).join(", ")}`
+                  : "Không chọn topping")
+                : "Đơn cũ chưa lưu chi tiết topping";
+              const note = item.notes ? ` · Ghi chú: ${escapeHTML(item.notes)}` : "";
+              const status = String(item.status || "PENDING").toUpperCase();
+              return `
+                <div class="order-history-item">
+                  <div>
+                    <strong>${escapeHTML(item.item_name)} × ${Number(item.quantity) || 1}</strong>
+                    <p>${toppingInfo}${note}</p>
+                  </div>
+                  <span class="order-status-badge" data-status="${escapeHTML(status)}">${escapeHTML(orderStatusLabels[status] || status)}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </article>
+      `).join("");
+    } catch (error) {
+      console.error("Không tải được lịch sử đơn hàng", error);
+      els.orderHistory.innerHTML = '<p class="order-history-empty order-history-error">Không tải được lịch sử. Hãy thử làm mới.</p>';
     }
   }
 
@@ -203,16 +272,19 @@
     const item = menuItems.find((candidate) => String(candidate.id) === String(itemId));
     if (!item || item.is_available === false) return;
     activeItem = item;
+    const itemToppings = Array.isArray(item.toppings)
+      ? item.toppings.filter((top) => top.is_available !== false)
+      : [];
     els.dialog.dataset.quantity = "1";
     els.dialogContent.innerHTML = `
       <div class="dialog-visual">${imageOrEmoji(item, "dish-emoji")}</div>
       <div class="dialog-body">
         <h2>${escapeHTML(item.name)}</h2>
         <p>${escapeHTML(item.description || "Món được chế biến nóng sốt ngay sau khi bếp nhận đơn.")}</p>
-        ${toppings.length ? `
+        ${itemToppings.length ? `
           <div class="option-heading">CHỌN THÊM TOPPING</div>
           <div class="topping-list">
-            ${toppings.map((top) => `
+            ${itemToppings.map((top) => `
               <label class="topping-option">
                 <input type="checkbox" value="${top.id}">
                 <span>${escapeHTML(top.name)}</span>
@@ -467,6 +539,7 @@
       cart = [];
       pendingIdempotencyKey = null;
       await syncCart();
+      await loadOrderHistory();
       closeCart();
       toast(`Đã gửi đơn #${result.order_id} xuống bếp thành công!`);
     } catch (error) {
@@ -567,10 +640,13 @@
     syncCart();
   });
   els.submit.addEventListener("click", submitOrder);
+  els.refreshHistory.addEventListener("click", loadOrderHistory);
 
   updateTableLabel();
   loadSessionInfo();
   loadMenu();
+  loadOrderHistory();
+  if (sessionToken) setInterval(loadOrderHistory, 15000);
   connectSharedCart();
   if (!sessionToken) showNotice("Đây là chế độ xem thử. Hãy mở liên kết QR có token phiên hợp lệ để đồng bộ giỏ hàng và gửi đơn.");
 })();

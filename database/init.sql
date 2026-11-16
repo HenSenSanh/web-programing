@@ -71,6 +71,20 @@ CREATE TABLE IF NOT EXISTS user_permissions (
     FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    actor_id INT NULL,
+    action VARCHAR(64) NOT NULL,
+    entity_type VARCHAR(64) NOT NULL,
+    entity_id VARCHAR(64) NOT NULL,
+    old_value JSON NULL,
+    new_value JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_audit_actor_time (actor_id, created_at),
+    INDEX idx_audit_entity (entity_type, entity_id),
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 3. ĐƠN VỊ TÍNH, DANH MỤC THỰC ĐƠN & MÓN ĂN NHÀ HÀNG
 CREATE TABLE IF NOT EXISTS units (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -119,7 +133,7 @@ ON DUPLICATE KEY UPDATE email = VALUES(email), password_hash = VALUES(password_h
 -- 2. Nhóm quyền (Roles)
 INSERT INTO roles (id, role_code, name, description) VALUES
 (1, 'ADMIN', 'Quản trị hệ thống', 'Toàn quyền cấu hình nhà hàng, bàn ăn và thực đơn'),
-(2, 'CREATOR', 'Nhân viên phục vụ / Order', 'Mở bàn QR, hỗ trợ gọi món và lập phiếu thanh toán'),
+(2, 'CREATOR', 'Nhân viên phục vụ / Order', 'Mở bàn QR và theo dõi trạng thái món'),
 (3, 'KEEPER', 'Bếp trưởng / Điều phối KDS', 'Điều phối chế biến món trên KDS và xác nhận hoàn tất'),
 (4, 'VIEWER', 'Thu ngân / Xem báo cáo', 'Xem doanh thu, tra cứu thực đơn và in hóa đơn thanh toán')
 ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description);
@@ -133,15 +147,27 @@ INSERT INTO permissions (id, permission_code, name, module) VALUES
 (5, 'documents.post', 'Xác nhận thanh toán và chốt hóa đơn', 'documents'),
 (6, 'documents.cancel', 'Hủy hóa đơn tạm tính', 'documents'),
 (7, 'documents.print', 'Xem và in hóa đơn thanh toán (@media print)', 'documents'),
-(8, 'rbac.manage', 'Quản lý phân quyền nhân sự', 'rbac')
+(8, 'rbac.manage', 'Quản lý phân quyền nhân sự', 'rbac'),
+(9, 'tables.view', 'Xem trạng thái các bàn', 'tables'),
+(10, 'tables.open', 'Mở phiên phục vụ cho bàn', 'tables'),
+(11, 'tables.manage', 'Tạo và quản lý bàn ăn', 'tables'),
+(12, 'kds.view', 'Xem trạng thái món trên KDS', 'kds'),
+(13, 'kds.update', 'Cập nhật trạng thái món trên KDS', 'kds'),
+(14, 'pos.view', 'Xem bàn và hóa đơn trên POS', 'pos'),
+(15, 'pos.checkout', 'Xác nhận thanh toán và đóng phiên qua POS', 'pos'),
+(16, 'reports.view', 'Xem dashboard và báo cáo', 'reports'),
+(17, 'data.manage', 'Quản lý ETL, Live Ops và quy tắc gợi ý', 'data')
 ON DUPLICATE KEY UPDATE name = VALUES(name), module = VALUES(module);
 
--- Gán quyền cho nhóm
+-- Đồng bộ ma trận quyền mặc định đã chốt cho bốn role hệ thống.
+DELETE FROM role_permissions WHERE role_id IN (1, 2, 3, 4);
+
 INSERT INTO role_permissions (role_id, permission_id) VALUES
 (1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8),
-(2, 1), (2, 4), (2, 6), (2, 7),
-(3, 1), (3, 5), (3, 7),
-(4, 1), (4, 7)
+(1, 9), (1, 10), (1, 11), (1, 12), (1, 13), (1, 14), (1, 15), (1, 16), (1, 17),
+(2, 1), (2, 9), (2, 10), (2, 12),
+(3, 12), (3, 13),
+(4, 7), (4, 14), (4, 15), (4, 16)
 ON DUPLICATE KEY UPDATE permission_id = VALUES(permission_id);
 
 -- Gán User vào nhóm
@@ -548,6 +574,23 @@ CREATE TABLE IF NOT EXISTS toppings (
     name VARCHAR(100) NOT NULL,
     price DECIMAL(12, 2) NOT NULL,
     is_available TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS menu_item_toppings (
+    menu_item_id INT NOT NULL,
+    topping_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (menu_item_id, topping_id),
+    INDEX idx_menu_item_toppings_topping (topping_id),
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (topping_id) REFERENCES toppings(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS order_item_topping_snapshots (
+    order_item_id INT PRIMARY KEY,
+    toppings_json JSON NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS combo_rules (

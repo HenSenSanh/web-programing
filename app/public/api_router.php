@@ -10,10 +10,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
+require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/rbac.php';
 require_once __DIR__ . '/../Core/Database.php';
 require_once __DIR__ . '/../Controllers/AdminCatalogController.php';
 require_once __DIR__ . '/../Controllers/ClientOrderController.php';
 require_once __DIR__ . '/../Controllers/KdsPosController.php';
+require_once __DIR__ . '/../Services/OrderToppingSnapshotService.php';
 require_once __DIR__ . '/../Controllers/DataPipelineController.php';
 require_once __DIR__ . '/../Services/SharedCartService.php';
 require_once __DIR__ . '/../Services/AprioriService.php';
@@ -43,22 +46,27 @@ if (($path === '' || $path === '/' || $path === '/health') && $method === 'GET')
 
 // 1. TV1: Admin Tables & Catalog
 if ($path === '/admin/tables' && $method === 'GET') {
+    requireApiPermission('tables.view');
     $admin->getTables();
     exit;
 }
 if ($path === '/admin/tables' && $method === 'POST') {
+    requireApiPermission('tables.manage');
     $admin->createTable();
     exit;
 }
 if (preg_match('#^/admin/tables/(\d+)/open-session$#', $path, $m) && $method === 'POST') {
+    requireApiPermission('tables.open');
     $admin->openSession((int)$m[1]);
     exit;
 }
 if ($path === '/admin/categories' && $method === 'GET') {
+    requireApiPermission('products.view');
     $admin->getCategories();
     exit;
 }
 if (($path === '/admin/menu-items' || $path === '/admin/menu') && $method === 'GET') {
+    requireApiPermission('products.view');
     if (isset($_GET['grouped']) && $_GET['grouped'] === '1') {
         $admin->getMenuCatalog();
     } else {
@@ -71,14 +79,27 @@ if ($path === '/admin/menu-catalog' && $method === 'GET') {
     exit;
 }
 if ($path === '/admin/menu-items' && $method === 'POST') {
+    requireApiPermission('products.manage');
     $admin->createMenuItem();
     exit;
 }
+if (preg_match('#^/admin/menu-items/(\d+)$#', $path, $m) && ($method === 'PATCH' || $method === 'PUT')) {
+    requireApiPermission('products.manage');
+    $admin->updateMenuItem((int)$m[1]);
+    exit;
+}
 if (preg_match('#^/admin/menu-items/(\d+)/toggle-availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
+    requireApiPermission('products.manage');
     $admin->toggleMenuItemAvailability((int)$m[1]);
     exit;
 }
+if (preg_match('#^/admin/menu-items/(\d+)/toppings$#', $path, $m) && ($method === 'PATCH' || $method === 'PUT')) {
+    requireApiPermission('products.manage');
+    $admin->updateMenuItemToppings((int)$m[1]);
+    exit;
+}
 if (preg_match('#^/admin/toppings/(\d+)/toggle-availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
+    requireApiPermission('products.manage');
     $admin->toggleToppingAvailability((int)$m[1]);
     exit;
 }
@@ -104,22 +125,27 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/status$#', $path, $m) && $met
 
 // 3. TV3: Staff KDS & POS
 if ($path === '/staff/kds/active-items' && $method === 'GET') {
+    requireApiPermission('kds.view');
     $kdsPos->getKdsActiveItems();
     exit;
 }
 if ($path === '/staff/kds/item-status' && ($method === 'POST' || $method === 'PATCH')) {
+    requireApiPermission('kds.update');
     $kdsPos->updateItemStatus();
     exit;
 }
 if ($path === '/staff/pos/active-tables' && $method === 'GET') {
+    requireApiPermission('pos.view');
     $kdsPos->getActivePosTables();
     exit;
 }
 if (preg_match('#^/staff/pos/table-bill/(\d+)$#', $path, $m) && $method === 'GET') {
+    requireApiPermission('pos.view');
     $kdsPos->getTableBill((int)$m[1]);
     exit;
 }
 if (preg_match('#^/staff/pos/checkout/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'POST') {
+    requireApiPermission('pos.checkout');
     $kdsPos->checkout($m[1]);
     exit;
 }
@@ -134,45 +160,55 @@ if (preg_match('#^/data/recommendations/(\d+)$#', $path, $m) && $method === 'GET
     exit;
 }
 if ($path === '/data/trigger-batch-etl' && $method === 'POST') {
+    requireApiPermission('data.manage');
     $data->triggerBatchEtl();
     exit;
 }
 if (($path === '/data/live-ops' || $path === '/data/live-operations') && $method === 'GET') {
+    requireApiPermission('data.manage');
     $data->getLiveOps();
     exit;
 }
 if ($path === '/data/combo-rule' && $method === 'POST') {
+    requireApiPermission('data.manage');
     $data->createComboRule();
     exit;
 }
 if (($path === '/data/sla-metrics' || $path === '/data/sla-analytics') && $method === 'GET') {
+    requireApiPermission('reports.view');
     $data->getSlaMetrics();
     exit;
 }
 if ($path === '/data/pipeline-status' && $method === 'GET') {
+    requireApiPermission('data.manage');
     $data->getPipelineStatus();
     exit;
 }
 if ($path === '/data/association-rules' && $method === 'GET') {
+    requireApiPermission('reports.view');
     $limit = (int)($_GET['limit'] ?? 10);
     $data->getAssociationRules($limit);
     exit;
 }
 if ($path === '/data/peak-hours' && $method === 'GET') {
+    requireApiPermission('reports.view');
     $data->getPeakHours();
     exit;
 }
 
 // 5. TV5: BI Analytics
 if ($path === '/bi/dashboard-summary' && $method === 'GET') {
+    requireApiPermission('reports.view');
     $data->getBiDashboardSummary();
     exit;
 }
 if ($path === '/bi/revenue-over-time' && $method === 'GET') {
+    requireApiPermission('reports.view');
     $data->getBiRevenueOverTime();
     exit;
 }
 if ($path === '/bi/menu-engineering-matrix' && $method === 'GET') {
+    requireApiPermission('reports.view');
     $data->getBiMenuMatrix();
     exit;
 }

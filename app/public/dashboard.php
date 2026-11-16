@@ -6,6 +6,8 @@ require_once __DIR__ . '/../src/auth.php';
 require_once __DIR__ . '/../src/rbac.php';
 
 requireLogin();
+requirePermission('reports.view');
+$staffPortalActive = 'dashboard';
 
 $pdo = getDatabaseConnection();
 $userId = (int)$_SESSION['user_id'];
@@ -62,6 +64,7 @@ $tablesList = $stmtTablesList->fetchAll();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/staff-portal.css">
     <title>DineFlow - Trung Tâm Điều Hành Nhà Hàng (QRDine)</title>
     <!-- Google Fonts Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,45 +77,7 @@ $tablesList = $stmtTablesList->fetchAll();
 </head>
 <body class="bg-slate-50 text-slate-800 min-h-screen antialiased">
 
-    <!-- Top Navigation Bar -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 font-black text-lg">
-                    🍲
-                </div>
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-bold text-slate-900 tracking-tight">DINEFLOW</span>
-                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Restaurant OS
-                        </span>
-                    </div>
-                    <p class="text-xs text-slate-500">Hệ Thống Gọi Món QR Tại Bàn, Bếp KDS & Phân Tích Nhà Hàng F&B</p>
-                </div>
-            </div>
-
-            <!-- Navigation Links -->
-            <nav class="flex items-center gap-2 text-xs font-medium">
-                <a href="dashboard.php" class="px-3 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold">
-                    Dashboard
-                </a>
-                <a href="products.php" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Bài A: Phân trang thực đơn món ăn">
-                    🍲 Thực Đơn (Bài A)
-                </a>
-                <a href="documents.php" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition" title="Bài D: Hóa đơn & In ấn">
-                    🧾 Hóa Đơn & In (Bài D)
-                </a>
-                <a href="/frontend/live-ops/" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition shadow-xs flex items-center gap-1">
-                    <span>⚡ Live Ops</span>
-                </a>
-                <div class="h-4 w-px bg-slate-300 mx-1"></div>
-                <a href="logout.php" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
-                    Đăng Xuất
-                </a>
-            </nav>
-        </div>
-    </header>
+    <?php require __DIR__ . '/partials/staff_portal_nav.php'; ?>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
 
@@ -215,7 +180,7 @@ $tablesList = $stmtTablesList->fetchAll();
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
-                <a href="/frontend/admin/table-management.html" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/admin/table-management.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base">🪑</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Quản Lý Bàn Ăn & Mã QR (TV1)</strong>
@@ -226,8 +191,8 @@ $tablesList = $stmtTablesList->fetchAll();
                 <a href="products.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base">🍲</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Quản Lý Thực Đơn (Bài A - TV1)</strong>
-                        <span class="text-slate-500 text-[11px]">Phân trang thật COUNT/LIMIT/OFFSET, lọc danh mục</span>
+                        <strong class="text-slate-900 block text-xs">Quản Lý Món</strong>
+                        <span class="text-slate-500 text-[11px]">Món ăn, topping, giá bán và trạng thái phục vụ</span>
                     </div>
                 </a>
 
@@ -239,7 +204,7 @@ $tablesList = $stmtTablesList->fetchAll();
                     </div>
                 </a>
 
-                <a href="/frontend/kds/" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/kds/index.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-base">👨‍🍳</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Màn Hình Điều Phối Bếp KDS (TV3)</strong>
