@@ -369,7 +369,6 @@ CREATE TABLE IF NOT EXISTS session_orders (
     idempotency_key VARCHAR(64) UNIQUE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_order_sess (session_id),
-    INDEX idx_order_idem (idempotency_key),
     FOREIGN KEY (session_id) REFERENCES table_sessions(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -481,10 +480,9 @@ CREATE TABLE IF NOT EXISTS orders (
     order_code VARCHAR(50) UNIQUE NOT NULL,
     status VARCHAR(20) DEFAULT 'CONFIRMED',
     total_amount DECIMAL(12, 2) NOT NULL,
-    idempotency_key VARCHAR(64) NULL,
+    idempotency_key VARCHAR(64) NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_order_sess (session_id),
-    INDEX idx_order_idem (idempotency_key),
     FOREIGN KEY (session_id) REFERENCES table_sessions(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
