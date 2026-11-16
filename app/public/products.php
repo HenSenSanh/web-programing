@@ -112,8 +112,8 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string {
                 <a href="documents.php" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
                     🧾 Hóa Đơn & In (Bài D)
                 </a>
-                <a href="/frontend/tv4_data_pipeline.html" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition flex items-center gap-1">
-                    <span>⚡ TV4 Data Pipeline</span>
+                <a href="/frontend/live-ops/" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition flex items-center gap-1">
+                    <span>⚡ Live Ops</span>
                 </a>
                 <a href="logout.php" class="px-3 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
                     Đăng Xuất

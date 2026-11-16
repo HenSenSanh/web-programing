@@ -87,6 +87,7 @@ function initSqliteFallback(PDO $db): void
     $cleanSql = str_ireplace("ON UPDATE CURRENT_TIMESTAMP", "", $cleanSql);
     $cleanSql = preg_replace('/,\s*\)/', "\n)", $cleanSql);
     $cleanSql = preg_replace('/ON DUPLICATE KEY UPDATE[^;]+/i', '', $cleanSql);
+    $cleanSql = preg_replace('/\bNOW\(\)/i', 'CURRENT_TIMESTAMP', $cleanSql);
     $cleanSql = str_ireplace("INSERT INTO", "INSERT OR IGNORE INTO", $cleanSql);
 
     // Thực thi từng câu

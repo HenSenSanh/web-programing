@@ -196,7 +196,7 @@ Khi đến phần báo cáo cá nhân của TV4, bạn tự tin trình diễn th
    * Đăng nhập với tài khoản `viewer` (chỉ có quyền xem): Thử thực hiện thao tác quản trị hoặc chốt hóa đơn $\rightarrow$ Hệ thống lập tức trả về lỗi **`403 Forbidden`**.
    * Chỉ cho thầy cô thấy nguyên tắc ưu tiên: Tài khoản dù thuộc nhóm quản trị nhưng nếu có bản ghi `deny` riêng thì hành động đó vẫn bị chặn triệt để.
 3. **Bước 3 — Trình diễn Data Pipeline (ETL), Gợi ý Apriori & In Hóa đơn:**
-   * Mở `/frontend/tv4_data_pipeline.html`: Kích hoạt tiến trình Batch ETL đổ dữ liệu sang Star Schema, xem gợi ý món ăn kèm Apriori và giám sát SLA bếp (>900s).
+   * Mở `/frontend/live-ops/`: Kích hoạt tiến trình Batch ETL đổ dữ liệu sang Star Schema, xem gợi ý món ăn kèm Apriori và giám sát SLA bếp (>900s).
    * Mở `/documents.php` và bấm In hóa đơn: Giao diện tự động áp dụng `@media print` ẩn hoàn toàn các thanh công cụ, tạo bản in hóa đơn thanh toán nhà hàng sạch đẹp.
 4. **Bước 4 — Chạy Bộ Kiểm thử Tự động Trước Mặt Thầy Cô:**
    * Mở Terminal chạy lệnh chuẩn Docker:

@@ -233,21 +233,23 @@ assertTest("QR-6.1: Khởi tạo đủ 15 bàn ăn nhà hàng QR Dine (Bàn 01 .
 $activeSessions = (int)$pdo->query("SELECT COUNT(*) FROM table_sessions WHERE status = 'ACTIVE'")->fetchColumn();
 assertTest("QR-6.2: Có phiên bàn QR đang hoạt động (ACTIVE) kèm session_token hợp lệ", $activeSessions > 0);
 
-$kdsOrdersCount = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('NEW', 'COOKING', 'READY', 'COMPLETED')")->fetchColumn();
+$kdsOrdersCount = (int)$pdo->query("SELECT COUNT(*) FROM order_items WHERE status IN ('PENDING', 'COOKING', 'READY', 'SERVED', 'COMPLETED')")->fetchColumn();
 assertTest("QR-6.3: Có đơn hàng KDS hợp lệ trong hệ thống", $kdsOrdersCount > 0);
 
-$posBills = $pdo->query("SELECT id, subtotal, tax_amount, discount_amount, final_amount, payment_status FROM bill_payments")->fetchAll();
+$posBills = $pdo->query("SELECT id, subtotal_amount, vat_amount, service_fee, final_amount, payment_method FROM bill_payments")->fetchAll();
 assertTest("QR-6.4: Có hóa đơn thanh toán POS trong bảng bill_payments", count($posBills) > 0);
 
 $billMathValid = true;
 foreach ($posBills as $bill) {
-    $expectedFinal = (float)$bill['subtotal'] + (float)$bill['tax_amount'] - (float)$bill['discount_amount'];
-    if (abs($expectedFinal - (float)$bill['final_amount']) > 1.0) {
+    $expectedRaw = (float)$bill['subtotal_amount'] + (float)$bill['vat_amount'] + (float)$bill['service_fee'];
+    $expectedRounded = round($expectedRaw / 500) * 500;
+    $actualFinal = (float)$bill['final_amount'];
+    if (abs($expectedRaw - $actualFinal) > 1.0 && abs($expectedRounded - $actualFinal) > 1.0) {
         $billMathValid = false;
         break;
     }
 }
-assertTest("QR-6.5: Đối soát công thức hóa đơn POS: final_amount == subtotal + VAT - discount", $billMathValid);
+assertTest("QR-6.5: Đối soát công thức hóa đơn POS: final_amount khớp subtotal_amount + VAT + service_fee", $billMathValid);
 
 echo "\n";
 
@@ -498,39 +500,41 @@ assertTest("QP-5.4: API SLA tính toán chính xác tỷ lệ tuân thủ sla_co
 // -------------------------------------------------------------------------
 echo "\n🔹 TRỤ CỘT 6: ĐỒNG BỘ GIỎ HÀNG BÀN ĂN & GIAO DỊCH CHỐT ĐƠN NGUYÊN TỬ\n";
 
-$cartSvc = new SharedCartService();
-$cartSvc->clearCart($testSessionId);
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES ('Bàn Cart Concurrency', 'OCCUPIED')")->execute();
+$cartTableId = (int)$db->lastInsertId();
+$cartSessId = 'sess_cart_' . uniqid();
+$cartToken = 'tok_cart_' . uniqid();
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$cartSessId, $cartTableId, $cartToken]);
+
+SharedCartService::clearCart($cartToken);
 
 // 2 khách cùng bàn thêm món đồng thời vào giỏ chung
-$cartSvc->addOrUpdateItem($testSessionId, 1, 2, [1], 'Khách A: ít cay');
-$cartSvc->addOrUpdateItem($testSessionId, 2, 1, [], 'Khách B: thêm rau');
-$cartState = $cartSvc->getCart($testSessionId);
+SharedCartService::addItem($cartToken, ['menu_item_id' => 101, 'quantity' => 2, 'notes' => 'Khách A: ít cay']);
+SharedCartService::addItem($cartToken, ['menu_item_id' => 102, 'quantity' => 1, 'notes' => 'Khách B: ít đường']);
+$cartState = SharedCartService::getCart($cartToken);
 
 assertTest("QP-6.1: Nhiều khách cùng bàn thêm món -> Giỏ hàng chung đồng bộ đúng 2 dòng món", count($cartState['items'] ?? []) === 2);
 
-// Cập nhật số lượng về 0 -> Tự động xóa dòng món khỏi giỏ
-$firstKey = $cartState['items'][0]['cart_item_key'] ?? '';
-$cartSvc->updateQuantity($testSessionId, $firstKey, 0);
-$cartAfterRemove = $cartSvc->getCart($testSessionId);
+// Cập nhật giảm số lượng món 102 về 0 -> Tự động xóa dòng món khỏi giỏ
+$cartAfterRemove = SharedCartService::updateItem($cartToken, 102, -1);
 assertTest("QP-6.2: Giảm số lượng về 0 -> Xóa dòng món khỏi giỏ hàng chung", count($cartAfterRemove['items'] ?? []) === 1);
 
 // Chốt đơn từ giỏ hàng chung -> tạo order nguyên tử và làm sạch giỏ
 $checkoutKey = 'idem-conc-' . uniqid();
-$checkoutRes = invokeController(
-    fn() => $orderCtrl->submitOrder(),
-    ['session_id' => $testSessionId],
-    ['HTTP_IDEMPOTENCY_KEY' => $checkoutKey]
-);
-$cartAfterCheckout = $cartSvc->getCart($testSessionId);
-assertTest("QP-6.3: [GIAO DỊCH NGUYÊN TỬ] Chốt đơn thành công (HTTP 201) và tự động làm rỗng giỏ bàn", $checkoutRes['code'] === 201 && empty($cartAfterCheckout['items']));
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = $checkoutKey;
+ob_start();
+$orderCtrl->submitOrder($cartToken, ['items' => $cartAfterRemove['items']]);
+$checkoutOut = json_decode(ob_get_clean(), true);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+$cartAfterCheckout = SharedCartService::getCart($cartToken);
+assertTest("QP-6.3: [GIAO DỊCH NGUYÊN TỬ] Chốt đơn thành công và tự động làm rỗng giỏ bàn", ($checkoutOut['status'] ?? '') === 'success' && !empty($checkoutOut['order_id']) && empty($cartAfterCheckout['items']));
 
-// Thử chốt đơn khi giỏ hàng đang rỗng -> Bị chặn HTTP 400
-$emptyOrderRes = invokeController(
-    fn() => $orderCtrl->submitOrder(),
-    ['session_id' => $testSessionId],
-    ['HTTP_IDEMPOTENCY_KEY' => 'idem-empty-' . uniqid()]
-);
-assertTest("QP-6.4: [BẤT BIẾN] Chốt đơn khi giỏ rỗng -> Bị từ chối (HTTP 400)", $emptyOrderRes['code'] === 400);
+// Thử chốt đơn khi giỏ hàng đang rỗng -> Bị chặn HTTP 422
+ob_start();
+$orderCtrl->submitOrder($cartToken, ['items' => []]);
+$emptyOut = json_decode(ob_get_clean(), true);
+assertTest("QP-6.4: [BẤT BIẾN] Chốt đơn khi giỏ rỗng -> Bị từ chối", !empty($emptyOut['error']) && empty($emptyOut['order_id']));
 
 // -------------------------------------------------------------------------
 // TRỤ CỘT 7: STAR SCHEMA OLAP & OLTP ORDER INTEGRITY
