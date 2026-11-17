@@ -12,6 +12,7 @@ services:
       - php_vendor:/var/www/html/vendor
       - ./tests:/var/www/tests
       - ./database:/var/www/database
+      - tunnel_logs:/var/log/cloudflared:ro
     env_file:
       - .env
     depends_on:
@@ -51,9 +52,23 @@ services:
     networks:
       - dineflow_network
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: dineflow_tunnel
+    user: "0:0"
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://php-app:80 --logfile /var/log/cloudflared/tunnel.log
+    volumes:
+      - tunnel_logs:/var/log/cloudflared
+    depends_on:
+      - php-app
+    networks:
+      - dineflow_network
+
 volumes:
   mysql_data:
   php_vendor:
+  tunnel_logs:
 
 networks:
   dineflow_network:

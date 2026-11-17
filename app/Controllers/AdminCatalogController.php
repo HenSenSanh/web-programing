@@ -20,6 +20,45 @@ class AdminCatalogController
         echo json_encode($tables, JSON_UNESCAPED_UNICODE);
     }
 
+    public function getQrPublicUrl(): void
+    {
+        $config = require __DIR__ . '/../src/config.php';
+        $envQrUrl = rtrim((string)($config['app']['qr_base_url'] ?? ''), '/');
+
+        $tunnelUrl = '';
+        $logPaths = ['/var/log/cloudflared/tunnel.log'];
+        foreach ($logPaths as $logPath) {
+            if (!is_file($logPath) || !is_readable($logPath)) {
+                continue;
+            }
+            $size = (int)@filesize($logPath);
+            $fp = @fopen($logPath, 'rb');
+            if (!$fp) {
+                continue;
+            }
+            if ($size > 262144) {
+                $head = fread($fp, 65536) ?: '';
+                fseek($fp, -196608, SEEK_END);
+                $tail = stream_get_contents($fp) ?: '';
+                $chunk = $head . "\n" . $tail;
+            } else {
+                $chunk = stream_get_contents($fp) ?: '';
+            }
+            fclose($fp);
+            if (preg_match_all('#https://[a-z0-9-]+\.trycloudflare\.com#i', $chunk, $matches) && !empty($matches[0])) {
+                $tunnelUrl = rtrim((string)end($matches[0]), '/');
+                break;
+            }
+        }
+
+        $effectiveUrl = $envQrUrl !== '' ? $envQrUrl : $tunnelUrl;
+        echo json_encode([
+            'tunnel_url' => $tunnelUrl,
+            'env_qr_url' => $envQrUrl,
+            'effective_url' => $effectiveUrl,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
     public function createTable(): void
     {
         $data = json_decode(file_get_contents('php://input') ?: '[]', true);

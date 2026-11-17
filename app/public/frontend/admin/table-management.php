@@ -23,128 +23,135 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
         }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
             min-height: 100vh;
             padding: 20px;
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1240px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
         }
 
         h1 {
-            color: #333;
-            margin-bottom: 10px;
-            font-size: 28px;
+            color: #0f172a;
+            margin-bottom: 4px;
+            font-size: 24px;
+            font-weight: 700;
         }
 
         .subtitle {
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 20px;
+            font-size: 13px;
         }
 
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 4px;
             flex-wrap: wrap;
             gap: 10px;
         }
 
         .refresh-btn {
-            background: #667eea;
-            color: white;
+            background: #0f172a;
+            color: #ffffff;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 9px 16px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
-            transition: background 0.3s;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.2s;
         }
 
         .refresh-btn:hover {
-            background: #5568d3;
+            background: #1e293b;
         }
 
         .table-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 16px;
         }
 
         .table-card {
-            border: 2px solid #ddd;
-            padding: 20px;
-            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            padding: 18px;
+            border-radius: 12px;
             text-align: center;
-            transition: all 0.3s;
+            transition: transform 0.2s, box-shadow 0.2s;
             position: relative;
+            background: #ffffff;
         }
 
         .table-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
         }
 
         .table-card.available {
-            border-color: #4CAF50;
-            background: linear-gradient(135deg, #f1f8f4 0%, #e8f5e9 100%);
+            border-color: #bbf7d0;
+            background: #f0fdf4;
         }
 
         .table-card.occupied {
-            border-color: #ff9800;
-            background: linear-gradient(135deg, #fff8f0 0%, #ffe0b2 100%);
+            border-color: #fed7aa;
+            background: #fffbeb;
         }
 
         .table-number {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 10px;
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
         }
 
         .status {
-            font-weight: bold;
-            margin: 10px 0;
-            padding: 8px;
-            border-radius: 5px;
-            font-size: 14px;
+            font-weight: 700;
+            margin: 8px 0;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            display: inline-block;
         }
 
         .status.available {
-            background: #4CAF50;
-            color: white;
+            background: #dcfce7;
+            color: #166534;
         }
 
         .status.occupied {
-            background: #ff9800;
-            color: white;
+            background: #ffedd5;
+            color: #9a3412;
         }
 
         .btn-open {
-            background: #4CAF50;
-            color: white;
+            background: #10b981;
+            color: #ffffff;
             border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
+            padding: 9px 16px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            font-weight: 600;
             margin-top: 10px;
             width: 100%;
-            transition: background 0.3s;
+            transition: background 0.2s;
         }
 
         .btn-open:hover {
-            background: #45a049;
+            background: #059669;
         }
 
         .session-info {
@@ -206,36 +213,31 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
     <?php require __DIR__ . '/../../partials/staff_portal_nav.php'; ?>
     <div class="container" style="margin-top: 16px;">
         <div class="header">
-            <h1>🪑 Quản lý Bàn ăn</h1>
+            <h1>🪑 Sơ đồ Bàn ăn & Mã QR</h1>
         </div>
-        <p class="subtitle">Hệ thống DINEFLOW - Theo dõi và quản lý trạng thái bàn ăn</p>
+        <p class="subtitle">Quản lý trạng thái bàn, mở phiên phục vụ và tạo mã QR gọi món cho khách hàng</p>
         
         <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px;">
-            <button class="refresh-btn" onclick="loadTables()">🔄 Tải lại danh sách bàn</button>
+            <button class="refresh-btn" onclick="refreshAllTables()">🔄 Làm mới</button>
             <?php if ($canManageTables): ?>
                 <form id="create-table-form" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <input id="new-table-number" type="text" maxlength="20" placeholder="Tên bàn mới (VD: Bàn 16)" required
-                           style="padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px;">
-                    <button type="submit" style="background: #10b981; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">
+                           style="padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+                    <button type="submit" style="background: #10b981; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px;">
                         + Thêm bàn mới
                     </button>
                 </form>
             <?php endif; ?>
         </div>
 
-        <div id="qr-host-config" style="margin: 12px 0; padding: 12px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
-            <label for="qr-base-input" style="font-weight: 600; font-size: 13px; color: #334155;">📡 Địa chỉ gốc cho QR (để điện thoại quét):</label>
-            <input id="qr-base-input" type="url" placeholder="VD: https://xxx.trycloudflare.com hoặc http://192.168.1.10:8080" style="flex: 1; min-width: 240px; padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 13px;">
-            <button type="button" onclick="saveQrBaseUrl()" style="background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Lưu URL QR</button>
-            <button type="button" onclick="resetQrBaseUrl()" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">Mặc định</button>
+        <div id="qr-host-config" style="margin: 12px 0; padding: 12px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+            <label for="qr-base-input" style="font-weight: 600; font-size: 13px; color: #334155;">🌐 Link gốc QR (Cloudflare Tunnel / Wi-Fi):</label>
+            <input id="qr-base-input" type="url" placeholder="Đang tự động nhận link Cloudflare Tunnel..." style="flex: 1; min-width: 240px; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: #ffffff;">
+            <button type="button" id="btn-use-tunnel" onclick="usePublicTunnelUrl()" style="display: none; background: #0f766e; color: #fff; border: none; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">⚡ Dùng Link Public</button>
+            <button type="button" onclick="saveQrBaseUrl()" style="background: #2563eb; color: #fff; border: none; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">Lưu</button>
+            <button type="button" onclick="resetQrBaseUrl()" style="background: #e2e8f0; color: #334155; border: none; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 12px;">Tự động</button>
+            <span id="qr-tunnel-badge" style="font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: #e2e8f0; color: #475569;">Đang kiểm tra Tunnel...</span>
             <div id="qr-host-warning" style="width: 100%; font-size: 12px; color: #b45309; display: none;"></div>
-            <details style="width: 100%; font-size: 12px; color: #475569; margin-top: 2px;">
-                <summary style="cursor: pointer; font-weight: 600; color: #334155;">💡 Làm sao để AI CŨNG QUÉT ĐƯỢC (kể cả 4G/5G hoặc khác Wi‑Fi)?</summary>
-                <div style="margin-top: 6px; padding: 8px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; line-height: 1.6;">
-                    <div>• <b>Cách 1 — Cùng Wi‑Fi (LAN):</b> Chạy <code>ipconfig</code> lấy IPv4 của Wi‑Fi (vd <code>http://192.168.1.15:8080</code>), dán vào ô trên và mở cổng <code>8080</code> ở Windows Firewall.</div>
-                    <div>• <b>Cách 2 — Ai cũng quét được (cả 4G/5G/khác mạng):</b> Chạy <code>cloudflared tunnel --url http://localhost:8080</code> (hoặc <code>ngrok http 8080</code>), copy link <code>https://...</code> dán vào ô trên (hoặc cấu hình biến <code>QR_BASE_URL</code> trong <code>.env</code>).</div>
-                </div>
-            </details>
         </div>
         
         <div id="message-area"></div>
@@ -263,6 +265,7 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
     <script>
         const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
         const ENV_QR_BASE_URL = <?php echo json_encode($defaultQrBaseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+        let AUTO_TUNNEL_URL = '';
 
         function escapeHtml(str) {
             return String(str ?? '')
@@ -279,7 +282,7 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
 
         function getQrBaseUrl() {
             const saved = (localStorage.getItem('dineflow_qr_base_url') || '').trim();
-            return (saved || ENV_QR_BASE_URL || getDefaultHttpOrigin()).replace(/\/+$/, '');
+            return (saved || ENV_QR_BASE_URL || AUTO_TUNNEL_URL || getDefaultHttpOrigin()).replace(/\/+$/, '');
         }
 
         function getMenuPath() {
@@ -292,16 +295,70 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
         function syncQrHostUI() {
             const input = document.getElementById('qr-base-input');
             const warn = document.getElementById('qr-host-warning');
+            const badge = document.getElementById('qr-tunnel-badge');
+            const tunnelBtn = document.getElementById('btn-use-tunnel');
             if (!input || !warn) return;
             const current = getQrBaseUrl();
             input.value = current;
+
+            if (tunnelBtn) {
+                tunnelBtn.style.display = (AUTO_TUNNEL_URL && current !== AUTO_TUNNEL_URL) ? 'inline-block' : 'none';
+            }
+            if (badge) {
+                if (current.includes('trycloudflare.com')) {
+                    badge.textContent = '✅ Public Cloudflare (4G/Wi-Fi đều quét được)';
+                    badge.style.background = '#dcfce7';
+                    badge.style.color = '#166534';
+                } else if (AUTO_TUNNEL_URL) {
+                    badge.textContent = '🌐 Có sẵn Cloudflare Tunnel';
+                    badge.style.background = '#dbeafe';
+                    badge.style.color = '#1e40af';
+                } else {
+                    badge.textContent = '📡 Nội bộ / Tùy chỉnh';
+                    badge.style.background = '#f1f5f9';
+                    badge.style.color = '#475569';
+                }
+            }
+
             const isLocalOnly = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(current);
             if (isLocalOnly || !location.protocol.startsWith('http')) {
                 warn.style.display = 'block';
-                warn.textContent = '⚠️ QR đang dùng localhost — điện thoại không truy cập được "localhost". Trên Windows mở cmd gõ ipconfig → lấy IPv4 Address của mục Wi-Fi (tránh IP WSL/VPN), nhập http://<IP-WiFi>:8080 rồi bấm Lưu URL QR. Đảm bảo ĐT dùng chung Wi-Fi & Firewall Windows không chặn cổng 8080.';
+                warn.textContent = AUTO_TUNNEL_URL
+                    ? 'Đang dùng localhost. Bấm "Dùng Link Public" để khách quét được bằng 4G/5G hoặc Wi-Fi bất kỳ.'
+                    : 'QR đang dùng localhost — điện thoại bên ngoài không mở được localhost. Hãy khởi động Tunnel hoặc nhập IP LAN / domain HTTPS.';
             } else {
                 warn.style.display = 'none';
             }
+        }
+
+        async function detectPublicTunnelUrl() {
+            try {
+                const res = await fetch(`${API_BASE}/admin/qr-public-url`, { headers: { Accept: 'application/json' } });
+                if (!res.ok) return;
+                const data = await res.json();
+                const detected = String(data.tunnel_url || data.effective_url || '').trim().replace(/\/+$/, '');
+                if (detected && /^https?:\/\/.+/i.test(detected)) {
+                    AUTO_TUNNEL_URL = detected;
+                }
+            } catch (e) {
+                // Silent fallback
+            } finally {
+                syncQrHostUI();
+            }
+        }
+
+        function usePublicTunnelUrl() {
+            if (!AUTO_TUNNEL_URL) return;
+            localStorage.removeItem('dineflow_qr_base_url');
+            const input = document.getElementById('qr-base-input');
+            if (input) input.value = AUTO_TUNNEL_URL;
+            syncQrHostUI();
+            loadTables(true);
+        }
+
+        async function refreshAllTables() {
+            await detectPublicTunnelUrl();
+            await loadTables();
         }
 
         function saveQrBaseUrl() {
@@ -488,8 +545,8 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
                                     <button type="button" data-table-name="${escapeHtml(tableDisplayName)}" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="openQrZoomModal(this)" style="background: #6366f1; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">
                                         🔍 Phóng to QR
                                     </button>
-                                    <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" style="display: inline-block; background: #4CAF50; color: white; padding: 6px 10px; border-radius: 4px; text-decoration: none; font-weight: bold; font-size: 12px;">
-                                        👉 Mở Menu (TV2)
+                                    <a href="${escapeHtml(localOrderUrl)}" target="_blank" rel="noopener" style="display: inline-block; background: #10b981; color: white; padding: 6px 10px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 12px;">
+                                        🍽️ Mở Menu khách
                                     </a>
                                     <button type="button" data-qr-url="${escapeHtml(qrOrderUrl)}" onclick="copyQrLink(this)" style="background: #0ea5e9; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px;">
                                         📋 Copy link QR
@@ -584,12 +641,13 @@ $defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
             });
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
+            await detectPublicTunnelUrl();
             loadTables();
         });
         window.addEventListener('message', (event) => {
             if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
-                loadTables(true);
+                detectPublicTunnelUrl().then(() => loadTables(true));
             }
         });
     </script>

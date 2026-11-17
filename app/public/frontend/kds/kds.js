@@ -98,6 +98,9 @@ function renderKdsUI() {
     if (waitMinutes >= 15) slaBadgeClass = 'bg-danger';
 
     const cardBorder = isPending ? (waitMinutes >= 15 ? 'border-danger border-2' : 'border-warning') : 'border-primary';
+    const thumbHtml = item.image_url
+      ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(itemName)}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.style.display='none'">`
+      : '';
 
     return `
       <div class="col">
@@ -109,9 +112,12 @@ function renderKdsUI() {
             </span>
           </div>
           <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <h5 class="card-title fw-bold text-dark mb-0">${escapeHtml(itemName)}</h5>
-              <span class="badge bg-danger fs-6">x${quantity}</span>
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+              <div class="d-flex align-items-center gap-2 min-w-0">
+                ${thumbHtml}
+                <h5 class="card-title fw-bold text-dark mb-0">${escapeHtml(itemName)}</h5>
+              </div>
+              <span class="badge bg-danger fs-6 flex-shrink-0">x${quantity}</span>
             </div>
             <p class="card-text text-secondary mb-0">
               <strong>Ghi chú:</strong> <span class="text-danger fw-semibold">${escapeHtml(note)}</span>

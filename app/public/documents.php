@@ -83,7 +83,7 @@ if ($ajaxAction === 'bill') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/css/staff-portal.css">
-    <title>DineFlow - Hóa Đơn & Chứng Từ Thanh Toán (Bài D: In Ấn & Transaction)</title>
+    <title>DineFlow - Hóa Đơn & Chứng Từ Thanh Toán</title>
     <!-- Google Fonts Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -92,7 +92,7 @@ if ($ajaxAction === 'bill') {
     <style>
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         
-        /* Chuẩn hóa in ấn @media print (Bài D) */
+        /* Chuẩn hóa in ấn */
         @media print {
             body { background: #ffffff !important; color: #000000 !important; }
             header, nav, .no-print, button, a { display: none !important; }
@@ -203,7 +203,7 @@ if ($ajaxAction === 'bill') {
 
                 <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
                     <p class="font-semibold">Cảm ơn quý khách đã thưởng thức tại DineFlow!</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">Chứng từ thanh toán áp dụng Transaction nguyên tử & hỗ trợ in chuẩn @media print</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Hẹn gặp lại quý khách vào lần sau</p>
                 </div>
 
                 <div class="mt-6 flex justify-end gap-2.5 no-print">
@@ -223,8 +223,8 @@ if ($ajaxAction === 'bill') {
         <div class="bg-white rounded-xl p-5 border border-slate-200 shadow-xs no-print">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h2 class="text-base font-bold text-slate-900">Danh Sách Hóa Đơn Thanh Toán Nhà Hàng DineFlow</h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Lịch sử thu ngân chốt bàn, snapshot đơn giá và xuất hóa đơn.</p>
+                    <h2 class="text-base font-bold text-slate-900">Danh Sách Hóa Đơn Thanh Toán</h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Tra cứu lịch sử thu ngân chốt bàn và in lại hóa đơn.</p>
                 </div>
             </div>
 
@@ -362,7 +362,7 @@ if ($ajaxAction === 'bill') {
                         </div>
                         <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
                             <p class="font-semibold">Cảm ơn quý khách đã thưởng thức tại DineFlow!</p>
-                            <p class="text-[10px] text-slate-400 mt-0.5">Chứng từ thanh toán áp dụng Transaction nguyên tử & hỗ trợ in chuẩn @media print</p>
+                            <p class="text-[10px] text-slate-400 mt-0.5">Hẹn gặp lại quý khách vào lần sau</p>
                         </div>
                         <div class="mt-6 flex justify-end gap-2.5 no-print">
                             <a href="documents.php" class="close-bill-btn px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">Đóng</a>

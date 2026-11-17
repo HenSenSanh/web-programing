@@ -47,7 +47,12 @@ if (($path === '' || $path === '/' || $path === '/health') && $method === 'GET')
     exit;
 }
 
-// 1. TV1: Admin Tables & Catalog
+// 1. Admin Tables & Catalog
+if ($path === '/admin/qr-public-url' && $method === 'GET') {
+    requireApiPermission('tables.view');
+    $admin->getQrPublicUrl();
+    exit;
+}
 if ($path === '/admin/tables' && $method === 'GET') {
     requireApiPermission('tables.view');
     $admin->getTables();
@@ -107,7 +112,7 @@ if (preg_match('#^/admin/toppings/(\d+)/toggle-availability$#', $path, $m) && ($
     exit;
 }
 
-// 2. TV2: Client QR Menu & Orders
+// 2. Client QR Menu & Orders
 if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
     $client->getSessionInfo($m[1]);
     exit;
@@ -130,7 +135,7 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/order-items/(\d+)/cancel$#', 
     exit;
 }
 
-// 3. TV3: Staff KDS & POS
+// 3. Staff KDS & POS
 if ($path === '/staff/kds/active-items' && $method === 'GET') {
     requireApiPermission('kds.view');
     $kdsPos->getKdsActiveItems();
@@ -157,7 +162,7 @@ if (preg_match('#^/staff/pos/checkout/([a-zA-Z0-9_-]+)$#', $path, $m) && $method
     exit;
 }
 
-// 4. TV4: Data Pipeline & Live Ops
+// 4. Data Pipeline & Live Ops
 if ($path === '/data/clickstream' && $method === 'POST') {
     $data->recordClickstream();
     exit;
@@ -203,7 +208,7 @@ if ($path === '/data/peak-hours' && $method === 'GET') {
     exit;
 }
 
-// 5. TV5: BI Analytics
+// 5. BI Analytics
 if ($path === '/bi/dashboard-summary' && $method === 'GET') {
     requireApiPermission('reports.view');
     $data->getBiDashboardSummary();

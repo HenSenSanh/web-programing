@@ -406,7 +406,7 @@ async function loadRecommendationsPreview(itemId) {
 async function triggerBatchETL() {
     const btn = document.getElementById('btnTriggerEtl');
     btn.disabled = true;
-    btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>Đang đồng bộ kho OLAP...</span>`;
+    btn.innerHTML = `<svg class="animate-spin w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg><span>Đang cập nhật số liệu...</span>`;
 
     try {
         const res = await fetch('/api/v1/data/trigger-batch-etl', {
@@ -415,13 +415,13 @@ async function triggerBatchETL() {
         });
         const data = await res.json();
         const count = data.sessions_synced_to_olap ?? data.processed_sessions ?? 0;
-        showToast(`Đồng bộ thành công ${count} phiên bàn vào Kho Dữ Liệu Star Schema (OLAP)!`, 'success');
+        showToast(`Cập nhật thành công ${count} phiên bàn vào báo cáo doanh thu!`, 'success');
         await pollLiveOpsAndSla();
     } catch (err) {
-        showToast("Lỗi khi chạy ETL: " + err.message, "error");
+        showToast("Lỗi khi đồng bộ số liệu: " + err.message, "error");
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span>Kích Hoạt Đồng Bộ Batch ETL Ngay</span>`;
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span>Cập Nhật Số Liệu Báo Cáo Ngay</span>`;
     }
 }
 

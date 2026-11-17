@@ -1,4 +1,4 @@
-// Phần 2: mã riêng của trang khách quét QR (kết nối Clickstream & Gợi ý món của TV4).
+// DineFlow Client QR Menu: giỏ hàng chung, theo dõi đơn, clickstream & gợi ý món ăn kèm.
 (() => {
   "use strict";
 
@@ -380,7 +380,7 @@
             `).join("")}
           </div>
         ` : ""}
-        <div id="tv4-recommendations-box" style="margin-top: 14px;"></div>
+        <div id="recommendations-box" style="margin-top: 14px;"></div>
         <div class="option-heading">GHI CHÚ CHO BẾP</div>
         <textarea id="item-note" class="note-input" placeholder="Ví dụ: ít cay, nhiều đá, không hành…"></textarea>
         <div class="dialog-add-row">
@@ -396,7 +396,7 @@
     bindImageFallbacks(els.dialogContent);
     els.dialog.showModal();
 
-    // [TV4] Ghi nhận sự kiện khách xem món (Clickstream VIEW_ITEM)
+    // Ghi nhận sự kiện khách xem món (Clickstream VIEW_ITEM)
     if (sessionToken) {
       fetch(`${API_BASE}/api/v1/data/clickstream`, {
         method: "POST",
@@ -409,12 +409,12 @@
       }).catch(() => {});
     }
 
-    // [TV4] Lấy gợi ý món hay mua kèm (Apriori Recommendations) từ đơn thực tế
+    // Lấy gợi ý món hay mua kèm từ đơn hàng thực tế
     fetch(`${API_BASE}/api/v1/data/recommendations/${item.id}`)
       .then((res) => res.json())
       .then((data) => {
         const recs = (data && data.recommendations) || [];
-        const box = $("#tv4-recommendations-box");
+        const box = $("#recommendations-box");
         if (!box || !recs.length) return;
         box.innerHTML = `
           <div class="option-heading" style="color: #245b43;">🔥 MÓN HAY ĐƯỢC GỌI KÈM CÙNG</div>

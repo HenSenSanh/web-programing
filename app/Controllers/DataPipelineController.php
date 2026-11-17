@@ -790,7 +790,7 @@ class DataPipelineController
                 . $cellStr(2, 1, '', 1) . $cellStr(3, 1, '', 1) . $cellStr(4, 1, '', 1) . $cellStr(5, 1, '', 1) . $cellStr(6, 1, '', 1)
                 . '</row>';
             $sheetRowsXml .= '<row r="2" ht="22" customHeight="1">'
-                . $cellStr(1, 2, "Phân hệ TV5: BI Analytics • Thời điểm xuất báo cáo: {$nowStr} • Đơn vị tiền tệ: VNĐ", 2)
+                . $cellStr(1, 2, "DineFlow BI Analytics • Thời điểm xuất báo cáo: {$nowStr} • Đơn vị tiền tệ: VNĐ", 2)
                 . $cellStr(2, 2, '', 2) . $cellStr(3, 2, '', 2) . $cellStr(4, 2, '', 2) . $cellStr(5, 2, '', 2) . $cellStr(6, 2, '', 2)
                 . '</row>';
             $sheetRowsXml .= '<row r="3" ht="10" customHeight="1"/>';
@@ -874,7 +874,7 @@ class DataPipelineController
             $sheetRowsXml .= '</row>';
 
             $sheetRowsXml .= '<row r="2" ht="22" customHeight="1">'
-                . $cellStr(1, 2, "Phân hệ TV5: BI & Menu Engineering (Star Schema OLAP) • Xuất lúc: {$nowStr} • Tổng số: " . count($matrixRows) . " món ăn", 2);
+                . $cellStr(1, 2, "Báo cáo BI & Menu Engineering • Xuất lúc: {$nowStr} • Tổng số: " . count($matrixRows) . " món ăn", 2);
             for ($c = 2; $c <= 10; $c++) {
                 $sheetRowsXml .= $cellStr($c, 2, '', 2);
             }
@@ -1085,6 +1085,7 @@ class DataPipelineController
                 m.id,
                 m.name,
                 m.price,
+                m.image_url,
                 COALESCE(cat.name, 'Thực đơn chung') as category_name,
                 COALESCE(c.views, 0) as views,
                 COALESCE(s.total_sold, 0) as total_sold,

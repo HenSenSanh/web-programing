@@ -199,9 +199,6 @@ if (($_GET['ajax'] ?? '') === 'table') {
                     | Hết món: <strong class="text-rose-700"><?php echo $unavailableCount; ?></strong>)
                 </p>
             </div>
-            <p class="mb-3 text-[11px] text-slate-500">
-                Phân trang theo kết quả lọc; số liệu đang bán/hết món được tính trên toàn catalog.
-            </p>
 
             <div class="overflow-x-auto rounded-xl border border-slate-200">
                 <table class="w-full min-w-[760px] text-left text-xs">
@@ -236,9 +233,24 @@ if (($_GET['ajax'] ?? '') === 'table') {
                             ?>
                             <tr class="hover:bg-slate-50" data-menu-row="<?php echo (int)$item['id']; ?>">
                                 <td class="whitespace-nowrap px-3 py-3 font-mono text-indigo-700"><?php echo htmlspecialchars($item['sku'] ?? '—', ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td class="px-3 py-3">
-                                    <div class="font-semibold text-slate-900"><?php echo htmlspecialchars($item['name'], ENT_QUOTES, 'UTF-8'); ?></div>
-                                    <?php if ((bool)$item['is_hot']): ?><span class="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Món nổi bật</span><?php endif; ?>
+                                <td class="px-3 py-2.5">
+                                    <div class="flex items-center gap-3">
+                                        <?php $imgSrc = trim((string)($item['image_url'] ?? '')); ?>
+                                        <div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">
+                                            <?php if ($imgSrc !== ''): ?>
+                                                <img src="<?php echo htmlspecialchars($imgSrc, ENT_QUOTES, 'UTF-8'); ?>"
+                                                     alt="<?php echo htmlspecialchars($item['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                     class="h-full w-full object-cover" loading="lazy"
+                                                     onerror="this.parentElement.innerHTML='<div class=&quot;flex h-full w-full items-center justify-center text-base&quot;>🍽️</div>'">
+                                            <?php else: ?>
+                                                <div class="flex h-full w-full items-center justify-center text-base">🍽️</div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-slate-900"><?php echo htmlspecialchars($item['name'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                            <?php if ((bool)$item['is_hot']): ?><span class="mt-0.5 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Món nổi bật</span><?php endif; ?>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="px-3 py-3"><?php echo htmlspecialchars($item['category_name'], ENT_QUOTES, 'UTF-8'); ?></td>
                                 <td class="px-3 py-3 text-slate-500"><?php echo htmlspecialchars($item['unit_name'] ?? '—', ENT_QUOTES, 'UTF-8'); ?></td>
@@ -428,12 +440,20 @@ if (($_GET['ajax'] ?? '') === 'table') {
                                     data-menu-item="${escapeHtml(JSON.stringify(editableItem))}">Sửa món</button>
                        </td>`
                     : '';
+                const imgThumb = editableItem.image_url
+                    ? `<img src="${escapeHtml(editableItem.image_url)}" alt="${escapeHtml(editableItem.name)}" class="h-full w-full object-cover" loading="lazy" onerror="this.parentElement.innerHTML='<div class=&quot;flex h-full w-full items-center justify-center text-base&quot;>🍽️</div>'">`
+                    : `<div class="flex h-full w-full items-center justify-center text-base">🍽️</div>`;
                 return `
                     <tr class="hover:bg-slate-50" data-menu-row="${editableItem.id}">
                         <td class="whitespace-nowrap px-3 py-3 font-mono text-indigo-700">${escapeHtml(item.sku || '—')}</td>
-                        <td class="px-3 py-3">
-                            <div class="font-semibold text-slate-900">${escapeHtml(editableItem.name)}</div>
-                            ${editableItem.is_hot ? '<span class="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Món nổi bật</span>' : ''}
+                        <td class="px-3 py-2.5">
+                            <div class="flex items-center gap-3">
+                                <div class="h-11 w-11 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-100">${imgThumb}</div>
+                                <div>
+                                    <div class="font-semibold text-slate-900">${escapeHtml(editableItem.name)}</div>
+                                    ${editableItem.is_hot ? '<span class="mt-0.5 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Món nổi bật</span>' : ''}
+                                </div>
+                            </div>
                         </td>
                         <td class="px-3 py-3">${escapeHtml(item.category_name || '')}</td>
                         <td class="px-3 py-3 text-slate-500">${escapeHtml(item.unit_name || '—')}</td>

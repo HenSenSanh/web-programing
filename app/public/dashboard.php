@@ -123,12 +123,13 @@ $revenueByHour = $pdo->query("
     ORDER BY t.hour ASC
 ")->fetchAll();
 
-// Ma trận Menu Engineering (TV5)
+// Ma trận Menu Engineering
 $rawMatrix = $pdo->query("
     SELECT
         m.id,
         m.name,
         m.price,
+        m.image_url,
         COALESCE(cat.name, 'Thực đơn') as category_name,
         COALESCE(c.views, 0) as views,
         COALESCE(s.total_sold, 0) as total_sold,
@@ -189,6 +190,7 @@ foreach ($rawMatrix as $rm) {
     $menuMatrix[] = [
         'id' => (int)$rm['id'],
         'name' => $rm['name'],
+        'image_url' => $rm['image_url'] ?? '',
         'category_name' => $rm['category_name'],
         'price' => (float)$rm['price'],
         'views' => $views,
@@ -235,14 +237,13 @@ foreach ($rawMatrix as $rm) {
                         Xin chào, <span class="text-indigo-600"><?php echo htmlspecialchars($_SESSION['username']); ?></span>!
                     </h2>
                     <p class="text-xs text-slate-500 mt-0.5">
-                        Tài khoản: <strong><?php echo htmlspecialchars($_SESSION['email']); ?></strong> • Đăng nhập an toàn qua hệ thống xác thực DineFlow (Mục 38-40 PDF)
+                        Tài khoản: <strong><?php echo htmlspecialchars($_SESSION['email']); ?></strong> • Phiên làm việc nhân sự DineFlow
                     </p>
                 </div>
             </div>
 
-            <!-- RBAC Roles Tags (Bài B) -->
             <div class="flex items-center gap-2">
-                <span class="text-xs font-semibold text-slate-600">Nhóm quyền hiệu lực (Bài B):</span>
+                <span class="text-xs font-semibold text-slate-600">Vai trò:</span>
                 <?php if (!empty($userRoles)): ?>
                     <?php foreach ($userRoles as $r): ?>
                         <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -283,7 +284,7 @@ foreach ($rawMatrix as $rm) {
                     <span class="text-2xl font-bold text-emerald-600"><?php echo $totalMenuItems; ?></span>
                     <span class="text-xs text-slate-500">món ăn</span>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">Phân trang DB thật: COUNT / LIMIT / OFFSET</p>
+                <p class="text-[11px] text-slate-500 mt-1">Đang mở phục vụ trên thực đơn điện tử</p>
             </div>
 
             <!-- Chờ bếp KDS nấu -->
@@ -296,7 +297,7 @@ foreach ($rawMatrix as $rm) {
                     <span class="text-2xl font-bold text-amber-600"><?php echo $kdsPendingCount; ?></span>
                     <span class="text-xs text-slate-500">món trên KDS</span>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">Giám sát SLA chế biến (Ngưỡng 900s)</p>
+                <p class="text-[11px] text-slate-500 mt-1">Mục tiêu ra món dưới 15 phút</p>
             </div>
 
             <!-- Doanh thu hôm nay -->
@@ -308,17 +309,17 @@ foreach ($rawMatrix as $rm) {
                 <div class="flex items-baseline gap-2">
                     <span class="text-2xl font-bold text-sky-700"><?php echo number_format($todayRevenue, 0, ',', '.'); ?> đ</span>
                 </div>
-                <p class="text-[11px] text-slate-500 mt-1">Thanh toán POS & Kho Star Schema</p>
+                <p class="text-[11px] text-slate-500 mt-1">Tổng hợp từ các phiên đã thanh toán</p>
             </div>
 
         </div>
 
-        <!-- Team Module Quick Access Portal -->
+        <!-- Quick Access Portal -->
         <div class="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4">
             <div class="flex items-center justify-between">
                 <div>
-                    <h3 class="text-sm font-bold text-slate-900">Liên Kết Trực Tiếp Sang Các Màn Hình Phân Hệ Cả Nhóm</h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Tích hợp đồng bộ kiến trúc Modular Monolith: TV1, TV2, TV3, TV4, TV5</p>
+                    <h3 class="text-sm font-bold text-slate-900">Truy Cập Nhanh Các Khu Vực Vận Hành</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Chuyển nhanh giữa các màn hình làm việc trong ca</p>
                 </div>
             </div>
 
@@ -326,56 +327,56 @@ foreach ($rawMatrix as $rm) {
                 <a href="/frontend/admin/table-management.php" data-portal-tab="tables" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base">🪑</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Quản Lý Bàn Ăn & Mã QR (TV1)</strong>
-                        <span class="text-slate-500 text-[11px]">Mở bàn, gán khách và in mã QR theo phiên</span>
+                        <strong class="text-slate-900 block text-xs">Quản Lý Bàn Ăn &amp; Mã QR</strong>
+                        <span class="text-slate-500 text-[11px]">Mở bàn, tạo phiên phục vụ và xuất mã QR</span>
                     </div>
                 </a>
 
                 <a href="products.php" data-portal-tab="products" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base">🍲</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Quản Lý Món</strong>
-                        <span class="text-slate-500 text-[11px]">Món ăn, topping, giá bán và trạng thái phục vụ</span>
+                        <strong class="text-slate-900 block text-xs">Quản Lý Thực Đơn</strong>
+                        <span class="text-slate-500 text-[11px]">Món ăn, hình ảnh, topping và trạng thái phục vụ</span>
                     </div>
                 </a>
 
                 <a href="/frontend/menu/index.html?token=tbl-01-sess" target="_blank" class="p-3.5 rounded-xl border border-slate-200 hover:border-emerald-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base">📱</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Menu Khách Quét QR (TV2)</strong>
-                        <span class="text-slate-500 text-[11px]">Giỏ hàng chung thời gian thực, gợi ý món kèm</span>
+                        <strong class="text-slate-900 block text-xs">Menu Khách Gọi Món</strong>
+                        <span class="text-slate-500 text-[11px]">Xem thực đơn QR, giỏ hàng chung và gợi ý món kèm</span>
                     </div>
                 </a>
 
                 <a href="/frontend/kds/index.php" data-portal-tab="kds" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-base">👨‍🍳</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Màn Hình Điều Phối Bếp KDS (TV3)</strong>
-                        <span class="text-slate-500 text-[11px]">Tiếp nhận món, chuyển trạng thái nấu, đo SLA</span>
+                        <strong class="text-slate-900 block text-xs">Điều Phối Bếp (KDS)</strong>
+                        <span class="text-slate-500 text-[11px]">Nhận đơn mới, cập nhật chế biến và thời gian phục vụ</span>
                     </div>
                 </a>
 
                 <a href="/frontend/pos/index.php" data-portal-tab="pos" class="p-3.5 rounded-xl border border-slate-200 hover:border-rose-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-base">💳</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Màn Hình Thu Ngân POS (TV3)</strong>
-                        <span class="text-slate-500 text-[11px]">Tính tiền VAT 8%, VietQR và đóng phiên bàn</span>
+                        <strong class="text-slate-900 block text-xs">Thu Ngân (POS)</strong>
+                        <span class="text-slate-500 text-[11px]">Tính tiền VAT 8%, VietQR và đóng bàn</span>
                     </div>
                 </a>
 
                 <a href="documents.php" data-portal-tab="documents" class="p-3.5 rounded-xl border border-slate-200 hover:border-sky-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-base">🧾</div>
                     <div>
-                        <strong class="text-slate-900 block text-xs">Hóa Đơn & In Bill Chuẩn (Bài D - TV3)</strong>
-                        <span class="text-slate-500 text-[11px]">Transaction thanh toán, khóa dòng, in ấn @media print</span>
+                        <strong class="text-slate-900 block text-xs">Hóa Đơn &amp; In Bill</strong>
+                        <span class="text-slate-500 text-[11px]">Tra cứu chứng từ thanh toán và in hóa đơn chuẩn</span>
                     </div>
                 </a>
 
                 <a href="/frontend/live-ops/index.php" data-portal-tab="live-ops" class="p-3.5 rounded-xl border border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 transition flex items-center gap-3 sm:col-span-2 lg:col-span-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base">⚡</div>
                     <div>
-                        <strong class="text-indigo-900 block text-xs">Data Pipeline & Live Ops (TV4)</strong>
-                        <span class="text-indigo-600 text-[11px]">Khai phá Apriori, SLA bếp, đồng bộ Star Schema</span>
+                        <strong class="text-indigo-900 block text-xs">Giám Sát Vận Hành Trực Tiếp (Live Ops)</strong>
+                        <span class="text-indigo-600 text-[11px]">Theo dõi hoạt động bếp thời gian thực và gợi ý combo bán kèm</span>
                     </div>
                 </a>
             </div>
@@ -426,30 +427,22 @@ foreach ($rawMatrix as $rm) {
             </div>
         </div>
 
-        <!-- ========================================================================= -->
-        <!-- PHÂN HỆ TV5: TRUNG TÂM BÁO CÁO BI, STAR SCHEMA OLAP & MENU ENGINEERING    -->
-        <!-- ========================================================================= -->
-        <section id="tv5-bi-analytics" class="bg-white rounded-xl border border-teal-200 shadow-xs overflow-hidden">
-            <!-- Header TV5 -->
+        <!-- BÁO CÁO DOANH THU & PHÂN TÍCH THỰC ĐƠN -->
+        <section id="bi-analytics-section" class="bg-white rounded-xl border border-teal-200 shadow-xs overflow-hidden">
             <div class="px-5 py-4 bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 text-white flex flex-wrap items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-teal-500/20 border border-teal-400/40 flex items-center justify-center text-xl">
                         📊
                     </div>
                     <div>
-                        <div class="flex items-center gap-2">
-                            <h3 class="text-sm sm:text-base font-bold tracking-tight">PHÂN HỆ TV5 — BÁO CÁO DOANH THU BI & MA TRẬN MENU ENGINEERING</h3>
-                            <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-teal-400/20 text-teal-200 border border-teal-400/30">
-                                Star Schema OLAP
-                            </span>
-                        </div>
+                        <h3 class="text-sm sm:text-base font-bold tracking-tight">BÁO CÁO DOANH THU &amp; MA TRẬN THỰC ĐƠN</h3>
                         <p class="text-xs text-teal-100/80 mt-0.5">
-                            Truy vấn trực tiếp từ kho dữ liệu hình sao (<code class="text-teal-200">fact_order_items</code>, <code class="text-teal-200">fact_clickstream</code>, <code class="text-teal-200">dim_time</code>, <code class="text-teal-200">dim_menu_item</code>) • Đảm bảo ETL Idempotent (AT-20)
+                            Số liệu kinh doanh theo ngày, khung giờ cao điểm và hiệu quả từng món ăn
                         </p>
                     </div>
                 </div>
 
-                <!-- Các nút Xuất Báo Cáo Excel (.xlsx chuẩn OpenXML) (TASK-5.4) -->
+                <!-- Xuất Báo Cáo Excel (.xlsx) -->
                 <div class="flex flex-wrap items-center gap-2 text-xs">
                     <a href="/api/v1/bi/export-report?type=menu-matrix&format=xlsx" class="px-3 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-semibold transition shadow-xs flex items-center gap-1.5">
                         <span>📥 Xuất Excel Ma Trận Món (.xlsx)</span>
@@ -461,57 +454,53 @@ foreach ($rawMatrix as $rm) {
             </div>
 
             <div class="p-5 space-y-6">
-                <!-- 4 KPI Chuyên Sâu Kho OLAP (TV5) -->
+                <!-- 4 KPI Báo Cáo Doanh Thu -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div class="rounded-xl p-4 bg-teal-50/60 border border-teal-200">
                         <div class="flex items-center justify-between text-xs text-teal-800 font-semibold mb-1">
-                            <span>DOANH THU THUẦN OLAP</span>
-                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">fact_order_items</span>
+                            <span>TỔNG DOANH THU</span>
                         </div>
                         <div class="text-2xl font-extrabold text-teal-900">
                             <?php echo number_format($olapTotalRevenue, 0, ',', '.'); ?> đ
                         </div>
                         <p class="text-[11px] text-teal-700 mt-1">
-                            Trung bình đơn (AOV): <strong><?php echo number_format($olapAov, 0, ',', '.'); ?> đ/phiên</strong>
+                            Trung bình đơn: <strong><?php echo number_format($olapAov, 0, ',', '.'); ?> đ/bàn</strong>
                         </p>
                     </div>
 
                     <div class="rounded-xl p-4 bg-indigo-50/60 border border-indigo-200">
                         <div class="flex items-center justify-between text-xs text-indigo-800 font-semibold mb-1">
-                            <span>SỐ LƯỢNG MÓN & PHIÊN MUA</span>
-                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">OLAP Volume</span>
+                            <span>SỐ LƯỢNG MÓN &amp; PHIÊN BÀN</span>
                         </div>
                         <div class="text-2xl font-extrabold text-indigo-900">
                             <?php echo number_format($olapTotalSold, 0, ',', '.'); ?> <span class="text-sm font-semibold">phần</span>
                         </div>
                         <p class="text-[11px] text-indigo-700 mt-1">
-                            Trên tổng số <strong><?php echo $olapPurchaseSessions; ?> phiên bàn</strong> đã đồng bộ ETL
+                            Trên tổng số <strong><?php echo $olapPurchaseSessions; ?> phiên bàn</strong> đã ghi nhận
                         </p>
                     </div>
 
                     <div class="rounded-xl p-4 bg-amber-50/60 border border-amber-200">
                         <div class="flex items-center justify-between text-xs text-amber-800 font-semibold mb-1">
-                            <span>CHUYỂN ĐỔI CLICKSTREAM</span>
-                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">fact_clickstream</span>
+                            <span>TỶ LỆ CHỌN MÓN</span>
                         </div>
                         <div class="text-2xl font-extrabold text-amber-900">
                             <?php echo $olapConversionRate; ?>%
                         </div>
                         <p class="text-[11px] text-amber-700 mt-1">
-                            Lượt xem món: <strong><?php echo $totalClicksCount; ?> views</strong> (<?php echo $clickSessionsCount; ?> phiên xem)
+                            Lượt xem món: <strong><?php echo $totalClicksCount; ?> lượt</strong> (<?php echo $clickSessionsCount; ?> lượt bàn xem)
                         </p>
                     </div>
 
                     <div class="rounded-xl p-4 bg-rose-50/60 border border-rose-200">
                         <div class="flex items-center justify-between text-xs text-rose-800 font-semibold mb-1">
-                            <span>TUÂN THỦ SLA BẾP (&le; 15P)</span>
-                            <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800">Ngưỡng 900s</span>
+                            <span>ĐÚNG HẠN BẾP (&le; 15 PHÚT)</span>
                         </div>
                         <div class="text-2xl font-extrabold text-rose-900">
                             <?php echo $olapSlaCompliance; ?>%
                         </div>
                         <p class="text-[11px] text-rose-700 mt-1">
-                            TB chế biến: <strong><?php echo $olapAvgPrepMin; ?> phút</strong> • Vi phạm SLA: <strong><?php echo $olapSlaViolations; ?> món</strong>
+                            TB chế biến: <strong><?php echo $olapAvgPrepMin; ?> phút</strong> • Quá hạn: <strong><?php echo $olapSlaViolations; ?> món</strong>
                         </p>
                     </div>
                 </div>
@@ -522,8 +511,8 @@ foreach ($rawMatrix as $rm) {
                     <div class="rounded-xl border border-slate-200 p-4 bg-slate-50/50 flex flex-col justify-between">
                         <div class="flex items-center justify-between mb-3">
                             <div>
-                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">📈 Biểu Đồ Doanh Thu Theo Ngày (dim_time)</h4>
-                                <p class="text-[11px] text-slate-500">Nguồn API: <code>GET /api/v1/bi/revenue-over-time</code></p>
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">📈 Doanh Thu Theo Ngày</h4>
+                                <p class="text-[11px] text-slate-500">Xu hướng doanh số bán hàng theo từng ngày</p>
                             </div>
                             <span class="text-[11px] font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                                 <?php echo count($revenueByDate); ?> ngày ghi nhận
@@ -538,14 +527,14 @@ foreach ($rawMatrix as $rm) {
                         ?>
                         <div class="h-44 bg-white border border-slate-200 rounded-lg p-3 flex items-end gap-3 overflow-x-auto">
                             <?php if (empty($revenueByDate)): ?>
-                                <p class="text-xs text-slate-400 italic m-auto">Chưa có dữ liệu doanh thu trong Star Schema.</p>
+                                <p class="text-xs text-slate-400 italic m-auto">Chưa có dữ liệu doanh thu.</p>
                             <?php else: ?>
                                 <?php foreach ($revenueByDate as $rd): ?>
                                     <?php
                                         $revVal = (float)$rd['revenue'];
                                         $pct = max(8, round(($revVal / $maxDayRev) * 100));
                                     ?>
-                                    <div class="flex flex-col items-center justify-end h-full flex-1 min-w-[64px]" title="<?php echo htmlspecialchars($rd['date']); ?>: <?php echo number_format($revVal, 0, ',', '.'); ?> đ">
+                                    <div class="flex flex-col items-center justify-end h-full flex-1 min-w-[54px]" title="<?php echo htmlspecialchars($rd['date']); ?>: <?php echo number_format($revVal, 0, ',', '.'); ?> đ">
                                         <span class="text-[10px] font-mono font-bold text-indigo-700 mb-1">
                                             <?php echo number_format($revVal / 1000, 0, ',', '.'); ?>k
                                         </span>
@@ -558,13 +547,13 @@ foreach ($rawMatrix as $rm) {
                         </div>
                     </div>
 
-                    <!-- Biểu đồ 2: Phân tích Khung Giờ Cao Điểm & Đối Soát POS vs OLAP -->
+                    <!-- Biểu đồ 2: Khung giờ cao điểm & Đối soát tài chính -->
                     <div class="rounded-xl border border-slate-200 p-4 bg-slate-50/50 flex flex-col justify-between space-y-3">
                         <div>
                             <div class="flex items-center justify-between mb-2">
                                 <div>
-                                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">⏰ Phân Tích Khung Giờ Cao Điểm (Peak Hours)</h4>
-                                    <p class="text-[11px] text-slate-500">Nguồn API: <code>GET /api/v1/data/peak-hours</code></p>
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800">⏰ Khung Giờ Cao Điểm</h4>
+                                    <p class="text-[11px] text-slate-500">Thống kê lượt phục vụ theo khung giờ trong ngày</p>
                                 </div>
                             </div>
                             <div class="grid grid-cols-3 gap-2">
@@ -585,31 +574,29 @@ foreach ($rawMatrix as $rm) {
                             </div>
                         </div>
 
-                        <!-- Bảng đối soát minh bạch giữa OLTP (POS Bill) và OLAP (Fact Order Items) -->
                         <div class="bg-white border border-teal-200 rounded-lg p-3 text-xs space-y-1.5">
                             <div class="font-bold text-teal-900 flex items-center justify-between">
-                                <span>🛡️ Đối Soát Dữ Liệu Tài Chính (BI Integrity Check - AT-20)</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Khớp chuẩn 100%</span>
+                                <span>🛡️ Tổng Hợp Đối Soát Tài Chính</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold">Đã đối soát</span>
                             </div>
                             <p class="text-[11px] text-slate-600 leading-relaxed">
-                                • <strong>Kho OLAP (<code>fact_order_items</code>):</strong> Ghi nhận <strong>Doanh thu thuần món ăn (Net Item Revenue)</strong> trước thuế = <strong><?php echo number_format($olapTotalRevenue, 0, ',', '.'); ?> đ</strong>.<br>
-                                • <strong>Hóa đơn Thu ngân POS (<code>bill_payments</code>):</strong> Ghi nhận các hóa đơn đã thu tiền gồm Tạm tính (<strong><?php echo number_format((float)($posSummary['pos_subtotal'] ?? 0), 0, ',', '.'); ?> đ</strong>) + Thuế VAT 8% (<strong><?php echo number_format((float)($posSummary['pos_vat'] ?? 0), 0, ',', '.'); ?> đ</strong>, làm tròn mốc 500đ) = <strong><?php echo number_format((float)($posSummary['pos_final'] ?? 0), 0, ',', '.'); ?> đ</strong>.
+                                • <strong>Doanh thu món ăn trước thuế:</strong> <strong><?php echo number_format($olapTotalRevenue, 0, ',', '.'); ?> đ</strong>.<br>
+                                • <strong>Tổng hóa đơn thu tại quầy POS:</strong> Tạm tính (<strong><?php echo number_format((float)($posSummary['pos_subtotal'] ?? 0), 0, ',', '.'); ?> đ</strong>) + VAT 8% (<strong><?php echo number_format((float)($posSummary['pos_vat'] ?? 0), 0, ',', '.'); ?> đ</strong>) = <strong><?php echo number_format((float)($posSummary['pos_final'] ?? 0), 0, ',', '.'); ?> đ</strong>.
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Bảng Ma Trận Menu Engineering (4 Góc Phần Tư) -->
+                <!-- Bảng Ma Trận Menu Engineering -->
                 <div class="rounded-xl border border-slate-200 overflow-hidden bg-white">
                     <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <h4 class="text-sm font-bold text-slate-900">🍽️ Ma Trận Menu Engineering (Lượt Xem Clickstream vs Lượt Bán &amp; Phân Nhóm 4 Góc Phần Tư)</h4>
+                            <h4 class="text-sm font-bold text-slate-900">🍽️ Ma Trận Hiệu Quả Thực Đơn (4 Nhóm Món Ăn)</h4>
                             <p class="text-xs text-slate-500 mt-0.5">
-                                Nguồn API: <code>GET /api/v1/bi/menu-engineering-matrix</code> • Ngưỡng TB nhóm có tương tác: <strong><?php echo round($avgSoldThreshold, 1); ?> phần</strong> &amp; <strong><?php echo number_format($avgRevThreshold, 0, ',', '.'); ?> đ</strong>
+                                Ngưỡng trung bình thực đơn: <strong><?php echo round($avgSoldThreshold, 1); ?> phần</strong> &amp; <strong><?php echo number_format($avgRevThreshold, 0, ',', '.'); ?> đ</strong>
                             </p>
                         </div>
 
-                        <!-- Bộ lọc 4 nhóm Quadrant trên DOM -->
                         <div class="flex flex-wrap items-center gap-1.5 text-xs">
                             <button type="button" onclick="filterMenuMatrix('ALL')" id="btn-quad-ALL" class="quad-filter-btn px-2.5 py-1.5 rounded-lg font-semibold bg-slate-800 text-white transition">
                                 Tất cả (<?php echo count($menuMatrix); ?>)
@@ -634,34 +621,46 @@ foreach ($rawMatrix as $rm) {
                             <thead class="bg-slate-100 text-slate-600 uppercase text-[11px] sticky top-0 border-b border-slate-200">
                                 <tr>
                                     <th class="py-2.5 px-3">Mã</th>
-                                    <th class="py-2.5 px-3">Tên Món Ăn</th>
+                                    <th class="py-2.5 px-3">Món Ăn</th>
                                     <th class="py-2.5 px-3">Danh Mục</th>
                                     <th class="py-2.5 px-3 text-right">Đơn Giá</th>
-                                    <th class="py-2.5 px-3 text-right">Lượt Xem (Click)</th>
+                                    <th class="py-2.5 px-3 text-right">Lượt Xem</th>
                                     <th class="py-2.5 px-3 text-right">Đã Bán</th>
-                                    <th class="py-2.5 px-3 text-right">Doanh Thu OLAP</th>
-                                    <th class="py-2.5 px-3 text-right">Chuyển Đổi</th>
-                                    <th class="py-2.5 px-3">Phân Nhóm (Quadrant)</th>
-                                    <th class="py-2.5 px-3">Khuyến Nghị Chiến Lược F&amp;B</th>
+                                    <th class="py-2.5 px-3 text-right">Doanh Thu</th>
+                                    <th class="py-2.5 px-3 text-right">Tỷ Lệ Đặt</th>
+                                    <th class="py-2.5 px-3">Phân Nhóm</th>
+                                    <th class="py-2.5 px-3">Đề Xuất Kinh Doanh</th>
                                 </tr>
                             </thead>
-                            <tbody id="tv5MatrixBody" class="divide-y divide-slate-100">
+                            <tbody id="biMatrixBody" class="divide-y divide-slate-100">
                                 <?php foreach ($menuMatrix as $item): ?>
+                                    <?php $mImg = trim((string)($item['image_url'] ?? '')); ?>
                                     <tr class="matrix-row hover:bg-slate-50 transition" data-quadrant="<?php echo htmlspecialchars($item['quadrant_code']); ?>">
-                                        <td class="py-2.5 px-3 font-mono text-slate-500">#<?php echo $item['id']; ?></td>
-                                        <td class="py-2.5 px-3 font-semibold text-slate-900"><?php echo htmlspecialchars($item['name']); ?></td>
-                                        <td class="py-2.5 px-3 text-slate-600"><?php echo htmlspecialchars($item['category_name']); ?></td>
-                                        <td class="py-2.5 px-3 text-right font-mono text-slate-700"><?php echo number_format($item['price'], 0, ',', '.'); ?> đ</td>
-                                        <td class="py-2.5 px-3 text-right font-mono font-semibold text-sky-700"><?php echo $item['views']; ?></td>
-                                        <td class="py-2.5 px-3 text-right font-mono font-bold text-slate-900"><?php echo $item['total_sold']; ?></td>
-                                        <td class="py-2.5 px-3 text-right font-mono font-bold text-teal-700"><?php echo number_format($item['total_revenue'], 0, ',', '.'); ?> đ</td>
-                                        <td class="py-2.5 px-3 text-right font-mono font-semibold text-indigo-700"><?php echo $item['conversion_rate']; ?>%</td>
-                                        <td class="py-2.5 px-3">
+                                        <td class="py-2 px-3 font-mono text-slate-500">#<?php echo $item['id']; ?></td>
+                                        <td class="py-2 px-3">
+                                            <div class="flex items-center gap-2.5">
+                                                <div class="w-9 h-9 rounded-lg overflow-hidden border border-slate-200 bg-slate-100 shrink-0 flex items-center justify-center">
+                                                    <?php if ($mImg !== ''): ?>
+                                                        <img src="<?php echo htmlspecialchars($mImg, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($item['name'], ENT_QUOTES, 'UTF-8'); ?>" class="w-full h-full object-cover" loading="lazy" onerror="this.parentElement.innerHTML='🍽️'">
+                                                    <?php else: ?>
+                                                        <span>🍽️</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <span class="font-semibold text-slate-900"><?php echo htmlspecialchars($item['name']); ?></span>
+                                            </div>
+                                        </td>
+                                        <td class="py-2 px-3 text-slate-600"><?php echo htmlspecialchars($item['category_name']); ?></td>
+                                        <td class="py-2 px-3 text-right font-mono text-slate-700"><?php echo number_format($item['price'], 0, ',', '.'); ?> đ</td>
+                                        <td class="py-2 px-3 text-right font-mono font-semibold text-sky-700"><?php echo $item['views']; ?></td>
+                                        <td class="py-2 px-3 text-right font-mono font-bold text-slate-900"><?php echo $item['total_sold']; ?></td>
+                                        <td class="py-2 px-3 text-right font-mono font-bold text-teal-700"><?php echo number_format($item['total_revenue'], 0, ',', '.'); ?> đ</td>
+                                        <td class="py-2 px-3 text-right font-mono font-semibold text-indigo-700"><?php echo $item['conversion_rate']; ?>%</td>
+                                        <td class="py-2 px-3">
                                             <span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold border <?php echo $item['quadrant_class']; ?>">
                                                 <?php echo htmlspecialchars($item['quadrant_label']); ?>
                                             </span>
                                         </td>
-                                        <td class="py-2.5 px-3 text-[11px] text-slate-600"><?php echo htmlspecialchars($item['recommendation_action']); ?></td>
+                                        <td class="py-2 px-3 text-[11px] text-slate-600"><?php echo htmlspecialchars($item['recommendation_action']); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>

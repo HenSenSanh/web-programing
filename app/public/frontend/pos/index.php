@@ -152,7 +152,7 @@ $staffPortalActive = 'pos';
             </div>
           </div>
 
-          <p class="text-secondary small mb-0">Sau khi hoàn tất, hệ thống sẽ tự động đóng bàn và kích hoạt ETL đẩy dữ liệu sang Star Schema (OLAP).</p>
+          <p class="text-secondary small mb-0">Sau khi xác nhận, hệ thống sẽ tự động đóng phiên bàn và ghi nhận vào báo cáo doanh thu.</p>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy bỏ</button>

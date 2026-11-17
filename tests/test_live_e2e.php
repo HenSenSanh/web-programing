@@ -270,7 +270,10 @@ try {
             && str_contains($dashRes['body'], '/api/v1/bi/export-report')
             && !str_contains($dashRes['body'], 'tv4_data_pipeline.html')
             && !str_contains($dashRes['body'], '/frontend/tv1/')
-            && !str_contains($dashRes['body'], '/frontend/kds.html'),
+            && !str_contains($dashRes['body'], '/frontend/kds.html')
+            && !str_contains($dashRes['body'], 'PHÂN HỆ TV')
+            && !str_contains($dashRes['body'], 'AT-20')
+            && !str_contains($dashRes['body'], 'Mục 38-40'),
         "HTTP {$dashRes['status']}"
     );
 
@@ -510,6 +513,58 @@ try {
         'E2E-BI-EXPORT-XLSX: Authenticated export-report returns valid OpenXML .xlsx binary',
         $xlsxRes['status'] === 200 && str_starts_with($xlsxRes['body'], "PK\x03\x04") && strlen($xlsxRes['body']) > 1000,
         "HTTP {$xlsxRes['status']}, bytes=" . strlen($xlsxRes['body'])
+    );
+
+    $qrPublicRes = httpRequest('GET', $baseUrl . '/api/v1/admin/qr-public-url', null, [], $cookieFile);
+    $tunnelDetected = (string)($qrPublicRes['json']['tunnel_url'] ?? '');
+    assertE2e(
+        'E2E-QR-PUBLIC-URL: GET /api/v1/admin/qr-public-url detects active https trycloudflare.com URL',
+        $qrPublicRes['status'] === 200
+            && is_array($qrPublicRes['json'])
+            && preg_match('#^https://[a-z0-9-]+\.trycloudflare\.com$#i', $tunnelDetected) === 1,
+        "HTTP {$qrPublicRes['status']}, tunnel_url='{$tunnelDetected}'"
+    );
+
+    $catalogCheck = httpRequest('GET', $baseUrl . '/api/v1/admin/menu-catalog', null, [], $cookieFile);
+    $catalogItems = [];
+    foreach (($catalogCheck['json']['categories'] ?? []) as $cat) {
+        foreach (($cat['items'] ?? []) as $mi) {
+            $catalogItems[] = $mi;
+        }
+    }
+    $brokenImages = [];
+    foreach ($catalogItems as $mi) {
+        $imgPath = (string)($mi['image_url'] ?? '');
+        if ($imgPath === '') {
+            $brokenImages[] = 'empty:' . ($mi['name'] ?? '?');
+            continue;
+        }
+        $imgCheck = httpRequest('GET', $baseUrl . $imgPath);
+        if ($imgCheck['status'] !== 200 || strlen($imgCheck['body']) < 200) {
+            $brokenImages[] = $imgPath . '=>' . $imgCheck['status'];
+        }
+    }
+    assertE2e(
+        'E2E-MENU-IMAGES: All 35 seeded menu item photos load HTTP 200 with non-empty assets',
+        count($catalogItems) === 35 && count($brokenImages) === 0,
+        'count=' . count($catalogItems) . ', broken=' . implode(', ', $brokenImages)
+    );
+
+    $revTimeRes = httpRequest('GET', $baseUrl . '/api/v1/bi/revenue-over-time', null, [], $cookieFile);
+    $revDaysCount = is_array($revTimeRes['json']) ? count($revTimeRes['json']) : 0;
+    assertE2e(
+        'E2E-BI-SEED-DAYS: BI revenue-over-time spans at least 7 dates',
+        $revDaysCount >= 7,
+        "days={$revDaysCount}"
+    );
+
+    $matRes = httpRequest('GET', $baseUrl . '/api/v1/bi/menu-engineering-matrix', null, [], $cookieFile);
+    $matRows = is_array($matRes['json']) ? $matRes['json'] : [];
+    $quadsPresent = array_unique(array_map(fn($r) => (string)($r['quadrant_code'] ?? ''), $matRows));
+    assertE2e(
+        'E2E-BI-QUADRANTS: Menu Engineering Matrix covers STAR, PLOWHORSE, PUZZLE and DOG',
+        count(array_intersect(['STAR', 'PLOWHORSE', 'PUZZLE', 'DOG'], $quadsPresent)) === 4,
+        'quadrants=' . implode(',', $quadsPresent)
     );
 } finally {
     if ($cookieFile && file_exists($cookieFile)) {

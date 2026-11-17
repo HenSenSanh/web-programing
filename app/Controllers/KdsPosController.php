@@ -14,11 +14,12 @@ class KdsPosController
     {
         $db = Database::getConnection();
         $stmt = $db->query("
-            SELECT oi.*, dt.table_number, o.order_code
+            SELECT oi.*, dt.table_number, o.order_code, m.image_url
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN table_sessions ts ON o.session_id = ts.id
             JOIN dining_tables dt ON ts.table_id = dt.id
+            LEFT JOIN menu_items m ON m.id = oi.menu_item_id
             WHERE oi.status IN ('PENDING', 'COOKING', 'READY')
             ORDER BY oi.id ASC
         ");
@@ -96,9 +97,10 @@ class KdsPosController
 
         // Lấy chi tiết món (loại trừ món đã CANCELLED)
         $stmtItems = $db->prepare("
-            SELECT oi.id, oi.order_id, oi.item_name, oi.unit_price, oi.quantity, oi.subtotal, oi.status
+            SELECT oi.id, oi.order_id, oi.item_name, oi.unit_price, oi.quantity, oi.subtotal, oi.status, m.image_url
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
+            LEFT JOIN menu_items m ON m.id = oi.menu_item_id
             WHERE o.session_id = ? AND oi.status <> 'CANCELLED'
             ORDER BY oi.id ASC
         ");

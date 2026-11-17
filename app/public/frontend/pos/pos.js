@@ -158,13 +158,21 @@ async function selectSession(tableId, silent = false) {
         const qty = Number(item.quantity || 1);
         const unitPrice = Number(item.unit_price || 0);
         const subtotal = Number(item.subtotal || unitPrice * qty);
+        const imgThumb = item.image_url
+          ? `<img src="${escapeHtml(item.image_url)}" alt="${escapeHtml(item.item_name || 'Món ăn')}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid #e2e8f0;flex-shrink:0;" onerror="this.style.display='none'">`
+          : '';
 
         return `
           <tr>
             <td class="fw-semibold">
-              ${escapeHtml(item.item_name || 'Món ăn')}
-              ${renderItemStatusBadge(item.status)}
-              <div class="small fw-normal text-muted mt-1">${formatBillToppings(item)}</div>
+              <div class="d-flex align-items-center gap-2">
+                ${imgThumb}
+                <div>
+                  ${escapeHtml(item.item_name || 'Món ăn')}
+                  ${renderItemStatusBadge(item.status)}
+                  <div class="small fw-normal text-muted mt-1">${formatBillToppings(item)}</div>
+                </div>
+              </div>
             </td>
             <td class="text-center"><span class="badge bg-secondary">${qty}</span></td>
             <td class="text-end">${unitPrice.toLocaleString('vi-VN')} đ</td>

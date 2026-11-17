@@ -100,7 +100,7 @@
 
       <!-- 3 CỘT CHỨC NĂNG -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <!-- CỘT 1: TV1 + TV2 -->
+        <!-- CỘT 1: Bàn ăn & Menu Khách -->
         <div
           class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col space-y-4"
         >
@@ -109,7 +109,7 @@
               <span class="text-indigo-600"
                 ><i class="fa-solid fa-mobile-screen"></i
               ></span>
-              1. Bàn Ăn & Điện Thoại Khách (TV1 & TV2)
+              1. Bàn Ăn &amp; Menu Khách Hàng
             </h2>
             <span
               id="lblCurrentTableBadge"
@@ -295,7 +295,7 @@
           </div>
         </div>
 
-        <!-- CỘT 2: TV3 -->
+        <!-- CỘT 2: Điều Phối Bếp & Thu Ngân -->
         <div
           class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col space-y-4"
         >
@@ -304,7 +304,7 @@
               <span class="text-amber-500"
                 ><i class="fa-solid fa-fire-burner"></i
               ></span>
-              2. Điều Phối Bếp & Thu Ngân (TV3)
+              2. Điều Phối Bếp &amp; Thu Ngân
             </h2>
             <span
               class="text-[11px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-mono"
@@ -356,7 +356,7 @@
           </div>
         </div>
 
-        <!-- CỘT 3: TV4 + TV5 -->
+        <!-- CỘT 3: Gợi Ý Món & Thống Kê BI -->
         <div
           class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 flex flex-col space-y-4"
         >
@@ -365,20 +365,20 @@
               <span class="text-teal-600"
                 ><i class="fa-solid fa-chart-pie"></i
               ></span>
-              3. Trí Tuệ Dữ Liệu & BI (TV4 & TV5)
+              3. Thống Kê Doanh Thu &amp; Thực Đơn
             </h2>
             <span
               class="text-[11px] bg-teal-50 text-teal-700 px-2 py-0.5 rounded font-mono"
             >
-              OLAP Schema
+              BI Analytics
             </span>
           </div>
 
-          <!-- TV4: GỢI Ý MÓN -->
+          <!-- GỢI Ý MÓN -->
           <div class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2">
             <div class="flex items-center justify-between">
               <span class="font-semibold text-slate-700"
-                >Món Hay Gọi Kèm (TV4 Lead)</span
+                >Món Hay Gọi Kèm</span
               >
               <button
                 onclick="loadRecommendations(getSelectedSimDish().id)"
@@ -452,13 +452,13 @@
             </div>
           </div>
 
-          <!-- TV5: MENU ENGINEERING MATRIX -->
+          <!-- MENU ENGINEERING MATRIX -->
           <div
             class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2 flex-1 flex flex-col"
           >
             <div class="flex items-center justify-between flex-wrap gap-1">
               <span class="font-semibold text-slate-700"
-                >Ma Trận Menu Engineering (TV5)</span
+                >Ma Trận Hiệu Quả Thực Đơn</span
               >
               <div class="flex items-center gap-2">
                 <button
@@ -1101,7 +1101,7 @@
           <div class="p-2 bg-emerald-50 text-emerald-800 rounded border border-emerald-200 mt-2">
             ✅ Đã thanh toán (gồm VAT 8%):
             <b>${paidAmount.toLocaleString()} VNĐ</b><br>
-            🚀 ETL Background đã tự động đẩy sang Star Schema OLAP.
+            ✅ Số liệu đã được cập nhật vào báo cáo doanh thu.
           </div>
         `;
 
@@ -1216,7 +1216,7 @@
           document.getElementById("biConversion").textContent =
             (data.conversion_rate || 0) + "%";
 
-          log("Đã tải Dashboard Summary của TV5!", "success");
+          log("Đã tải Dashboard Summary thành công!", "success");
         } catch (e) {
           log("Lỗi tải Dashboard Summary: " + e.message, "error");
         }
