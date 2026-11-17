@@ -602,6 +602,82 @@ foreach ($revAudits as $ra) {
 assertTest("QP-7.4: [ĐỐI SOÁT TÀI CHÍNH] Doanh thu OLAP fact_order_items == Tổng tiền phiên bàn OLTP", $revMatch && count($revAudits) > 0);
 
 // -------------------------------------------------------------------------
+// PHẦN 8: KIỂM THỬ BÁO CÁO BI, MENU ENGINEERING MATRIX & EXPORT EXCEL (TV5)
+// -------------------------------------------------------------------------
+echo "\n=======================================================================\n";
+echo "📊 PHẦN 8: KIỂM THỬ BÁO CÁO BI, MENU ENGINEERING & EXPORT BÁO CÁO (TV5)\n";
+echo "=======================================================================\n";
+
+// Ghi nhận sự kiện Clickstream VIEW_ITEM cho món 101 để kiểm thử Menu Engineering
+ob_start();
+$dataCtrl->recordClickstream([
+    'session_id' => $sessEtlId,
+    'menu_item_id' => 101,
+    'event_type' => 'VIEW_ITEM'
+]);
+$clickOut = ob_get_clean();
+$clickJson = json_decode($clickOut, true);
+assertTest("TV5-8.1: Ghi nhận sự kiện Clickstream VIEW_ITEM vào fact_clickstream thành công", ($clickJson['status'] ?? '') === 'success');
+
+// Kiểm thử API 1: GET /api/v1/bi/dashboard-summary
+ob_start();
+$dataCtrl->getBiDashboardSummary();
+$biSumOut = ob_get_clean();
+$biSumJson = json_decode($biSumOut, true);
+assertTest(
+    "TV5-8.2: API /api/v1/bi/dashboard-summary trả về đủ KPI (total_revenue, total_sold, conversion_rate, sla_compliance_rate)",
+    is_array($biSumJson) && ($biSumJson['total_revenue'] ?? 0) >= 350000 && isset($biSumJson['conversion_rate'], $biSumJson['sla_compliance_rate'])
+);
+
+// Kiểm thử API 2: GET /api/v1/bi/revenue-over-time
+ob_start();
+$dataCtrl->getBiRevenueOverTime();
+$biRevOut = ob_get_clean();
+$biRevJson = json_decode($biRevOut, true);
+assertTest(
+    "TV5-8.3: API /api/v1/bi/revenue-over-time trả về chuỗi thời gian doanh thu từ dim_time",
+    is_array($biRevJson) && count($biRevJson) > 0 && isset($biRevJson[0]['date'], $biRevJson[0]['revenue'])
+);
+
+// Kiểm thử API 3: GET /api/v1/bi/menu-engineering-matrix (kèm phân loại 4 góc phần tư)
+ob_start();
+$dataCtrl->getBiMenuMatrix();
+$biMatOut = ob_get_clean();
+$biMatJson = json_decode($biMatOut, true);
+$validQuadrants = ['STAR', 'PLOWHORSE', 'PUZZLE', 'DOG'];
+$firstMat = $biMatJson[0] ?? [];
+assertTest(
+    "TV5-8.4: API /api/v1/bi/menu-engineering-matrix trả về danh sách món kèm phân nhóm 4 Quadrants (STAR/PLOWHORSE/PUZZLE/DOG)",
+    is_array($biMatJson) && count($biMatJson) > 0 && in_array($firstMat['quadrant_code'] ?? '', $validQuadrants, true)
+);
+
+// Kiểm thử API 4: GET /api/v1/bi/export-report (JSON, CSV UTF-8 BOM & XLSX OpenXML)
+ob_start();
+$dataCtrl->exportBiReport('menu-matrix', 'json');
+$exportJsonOut = ob_get_clean();
+$exportJson = json_decode($exportJsonOut, true);
+assertTest(
+    "TV5-8.5: API /api/v1/bi/export-report (JSON) trả về đầy đủ dữ liệu doanh thu & ma trận thực đơn",
+    ($exportJson['status'] ?? '') === 'success' && !empty($exportJson['menu_engineering_matrix'])
+);
+
+ob_start();
+$dataCtrl->exportBiReport('menu-matrix', 'csv');
+$exportCsvOut = ob_get_clean();
+assertTest(
+    "TV5-8.6: API /api/v1/bi/export-report (CSV) chứa BOM UTF-8 (\\xEF\\xBB\\xBF) và tiêu đề cột tiếng Việt chuẩn Excel",
+    substr($exportCsvOut, 0, 3) === "\xEF\xBB\xBF" && strpos($exportCsvOut, 'Mã Món') !== false && strpos($exportCsvOut, 'Phân Nhóm') !== false
+);
+
+ob_start();
+$dataCtrl->exportBiReport('menu-matrix', 'xlsx');
+$exportXlsxOut = ob_get_clean();
+assertTest(
+    "TV5-8.7: API /api/v1/bi/export-report (XLSX) sinh file Excel OpenXML hợp lệ (PK zip header)",
+    !class_exists('\ZipArchive') || (substr($exportXlsxOut, 0, 2) === 'PK' && strlen($exportXlsxOut) > 1000)
+);
+
+// -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------
 $totalTests = $passCount + $failCount;

@@ -183,6 +183,10 @@ if ($path === '/bi/menu-engineering-matrix' && $method === 'GET') {
     $data->getBiMenuMatrix();
     exit;
 }
+if ($path === '/bi/export-report' && $method === 'GET') {
+    $data->exportBiReport();
+    exit;
+}
 
 // 404 Route not found
 http_response_code(404);
