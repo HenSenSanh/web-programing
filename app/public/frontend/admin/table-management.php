@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/../../../src/auth.php';
 require_once __DIR__ . '/../../../src/rbac.php';
+$appConfig = require __DIR__ . '/../../../src/config.php';
 requireLogin();
 requirePermission('tables.view');
 $staffPortalActive = 'tables';
 $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
+$defaultQrBaseUrl = (string)($appConfig['app']['qr_base_url'] ?? '');
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -223,10 +225,17 @@ $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
 
         <div id="qr-host-config" style="margin: 12px 0; padding: 12px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
             <label for="qr-base-input" style="font-weight: 600; font-size: 13px; color: #334155;">📡 Địa chỉ gốc cho QR (để điện thoại quét):</label>
-            <input id="qr-base-input" type="url" placeholder="VD: http://192.168.1.10:8080" style="flex: 1; min-width: 220px; padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 13px;">
+            <input id="qr-base-input" type="url" placeholder="VD: https://xxx.trycloudflare.com hoặc http://192.168.1.10:8080" style="flex: 1; min-width: 240px; padding: 6px 10px; border: 1px solid #94a3b8; border-radius: 6px; font-size: 13px;">
             <button type="button" onclick="saveQrBaseUrl()" style="background: #2563eb; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px;">Lưu URL QR</button>
             <button type="button" onclick="resetQrBaseUrl()" style="background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 13px;">Mặc định</button>
             <div id="qr-host-warning" style="width: 100%; font-size: 12px; color: #b45309; display: none;"></div>
+            <details style="width: 100%; font-size: 12px; color: #475569; margin-top: 2px;">
+                <summary style="cursor: pointer; font-weight: 600; color: #334155;">💡 Làm sao để AI CŨNG QUÉT ĐƯỢC (kể cả 4G/5G hoặc khác Wi‑Fi)?</summary>
+                <div style="margin-top: 6px; padding: 8px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; line-height: 1.6;">
+                    <div>• <b>Cách 1 — Cùng Wi‑Fi (LAN):</b> Chạy <code>ipconfig</code> lấy IPv4 của Wi‑Fi (vd <code>http://192.168.1.15:8080</code>), dán vào ô trên và mở cổng <code>8080</code> ở Windows Firewall.</div>
+                    <div>• <b>Cách 2 — Ai cũng quét được (cả 4G/5G/khác mạng):</b> Chạy <code>cloudflared tunnel --url http://localhost:8080</code> (hoặc <code>ngrok http 8080</code>), copy link <code>https://...</code> dán vào ô trên (hoặc cấu hình biến <code>QR_BASE_URL</code> trong <code>.env</code>).</div>
+                </div>
+            </details>
         </div>
         
         <div id="message-area"></div>
@@ -253,6 +262,7 @@ $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
     <script src="../js/qrcode.js"></script>
     <script>
         const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
+        const ENV_QR_BASE_URL = <?php echo json_encode($defaultQrBaseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 
         function escapeHtml(str) {
             return String(str ?? '')
@@ -269,7 +279,7 @@ $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
 
         function getQrBaseUrl() {
             const saved = (localStorage.getItem('dineflow_qr_base_url') || '').trim();
-            return (saved || getDefaultHttpOrigin()).replace(/\/+$/, '');
+            return (saved || ENV_QR_BASE_URL || getDefaultHttpOrigin()).replace(/\/+$/, '');
         }
 
         function getMenuPath() {
@@ -388,10 +398,12 @@ $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
             document.getElementById('message-area').innerHTML = '';
         }
 
-        async function loadTables() {
+        async function loadTables(silent = false) {
             clearError();
             const grid = document.getElementById('table-grid');
-            grid.innerHTML = '<div class="loading">Đang tải danh sách bàn...</div>';
+            if (!silent) {
+                grid.innerHTML = '<div class="loading">Đang tải danh sách bàn...</div>';
+            }
 
             try {
                 const response = await fetch(`${API_BASE}/admin/tables`);
@@ -402,7 +414,9 @@ $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
                 
                 const tables = await response.json();
                 renderTables(tables);
-                showToast(`✅ Đã tải ${tables.length} bàn thành công`);
+                if (!silent) {
+                    showToast(`✅ Đã tải ${tables.length} bàn thành công`);
+                }
             } catch (error) {
                 console.error('Lỗi khi tải bàn:', error);
                 showError(`Không thể kết nối đến server! Đảm bảo backend đang chạy tại ${API_BASE}. Chi tiết: ${error.message}`);
@@ -572,6 +586,11 @@ $canManageTables = hasPermission((int)$_SESSION['user_id'], 'tables.manage');
 
         window.addEventListener('DOMContentLoaded', () => {
             loadTables();
+        });
+        window.addEventListener('message', (event) => {
+            if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
+                loadTables(true);
+            }
         });
     </script>
 </body>

@@ -301,6 +301,13 @@ assertTest(
     "Landing: VIEWER vào POS",
     getStaffLandingPath($matrixUserIds['VIEWER']) === 'frontend/pos/index.php'
 );
+assertTest(
+    "Portal shell entry: ADMIN/CREATOR/KEEPER/VIEWER vào đúng tab mặc định",
+    getStaffPortalEntryPath($matrixUserIds['ADMIN']) === 'portal.php?tab=dashboard'
+        && getStaffPortalEntryPath($matrixUserIds['CREATOR']) === 'portal.php?tab=tables'
+        && getStaffPortalEntryPath($matrixUserIds['KEEPER']) === 'portal.php?tab=kds'
+        && getStaffPortalEntryPath($matrixUserIds['VIEWER']) === 'portal.php?tab=pos'
+);
 
 $creatorPortalKeys = array_column(getStaffPortalNavigation($matrixUserIds['CREATOR']), 'key');
 assertTest(

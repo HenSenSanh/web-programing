@@ -175,5 +175,10 @@ async function updateItemStatus(orderItemId, status) {
 // Tự động làm mới dữ liệu mỗi 5 giây
 setInterval(fetchKdsItems, 5000);
 
-// Chạy ngay khi trang được tải xong
+// Chạy ngay khi trang được tải xong hoặc khi chuyển tab mượt trong Portal
 document.addEventListener('DOMContentLoaded', fetchKdsItems);
+window.addEventListener('message', (event) => {
+  if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
+    fetchKdsItems();
+  }
+});

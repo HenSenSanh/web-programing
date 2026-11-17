@@ -99,6 +99,28 @@ function getStaffLandingPath(int $userId): string
     return 'dashboard.php';
 }
 
+function getStaffDefaultTab(int $userId): string
+{
+    $landing = getStaffLandingPath($userId);
+    $map = [
+        'dashboard.php' => 'dashboard',
+        'frontend/pos/index.php' => 'pos',
+        'frontend/admin/table-management.php' => 'tables',
+        'frontend/kds/index.php' => 'kds',
+    ];
+    if (isset($map[$landing])) {
+        return $map[$landing];
+    }
+
+    $nav = getStaffPortalNavigation($userId);
+    return $nav[0]['key'] ?? 'dashboard';
+}
+
+function getStaffPortalEntryPath(int $userId): string
+{
+    return 'portal.php?tab=' . urlencode(getStaffDefaultTab($userId));
+}
+
 function getStaffPortalNavigation(int $userId): array
 {
     $items = [

@@ -323,7 +323,7 @@ foreach ($rawMatrix as $rm) {
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 text-xs">
-                <a href="/frontend/admin/table-management.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/admin/table-management.php" data-portal-tab="tables" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-base">🪑</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Quản Lý Bàn Ăn & Mã QR (TV1)</strong>
@@ -331,7 +331,7 @@ foreach ($rawMatrix as $rm) {
                     </div>
                 </a>
 
-                <a href="products.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="products.php" data-portal-tab="products" class="p-3.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-base">🍲</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Quản Lý Món</strong>
@@ -347,7 +347,7 @@ foreach ($rawMatrix as $rm) {
                     </div>
                 </a>
 
-                <a href="/frontend/kds/index.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/kds/index.php" data-portal-tab="kds" class="p-3.5 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-base">👨‍🍳</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Màn Hình Điều Phối Bếp KDS (TV3)</strong>
@@ -355,7 +355,7 @@ foreach ($rawMatrix as $rm) {
                     </div>
                 </a>
 
-                <a href="/frontend/pos/index.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-rose-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="/frontend/pos/index.php" data-portal-tab="pos" class="p-3.5 rounded-xl border border-slate-200 hover:border-rose-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-base">💳</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Màn Hình Thu Ngân POS (TV3)</strong>
@@ -363,7 +363,7 @@ foreach ($rawMatrix as $rm) {
                     </div>
                 </a>
 
-                <a href="documents.php" class="p-3.5 rounded-xl border border-slate-200 hover:border-sky-400 hover:bg-slate-50 transition flex items-center gap-3">
+                <a href="documents.php" data-portal-tab="documents" class="p-3.5 rounded-xl border border-slate-200 hover:border-sky-400 hover:bg-slate-50 transition flex items-center gap-3">
                     <div class="w-9 h-9 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center font-bold text-base">🧾</div>
                     <div>
                         <strong class="text-slate-900 block text-xs">Hóa Đơn & In Bill Chuẩn (Bài D - TV3)</strong>
@@ -371,7 +371,7 @@ foreach ($rawMatrix as $rm) {
                     </div>
                 </a>
 
-                <a href="/frontend/live-ops/index.php" class="p-3.5 rounded-xl border border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 transition flex items-center gap-3 sm:col-span-2 lg:col-span-3">
+                <a href="/frontend/live-ops/index.php" data-portal-tab="live-ops" class="p-3.5 rounded-xl border border-indigo-300 bg-indigo-50/50 hover:bg-indigo-50 transition flex items-center gap-3 sm:col-span-2 lg:col-span-3">
                     <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-base">⚡</div>
                     <div>
                         <strong class="text-indigo-900 block text-xs">Data Pipeline & Live Ops (TV4)</strong>
@@ -388,7 +388,7 @@ foreach ($rawMatrix as $rm) {
                     <h3 class="text-sm font-bold text-slate-900">Sơ Đồ Bàn Ăn Hiện Tại Trong Nhà Hàng</h3>
                     <p class="text-xs text-slate-500 mt-0.5">Theo dõi trạng thái phục vụ và phiên bàn đang hoạt động</p>
                 </div>
-                <a href="/frontend/live-ops/" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                <a href="/frontend/live-ops/" data-portal-tab="live-ops" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
                     <span>Xem giám sát chi tiết tại Live Ops</span>
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </a>
@@ -674,7 +674,10 @@ foreach ($rawMatrix as $rm) {
     </main>
 
     <script>
+        let activeQuadrantFilter = 'ALL';
+
         function filterMenuMatrix(quadrant) {
+            activeQuadrantFilter = quadrant;
             const rows = document.querySelectorAll('.matrix-row');
             rows.forEach(row => {
                 if (quadrant === 'ALL' || row.getAttribute('data-quadrant') === quadrant) {
@@ -692,6 +695,40 @@ foreach ($rawMatrix as $rm) {
                 activeBtn.classList.add('ring-2', 'ring-offset-1', 'ring-teal-600');
             }
         }
+
+        document.addEventListener('click', (event) => {
+            if (window.parent === window) return;
+            const link = event.target.closest('a[data-portal-tab]');
+            if (!link) return;
+            event.preventDefault();
+            window.parent.postMessage(
+                { type: 'dineflow:navigate-tab', tab: link.dataset.portalTab },
+                window.location.origin
+            );
+        });
+
+        async function refreshDashboardContentSilently() {
+            try {
+                const res = await fetch('dashboard.php?embed=1', { headers: { 'X-Requested-With': 'fetch' } });
+                if (!res.ok) return;
+                const html = await res.text();
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const nextMain = doc.querySelector('main');
+                const curMain = document.querySelector('main');
+                if (nextMain && curMain) {
+                    curMain.innerHTML = nextMain.innerHTML;
+                    filterMenuMatrix(activeQuadrantFilter);
+                }
+            } catch (err) {
+                // Keep existing view on background hiccup
+            }
+        }
+
+        window.addEventListener('message', (event) => {
+            if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
+                refreshDashboardContentSilently();
+            }
+        });
     </script>
 </body>
 </html>

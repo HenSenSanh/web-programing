@@ -120,6 +120,7 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **Trang chủ hệ thống** | `http://localhost:8080/` | Cả nhóm |
 | **Đăng ký tài khoản** | `http://localhost:8080/register.php` | TV1 |
 | **Đăng nhập hệ thống** | `http://localhost:8080/login.php` | TV1 |
+| **Staff Portal (Chuyển tab mượt)** | `http://localhost:8080/portal.php` *(mở mặc định sau khi đăng nhập)* | Cả nhóm |
 | **Dashboard Tổng quan & BI** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
 | **Quản lý Thực đơn (Hợp nhất)** | `http://localhost:8080/products.php` | TV1 |
 | **Hóa đơn & In phiếu thanh toán** | `http://localhost:8080/documents.php` | TV3 & TV4 |
@@ -149,7 +150,7 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | `VIEWER` | Xem/xác nhận thanh toán POS và đóng phiên, xem/in hóa đơn và xem/xuất báo cáo BI. |
 
 API nhân viên kiểm tra permission server-side (`401` khi chưa đăng nhập, `403` khi thiếu quyền). Các API menu khách (`/api/v1/client/*`, `/data/clickstream`, `/data/recommendations/*`) xác thực theo phiên QR, không yêu cầu tài khoản nhân viên.
-Sau đăng nhập, nhân viên được chuyển tới đúng trang mặc định theo role: `ADMIN` → `dashboard.php`, `CREATOR` → `frontend/admin/table-management.php`, `KEEPER` → `frontend/kds/index.php`, `VIEWER` → `frontend/pos/index.php`.
+Sau đăng nhập, nhân viên được chuyển vào giao diện chuyển tab mượt tại [`app/public/portal.php`](app/public/portal.php) trên đúng tab mặc định theo role: `ADMIN` → `?tab=dashboard`, `CREATOR` → `?tab=tables`, `KEEPER` → `?tab=kds`, `VIEWER` → `?tab=pos` (các URL `.php` riêng lẻ vẫn hoạt động bình thường).
 
 **Nâng cấp volume MySQL đã có sẵn (không dùng `down -v`):**
 ```bash
@@ -174,6 +175,6 @@ docker compose exec php-app php /var/www/tests/test_live_e2e.php
 ```
 
 Phạm vi bao phủ của 3 bộ kiểm thử:
-* `tests/run_tests.php` (**121 ca kiểm thử**): Mục 38–40 (Auth/Email/Login), Ma trận RBAC/Landing/Portal/401-403, Thực đơn 35 món & phân trang SQL, Vòng đời Bàn/KDS/POS, Acceptance quản lý món/topping snapshot/audit/hồi quy hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8 (BI Matrix 4 Quadrants & Export Excel `.xlsx` / `.csv` / `.json`).
+* `tests/run_tests.php` (**122 ca kiểm thử**): Mục 38–40 (Auth/Email/Login), Ma trận RBAC/Landing/Portal Shell/401-403, Thực đơn 35 món & phân trang SQL, Vòng đời Bàn/KDS/POS, Acceptance quản lý món/topping snapshot/audit/hồi quy hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8 (BI Matrix 4 Quadrants & Export Excel `.xlsx` / `.csv` / `.json`).
 * `tests/test_tv4_core.php` (**23 ca kiểm thử**): SharedCartService, Idempotent EtlService, AprioriService và DataPipelineController.
-* `tests/test_live_e2e.php` (**64 ca kiểm thử**): Kiểm thử toàn luồng HTTP + Apache + MySQL 8.0 thực tế (static assets, `.htaccess` 302 aliases, PHP session/RBAC guards & `401` API guards, Open Table → QR Menu → Shared Cart → Order → KDS → POS → ETL → BI → `.xlsx`).
+* `tests/test_live_e2e.php` (**69 ca kiểm thử**): Kiểm thử toàn luồng HTTP + Apache + MySQL 8.0 thực tế (static assets, `.htaccess` 302 aliases, PHP session/RBAC guards, Portal Tab Shell `?embed=1`, AJAX không reload ở `products.php` / `documents.php`, `& 401` API guards, Open Table → QR Menu → Shared Cart → Order → KDS → POS → ETL → BI → `.xlsx`).

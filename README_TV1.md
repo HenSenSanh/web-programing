@@ -122,6 +122,7 @@ docker compose ps
 URL local thường dùng:
 
 - Đăng nhập: `http://localhost:8080/login.php`
+- Staff Portal (chuyển tab mượt không reload): `http://localhost:8080/portal.php`
 - Bàn & QR: `http://localhost:8080/frontend/admin/table-management.php`
 - Quản lý món: `http://localhost:8080/products.php`
 - Thực đơn khách: `http://localhost:8080/frontend/menu/index.html`
@@ -129,12 +130,11 @@ URL local thường dùng:
 
 Không chạy `docker compose down -v` nếu không chủ ý xóa volume dữ liệu MySQL.
 
-### Cấu hình QR cho điện thoại
+### Cấu hình QR để điện thoại / bất kỳ ai đều quét được
 
-1. Mở Quản lý Bàn trên máy host.
-2. Nhập IPv4 của card Wi‑Fi/Ethernet đang dùng, ví dụ `http://192.168.1.x:8080`, tại **Địa chỉ gốc cho QR** rồi lưu.
-3. Quét QR mới tạo; điện thoại và máy host phải ở cùng mạng, port `8080` không bị firewall chặn.
-4. Nếu IP của máy host đổi, cập nhật URL QR và tạo/in lại QR.
+1. **Cùng Wi‑Fi (LAN):** Chạy `ipconfig` lấy IPv4 của Wi‑Fi (vd `http://192.168.1.x:8080`), nhập vào **Địa chỉ gốc cho QR** tại Quản lý Bàn rồi lưu, và mở cổng `8080` trên Windows Firewall.
+2. **Bất kỳ ai (4G/5G/khác mạng):** Chạy HTTPS Tunnel (`cloudflared tunnel --url http://localhost:8080` hoặc `ngrok http 8080`), copy link `https://...` dán vào **Địa chỉ gốc cho QR** (hoặc cấu hình biến `QR_BASE_URL` trong `.env`).
+3. Nếu IP hoặc link tunnel thay đổi, cập nhật lại URL QR rồi bấm Phóng to/In QR mới.
 
 ## 8. Database, migration và dữ liệu topping
 

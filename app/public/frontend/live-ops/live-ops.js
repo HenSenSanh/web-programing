@@ -477,3 +477,9 @@ function startAutoRefreshLoop() {
     await pollLiveOpsAndSla();
     startAutoRefreshLoop();
 })();
+
+window.addEventListener('message', (event) => {
+    if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
+        pollLiveOpsAndSla();
+    }
+});

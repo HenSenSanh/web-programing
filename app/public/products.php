@@ -76,7 +76,49 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
     if ($catId > 0) {
         $query['category_id'] = $catId;
     }
+    if (($_GET['embed'] ?? '') === '1') {
+        $query['embed'] = '1';
+    }
     return 'products.php?' . http_build_query($query);
+}
+
+if (($_GET['ajax'] ?? '') === 'table') {
+    if (!headers_sent()) {
+        header('Content-Type: application/json; charset=UTF-8');
+    }
+    echo json_encode([
+        'items' => array_map(static function (array $item): array {
+            return [
+                'id' => (int)$item['id'],
+                'sku' => $item['sku'] ?? null,
+                'name' => $item['name'],
+                'category_id' => (int)$item['category_id'],
+                'category_name' => $item['category_name'],
+                'unit_name' => $item['unit_name'] ?? null,
+                'price' => (float)$item['price'],
+                'description' => $item['description'] ?? '',
+                'image_url' => $item['image_url'] ?? '',
+                'is_hot' => (bool)$item['is_hot'],
+                'is_available' => (bool)$item['is_available'],
+            ];
+        }, $menuItems),
+        'pagination' => [
+            'page' => $page,
+            'totalPages' => $totalPages,
+            'totalRecords' => $totalRecords,
+            'perPage' => $perPage,
+            'from' => $totalRecords > 0 ? $offset + 1 : 0,
+            'to' => min($offset + $perPage, $totalRecords),
+        ],
+        'counts' => [
+            'catalogTotal' => $catalogTotal,
+            'availableCount' => $availableCount,
+            'unavailableCount' => $unavailableCount,
+        ],
+        'keyword' => $keyword,
+        'categoryId' => $categoryId,
+    ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    exit;
 }
 ?>
 <!DOCTYPE html>
@@ -116,7 +158,7 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                             + Thêm món mới
                         </button>
                     <?php endif; ?>
-                    <div class="rounded-lg bg-slate-50 px-4 py-3 text-right text-xs" aria-label="Thống kê trạng thái toàn bộ thực đơn">
+                    <div id="catalog-stats-summary" class="rounded-lg bg-slate-50 px-4 py-3 text-right text-xs" aria-label="Thống kê trạng thái toàn bộ thực đơn">
                         <div class="font-semibold text-slate-800">Toàn bộ thực đơn: <?php echo $catalogTotal; ?> món</div>
                         <div class="mt-1 flex justify-end gap-3">
                             <span class="text-emerald-700">Đang bán: <?php echo $availableCount; ?></span>
@@ -126,7 +168,7 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                 </div>
             </div>
 
-            <form method="GET" action="products.php" class="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
+            <form id="products-filter-form" method="GET" action="products.php" class="mb-5 flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
                 <div class="min-w-[220px] flex-1">
                     <label for="keyword" class="mb-1 block font-semibold text-slate-700">Tìm tên món hoặc mã</label>
                     <input id="keyword" type="search" name="keyword" value="<?php echo htmlspecialchars($keyword, ENT_QUOTES, 'UTF-8'); ?>"
@@ -144,14 +186,13 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                     </select>
                 </div>
                 <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700">Lọc món</button>
-                <?php if ($keyword !== '' || $categoryId > 0): ?>
-                    <a href="products.php" class="rounded-lg bg-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-300">Xóa lọc</a>
-                <?php endif; ?>
+                <a id="clear-filter-btn" href="<?php echo htmlspecialchars(buildPageUrl(1, '', 0), ENT_QUOTES, 'UTF-8'); ?>"
+                   class="rounded-lg bg-slate-200 px-4 py-2 font-semibold text-slate-700 hover:bg-slate-300<?php echo ($keyword === '' && $categoryId <= 0) ? ' hidden' : ''; ?>">Xóa lọc</a>
             </form>
 
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <h2 class="font-bold text-slate-900">Thực đơn món ăn</h2>
-                <p class="text-slate-500">
+                <p id="catalog-page-summary" class="text-slate-500">
                     Trang <strong><?php echo $page; ?></strong> / <strong><?php echo $totalPages; ?></strong>
                     (Tổng số: <strong><?php echo $catalogTotal; ?></strong> món
                     | Đang bán: <strong class="text-emerald-700"><?php echo $availableCount; ?></strong>
@@ -175,7 +216,7 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                             <?php if ($canManageMenu): ?><th class="px-3 py-3 text-center">Thao tác</th><?php endif; ?>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody id="products-tbody" class="divide-y divide-slate-100">
                         <?php if ($menuItems === []): ?>
                             <tr><td colspan="<?php echo $canManageMenu ? 7 : 6; ?>" class="px-4 py-8 text-center text-slate-500">Không tìm thấy món phù hợp.</td></tr>
                         <?php endif; ?>
@@ -231,7 +272,7 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                 </table>
             </div>
 
-            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 text-xs">
+            <div id="products-pagination-wrap" class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4 text-xs">
                 <div class="text-slate-500">
                     Hiển thị <?php echo $totalRecords > 0 ? $offset + 1 : 0; ?>–<?php echo min($offset + $perPage, $totalRecords); ?>
                     trên <?php echo $totalRecords; ?> kết quả lọc
@@ -239,17 +280,17 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                 <?php if ($totalPages > 1): ?>
                     <nav class="flex flex-wrap items-center gap-1" aria-label="Phân trang thực đơn">
                         <?php if ($page > 1): ?>
-                            <a class="rounded border px-2 py-1.5 hover:bg-slate-100" href="<?php echo htmlspecialchars(buildPageUrl($page - 1, $keyword, $categoryId), ENT_QUOTES, 'UTF-8'); ?>">Trước</a>
+                            <a class="rounded border px-2 py-1.5 hover:bg-slate-100" data-page="<?php echo $page - 1; ?>" href="<?php echo htmlspecialchars(buildPageUrl($page - 1, $keyword, $categoryId), ENT_QUOTES, 'UTF-8'); ?>">Trước</a>
                         <?php endif; ?>
                         <?php for ($i = max(1, $page - 2); $i <= min($totalPages, $page + 2); $i++): ?>
                             <?php if ($i === $page): ?>
                                 <span class="rounded bg-indigo-600 px-3 py-1.5 font-bold text-white" aria-current="page"><?php echo $i; ?></span>
                             <?php else: ?>
-                                <a class="rounded border px-3 py-1.5 hover:bg-slate-100" href="<?php echo htmlspecialchars(buildPageUrl($i, $keyword, $categoryId), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $i; ?></a>
+                                <a class="rounded border px-3 py-1.5 hover:bg-slate-100" data-page="<?php echo $i; ?>" href="<?php echo htmlspecialchars(buildPageUrl($i, $keyword, $categoryId), ENT_QUOTES, 'UTF-8'); ?>"><?php echo $i; ?></a>
                             <?php endif; ?>
                         <?php endfor; ?>
                         <?php if ($page < $totalPages): ?>
-                            <a class="rounded border px-2 py-1.5 hover:bg-slate-100" href="<?php echo htmlspecialchars(buildPageUrl($page + 1, $keyword, $categoryId), ENT_QUOTES, 'UTF-8'); ?>">Sau</a>
+                            <a class="rounded border px-2 py-1.5 hover:bg-slate-100" data-page="<?php echo $page + 1; ?>" href="<?php echo htmlspecialchars(buildPageUrl($page + 1, $keyword, $categoryId), ENT_QUOTES, 'UTF-8'); ?>">Sau</a>
                         <?php endif; ?>
                     </nav>
                 <?php endif; ?>
@@ -327,9 +368,165 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
         const menuCategories = <?php echo json_encode($categories, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
         const toastElement = document.getElementById('menu-toast');
         const toppingMenuItemSelect = document.getElementById('topping-menu-item');
+        const productsTbody = document.getElementById('products-tbody');
+        const statsSummaryEl = document.getElementById('catalog-stats-summary');
+        const pageSummaryEl = document.getElementById('catalog-page-summary');
+        const paginationWrapEl = document.getElementById('products-pagination-wrap');
+        const filterFormEl = document.getElementById('products-filter-form');
+        const keywordInputEl = document.getElementById('keyword');
+        const categorySelectEl = document.getElementById('category_id');
+        const clearFilterBtn = document.getElementById('clear-filter-btn');
+        const isEmbeddedMode = new URLSearchParams(window.location.search).get('embed') === '1';
+        let currentFilterState = {
+            page: <?php echo (int)$page; ?>,
+            keyword: <?php echo json_encode($keyword, JSON_UNESCAPED_UNICODE); ?>,
+            categoryId: <?php echo (int)$categoryId; ?>,
+        };
         let menuCatalogItems = [];
         let toppingCatalog = [];
         let toastTimer;
+
+        function buildProductsUrl(state, includeAjax = false) {
+            const params = new URLSearchParams();
+            params.set('page', String(Math.max(1, Number(state.page) || 1)));
+            if (state.keyword) params.set('keyword', state.keyword);
+            if (Number(state.categoryId) > 0) params.set('category_id', String(Number(state.categoryId)));
+            if (isEmbeddedMode) params.set('embed', '1');
+            if (includeAjax) params.set('ajax', 'table');
+            return `products.php?${params.toString()}`;
+        }
+
+        function renderMenuTableRows(items) {
+            if (!productsTbody) return;
+            if (!Array.isArray(items) || items.length === 0) {
+                productsTbody.innerHTML = `<tr><td colspan="${canManageMenu ? 7 : 6}" class="px-4 py-8 text-center text-slate-500">Không tìm thấy món phù hợp.</td></tr>`;
+                return;
+            }
+            productsTbody.innerHTML = items.map((item) => {
+                const editableItem = {
+                    id: Number(item.id),
+                    name: item.name || '',
+                    category_id: Number(item.category_id),
+                    price: Number(item.price || 0),
+                    description: item.description || '',
+                    image_url: item.image_url || '',
+                    is_hot: Boolean(item.is_hot),
+                    is_available: Boolean(item.is_available),
+                };
+                const availChecked = editableItem.is_available ? 'checked' : '';
+                const availClass = editableItem.is_available ? 'text-emerald-700' : 'text-rose-700';
+                const availText = editableItem.is_available ? 'Đang bán' : 'Hết món';
+                const statusCell = canManageMenu
+                    ? `<label class="inline-flex items-center gap-2" aria-label="Trạng thái món ${escapeHtml(editableItem.name)}">
+                            <input type="checkbox" class="availability-toggle h-4 w-4 accent-emerald-600" data-item-id="${editableItem.id}" ${availChecked}>
+                            <span class="availability-label font-semibold ${availClass}">${availText}</span>
+                       </label>`
+                    : `<span class="font-semibold ${availClass}">${availText}</span>`;
+                const actionCell = canManageMenu
+                    ? `<td class="px-3 py-3 text-center">
+                            <button type="button" class="edit-menu-item rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 font-semibold text-indigo-700 hover:bg-indigo-100"
+                                    data-menu-item="${escapeHtml(JSON.stringify(editableItem))}">Sửa món</button>
+                       </td>`
+                    : '';
+                return `
+                    <tr class="hover:bg-slate-50" data-menu-row="${editableItem.id}">
+                        <td class="whitespace-nowrap px-3 py-3 font-mono text-indigo-700">${escapeHtml(item.sku || '—')}</td>
+                        <td class="px-3 py-3">
+                            <div class="font-semibold text-slate-900">${escapeHtml(editableItem.name)}</div>
+                            ${editableItem.is_hot ? '<span class="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">Món nổi bật</span>' : ''}
+                        </td>
+                        <td class="px-3 py-3">${escapeHtml(item.category_name || '')}</td>
+                        <td class="px-3 py-3 text-slate-500">${escapeHtml(item.unit_name || '—')}</td>
+                        <td class="whitespace-nowrap px-3 py-3 text-right font-bold">${editableItem.price.toLocaleString('vi-VN')} đ</td>
+                        <td class="px-3 py-3 text-center">${statusCell}</td>
+                        ${actionCell}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function renderPaginationAndSummaries(payload) {
+            const p = payload.pagination || {};
+            const c = payload.counts || {};
+            const total = Number(c.catalogTotal || 0);
+            const avail = Number(c.availableCount || 0);
+            const unavail = Number(c.unavailableCount || 0);
+
+            if (statsSummaryEl) {
+                statsSummaryEl.innerHTML = `
+                    <div class="font-semibold text-slate-800">Toàn bộ thực đơn: ${total} món</div>
+                    <div class="mt-1 flex justify-end gap-3">
+                        <span class="text-emerald-700">Đang bán: ${avail}</span>
+                        <span class="text-rose-700">Hết món: ${unavail}</span>
+                    </div>
+                `;
+            }
+            if (pageSummaryEl) {
+                pageSummaryEl.innerHTML = `
+                    Trang <strong>${Number(p.page || 1)}</strong> / <strong>${Number(p.totalPages || 1)}</strong>
+                    (Tổng số: <strong>${total}</strong> món
+                    | Đang bán: <strong class="text-emerald-700">${avail}</strong>
+                    | Hết món: <strong class="text-rose-700">${unavail}</strong>)
+                `;
+            }
+            if (paginationWrapEl) {
+                const pageNum = Number(p.page || 1);
+                const totalPagesNum = Number(p.totalPages || 1);
+                let navHtml = '';
+                if (totalPagesNum > 1) {
+                    const links = [];
+                    if (pageNum > 1) {
+                        const prevHref = buildProductsUrl({ ...currentFilterState, page: pageNum - 1 }, false);
+                        links.push(`<a class="rounded border px-2 py-1.5 hover:bg-slate-100" data-page="${pageNum - 1}" href="${escapeHtml(prevHref)}">Trước</a>`);
+                    }
+                    const start = Math.max(1, pageNum - 2);
+                    const end = Math.min(totalPagesNum, pageNum + 2);
+                    for (let i = start; i <= end; i++) {
+                        if (i === pageNum) {
+                            links.push(`<span class="rounded bg-indigo-600 px-3 py-1.5 font-bold text-white" aria-current="page">${i}</span>`);
+                        } else {
+                            const href = buildProductsUrl({ ...currentFilterState, page: i }, false);
+                            links.push(`<a class="rounded border px-3 py-1.5 hover:bg-slate-100" data-page="${i}" href="${escapeHtml(href)}">${i}</a>`);
+                        }
+                    }
+                    if (pageNum < totalPagesNum) {
+                        const nextHref = buildProductsUrl({ ...currentFilterState, page: pageNum + 1 }, false);
+                        links.push(`<a class="rounded border px-2 py-1.5 hover:bg-slate-100" data-page="${pageNum + 1}" href="${escapeHtml(nextHref)}">Sau</a>`);
+                    }
+                    navHtml = `<nav class="flex flex-wrap items-center gap-1" aria-label="Phân trang thực đơn">${links.join('')}</nav>`;
+                }
+                paginationWrapEl.innerHTML = `
+                    <div class="text-slate-500">Hiển thị ${Number(p.from || 0)}–${Number(p.to || 0)} trên ${Number(p.totalRecords || 0)} kết quả lọc</div>
+                    ${navHtml}
+                `;
+            }
+            if (clearFilterBtn) {
+                const hasFilter = Boolean(currentFilterState.keyword || Number(currentFilterState.categoryId) > 0);
+                clearFilterBtn.classList.toggle('hidden', !hasFilter);
+            }
+        }
+
+        async function refreshProductsTable(nextState = currentFilterState, pushUrl = false) {
+            const normalized = {
+                page: Math.max(1, Number(nextState.page) || 1),
+                keyword: String(nextState.keyword || '').trim(),
+                categoryId: Number(nextState.categoryId) || 0,
+            };
+            const response = await fetch(buildProductsUrl(normalized, true), {
+                headers: { Accept: 'application/json' },
+            });
+            const payload = await readResponse(response);
+            currentFilterState = {
+                page: Number(payload.pagination?.page || normalized.page),
+                keyword: payload.keyword || '',
+                categoryId: Number(payload.categoryId || 0),
+            };
+            renderMenuTableRows(payload.items || []);
+            renderPaginationAndSummaries(payload);
+            if (pushUrl) {
+                history.replaceState(currentFilterState, '', buildProductsUrl(currentFilterState, false));
+            }
+        }
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -405,6 +602,50 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
             }
         }
 
+        if (filterFormEl) {
+            filterFormEl.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                try {
+                    await refreshProductsTable({
+                        page: 1,
+                        keyword: keywordInputEl ? keywordInputEl.value : '',
+                        categoryId: categorySelectEl ? Number(categorySelectEl.value) : 0,
+                    }, true);
+                } catch (error) {
+                    showToast(error.message, true);
+                }
+            });
+        }
+
+        if (clearFilterBtn) {
+            clearFilterBtn.addEventListener('click', async (event) => {
+                event.preventDefault();
+                if (keywordInputEl) keywordInputEl.value = '';
+                if (categorySelectEl) categorySelectEl.value = '0';
+                try {
+                    await refreshProductsTable({ page: 1, keyword: '', categoryId: 0 }, true);
+                } catch (error) {
+                    showToast(error.message, true);
+                }
+            });
+        }
+
+        if (paginationWrapEl) {
+            paginationWrapEl.addEventListener('click', async (event) => {
+                const link = event.target.closest('a[data-page]');
+                if (!link) return;
+                event.preventDefault();
+                try {
+                    await refreshProductsTable({
+                        ...currentFilterState,
+                        page: Number(link.dataset.page) || 1,
+                    }, true);
+                } catch (error) {
+                    showToast(error.message, true);
+                }
+            });
+        }
+
         if (canManageMenu) {
             const dialog = document.getElementById('menu-edit-dialog');
             const form = document.getElementById('menu-edit-form');
@@ -427,21 +668,21 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                 });
             }
 
-            document.querySelectorAll('.edit-menu-item').forEach((button) => {
-                button.addEventListener('click', () => {
-                    const item = JSON.parse(button.dataset.menuItem || '{}');
-                    form.elements.id.value = item.id;
-                    form.elements.name.value = item.name || '';
-                    form.elements.category_id.value = item.category_id;
-                    form.elements.price.value = item.price;
-                    form.elements.image_url.value = item.image_url || '';
-                    form.elements.description.value = item.description || '';
-                    form.elements.is_hot.checked = Boolean(item.is_hot);
-                    kicker.textContent = 'Cập nhật món';
-                    title.textContent = 'Sửa thông tin món ăn';
-                    submitBtn.textContent = 'Lưu thay đổi';
-                    dialog.showModal();
-                });
+            document.addEventListener('click', (event) => {
+                const button = event.target.closest('.edit-menu-item');
+                if (!button) return;
+                const item = JSON.parse(button.dataset.menuItem || '{}');
+                form.elements.id.value = item.id;
+                form.elements.name.value = item.name || '';
+                form.elements.category_id.value = item.category_id;
+                form.elements.price.value = item.price;
+                form.elements.image_url.value = item.image_url || '';
+                form.elements.description.value = item.description || '';
+                form.elements.is_hot.checked = Boolean(item.is_hot);
+                kicker.textContent = 'Cập nhật món';
+                title.textContent = 'Sửa thông tin món ăn';
+                submitBtn.textContent = 'Lưu thay đổi';
+                dialog.showModal();
             });
             document.querySelectorAll('.close-menu-dialog').forEach((button) => button.addEventListener('click', () => dialog.close()));
             form.addEventListener('submit', async (event) => {
@@ -467,8 +708,11 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
                     });
                     await readResponse(response);
                     dialog.close();
+                    await Promise.all([
+                        refreshProductsTable(currentFilterState, false),
+                        loadToppings(),
+                    ]);
                     showToast(itemId ? 'Đã cập nhật món.' : 'Đã thêm món mới.');
-                    location.reload();
                 } catch (error) {
                     showToast(error.message, true);
                 } finally {
@@ -477,25 +721,27 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
             });
         }
 
-        document.querySelectorAll('.availability-toggle').forEach((checkbox) => {
-            checkbox.addEventListener('change', async () => {
-                const previousValue = !checkbox.checked;
-                checkbox.disabled = true;
-                try {
-                    const response = await fetch(`${apiBase}/admin/menu-items/${checkbox.dataset.itemId}/toggle-availability?is_available=${checkbox.checked}`, {
-                        method: 'PATCH',
-                        headers: { Accept: 'application/json' },
-                    });
-                    const data = await readResponse(response);
-                    checkbox.checked = Boolean(data.is_available);
-                    location.reload();
-                } catch (error) {
-                    checkbox.checked = previousValue;
-                    showToast(error.message, true);
-                } finally {
-                    checkbox.disabled = false;
-                }
-            });
+        document.addEventListener('change', async (event) => {
+            const checkbox = event.target.closest('.availability-toggle');
+            if (!checkbox) return;
+            const previousValue = !checkbox.checked;
+            checkbox.disabled = true;
+            try {
+                const response = await fetch(`${apiBase}/admin/menu-items/${checkbox.dataset.itemId}/toggle-availability?is_available=${checkbox.checked}`, {
+                    method: 'PATCH',
+                    headers: { Accept: 'application/json' },
+                });
+                const data = await readResponse(response);
+                const updatedAvail = Boolean(data.is_available);
+                checkbox.checked = updatedAvail;
+                await refreshProductsTable(currentFilterState, false);
+                showToast(updatedAvail ? 'Đã mở bán lại món.' : 'Đã đánh dấu hết món.');
+            } catch (error) {
+                checkbox.checked = previousValue;
+                showToast(error.message, true);
+            } finally {
+                checkbox.disabled = false;
+            }
         });
 
         document.addEventListener('change', async (event) => {
@@ -542,6 +788,12 @@ function buildPageUrl(int $targetPage, string $kw, int $catId): string
         });
 
         toppingMenuItemSelect.addEventListener('change', renderToppingsForSelectedItem);
+        window.addEventListener('message', (event) => {
+            if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
+                refreshProductsTable(currentFilterState, false).catch(() => {});
+                loadToppings();
+            }
+        });
         loadToppings();
     </script>
 </body>

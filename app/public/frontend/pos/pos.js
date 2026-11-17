@@ -307,7 +307,18 @@ async function executeCheckout() {
     const invoiceCode = result.invoice_code ? ` (${result.invoice_code})` : '';
     const toastMsgElem = document.getElementById('toast-message');
     if (toastMsgElem) {
-      toastMsgElem.innerHTML = `Thanh toán thành công${invoiceCode}! <a href="/documents.php" target="_blank" class="text-white text-decoration-underline ms-2">In hóa đơn</a>`;
+      toastMsgElem.innerHTML = `Thanh toán thành công${invoiceCode}! <a href="/documents.php" class="text-white text-decoration-underline ms-2 pos-open-documents">In hóa đơn</a>`;
+      const docLink = toastMsgElem.querySelector('.pos-open-documents');
+      if (docLink) {
+        docLink.addEventListener('click', (event) => {
+          if (window.parent !== window) {
+            event.preventDefault();
+            window.parent.postMessage({ type: 'dineflow:navigate-tab', tab: 'documents' }, window.location.origin);
+          } else {
+            docLink.target = '_blank';
+          }
+        });
+      }
     }
 
     const toastElem = document.getElementById('successToast');
@@ -331,4 +342,10 @@ function resetBillPanel() {
 document.addEventListener('DOMContentLoaded', () => {
   fetchActiveSessions();
   setInterval(fetchActiveSessions, 5000);
+});
+
+window.addEventListener('message', (event) => {
+  if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
+    fetchActiveSessions();
+  }
 });

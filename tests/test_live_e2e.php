@@ -165,6 +165,7 @@ $syntheticSessionToken = null;
 
 try {
     $protectedPages = [
+        '/portal.php',
         '/dashboard.php',
         '/products.php',
         '/documents.php',
@@ -211,9 +212,49 @@ try {
     );
     $loginLoc = $loginRes['headers']['location'] ?? '';
     assertE2e(
-        'E2E-LOGIN: POST /login.php (admin) succeeds and redirects to dashboard.php',
-        $loginRes['status'] === 302 && str_contains($loginLoc, 'dashboard.php'),
+        'E2E-LOGIN: POST /login.php (admin) succeeds and redirects to portal.php?tab=dashboard',
+        $loginRes['status'] === 302 && str_contains($loginLoc, 'portal.php') && str_contains($loginLoc, 'tab=dashboard'),
         "HTTP {$loginRes['status']}, Location='{$loginLoc}'"
+    );
+
+    $portalRes = httpRequest('GET', $baseUrl . '/portal.php', null, [], $cookieFile);
+    $portalErr = preg_match('/Fatal error|Warning:|Notice:|Parse error/i', $portalRes['body']) === 1;
+    assertE2e(
+        'E2E-PORTAL-SHELL: Authenticated /portal.php renders smooth tabbed shell for all roles',
+        $portalRes['status'] === 200
+            && !$portalErr
+            && str_contains($portalRes['body'], 'data-tab="tables"')
+            && str_contains($portalRes['body'], 'data-tab="products"')
+            && str_contains($portalRes['body'], 'data-tab="kds"')
+            && str_contains($portalRes['body'], 'data-tab="pos"')
+            && str_contains($portalRes['body'], 'data-tab="documents"')
+            && str_contains($portalRes['body'], 'data-tab="live-ops"')
+            && str_contains($portalRes['body'], 'data-tab="dashboard"')
+            && str_contains($portalRes['body'], 'embed=1'),
+        "HTTP {$portalRes['status']}"
+    );
+
+    $embedRes = httpRequest('GET', $baseUrl . '/products.php?embed=1', null, [], $cookieFile);
+    assertE2e(
+        'E2E-PORTAL-EMBED: Embedded child page hides duplicate nav header',
+        $embedRes['status'] === 200 && !str_contains($embedRes['body'], '<header class="staff-portal-nav">'),
+        "HTTP {$embedRes['status']}"
+    );
+
+    $prodAjaxRes = httpRequest('GET', $baseUrl . '/products.php?ajax=table&page=1', null, [], $cookieFile);
+    assertE2e(
+        'E2E-AJAX-PRODUCTS: GET /products.php?ajax=table returns paginated JSON cleanly',
+        $prodAjaxRes['status'] === 200
+            && is_array($prodAjaxRes['json'])
+            && isset($prodAjaxRes['json']['items'], $prodAjaxRes['json']['pagination'], $prodAjaxRes['json']['counts']),
+        "HTTP {$prodAjaxRes['status']}"
+    );
+
+    $docAjaxRes = httpRequest('GET', $baseUrl . '/documents.php?ajax=bills', null, [], $cookieFile);
+    assertE2e(
+        'E2E-AJAX-DOCUMENTS: GET /documents.php?ajax=bills returns bill list JSON cleanly',
+        $docAjaxRes['status'] === 200 && is_array($docAjaxRes['json']['bills'] ?? null),
+        "HTTP {$docAjaxRes['status']}"
     );
 
     $dashRes = httpRequest('GET', $baseUrl . '/dashboard.php', null, [], $cookieFile);

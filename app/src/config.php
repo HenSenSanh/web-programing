@@ -29,8 +29,9 @@ if (!function_exists('envValue')) {
 
 return [
     "app" => [
-        "name" => envValue("APP_NAME", "PHP Login & Warehouse System"),
+        "name" => envValue("APP_NAME", "DineFlow QRDine"),
         "url" => envValue("APP_URL", "http://localhost:8080"),
+        "qr_base_url" => rtrim(envValue("QR_BASE_URL", ""), '/'),
         "session_name" => envValue("SESSION_NAME", "LOGIN_SYSTEM_SESSION"),
     ],
     "db" => [

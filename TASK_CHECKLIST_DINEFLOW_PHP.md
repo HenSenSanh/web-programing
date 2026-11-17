@@ -98,7 +98,7 @@
 ## 🧪 GIAI ĐOẠN 6 (SPRINT S5): KIỂM THỬ TÍCH HỢP, SỬA LỖI & NGHIỆM THU BẢO VỆ ĐỒ ÁN
 > **Chủ trì:** **TV4 (Quality & Integration Lead)** | **Tham gia:** Toàn bộ 5 thành viên
 
-- [x] **TASK-6.1 [TV4 + TV5 + TV1]:** Xây dựng bộ kiểm thử tự động PHP CLI [`tests/run_tests.php`](tests/run_tests.php) (**121 ca kiểm thử** bao phủ Mục 38–40, Ma trận RBAC/Landing/Portal, Acceptance CRUD/Topping Snapshot/Hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8: Báo cáo BI & Xuất Excel TV5).
-- [x] **TASK-6.2 [TV4]:** Xây dựng bộ kiểm thử lõi E2E TV4 tại [`tests/test_tv4_core.php`](tests/test_tv4_core.php) (**23 ca kiểm thử**), kiểm thử E2E HTTP/MySQL thực tế tại [`tests/test_live_e2e.php`](tests/test_live_e2e.php) (**64 ca kiểm thử**) và trang kiểm thử luồng tích hợp [`app/public/demo_tester.html`](app/public/demo_tester.html).
-- [x] **TASK-6.3 [TV4]:** Khởi động Docker Desktop và chạy xác nhận lại toàn bộ bộ kiểm thử (`run_tests.php` 121/121, `test_tv4_core.php` 23/23, `test_live_e2e.php` 64/64) đạt **100% PASS** trên bản tích hợp hợp nhất.
+- [x] **TASK-6.1 [TV4 + TV5 + TV1]:** Xây dựng bộ kiểm thử tự động PHP CLI [`tests/run_tests.php`](tests/run_tests.php) (**122 ca kiểm thử** bao phủ Mục 38–40, Ma trận RBAC/Landing/Portal Shell, Acceptance CRUD/Topping Snapshot/Hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8: Báo cáo BI & Xuất Excel TV5).
+- [x] **TASK-6.2 [TV4]:** Xây dựng bộ kiểm thử lõi E2E TV4 tại [`tests/test_tv4_core.php`](tests/test_tv4_core.php) (**23 ca kiểm thử**), kiểm thử E2E HTTP/MySQL thực tế tại [`tests/test_live_e2e.php`](tests/test_live_e2e.php) (**69 ca kiểm thử**) và trang kiểm thử luồng tích hợp [`app/public/demo_tester.html`](app/public/demo_tester.html).
+- [x] **TASK-6.3 [TV4]:** Khởi động Docker Desktop và chạy xác nhận lại toàn bộ bộ kiểm thử (`run_tests.php` 122/122, `test_tv4_core.php` 23/23, `test_live_e2e.php` 69/69) đạt **100% PASS** trên bản tích hợp hợp nhất + Portal tab mượt (`portal.php`).
 - [ ] **TASK-6.4 [Cả nhóm]:** Kiểm tra thủ công đa role trên trình duyệt + quét QR bằng điện thoại thật trên mạng LAN và chuẩn bị kịch bản Demo bảo vệ đồ án trước Hội đồng.
