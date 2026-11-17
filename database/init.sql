@@ -7,11 +7,11 @@
 SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 
-CREATE DATABASE IF NOT EXISTS login_system
+CREATE DATABASE IF NOT EXISTS dineflow_db
 CHARACTER SET utf8mb4
 COLLATE utf8mb4_unicode_ci;
 
-USE login_system;
+USE dineflow_db;
 
 -- 1. BẢNG USERS (Tài khoản nhân sự & quản trị nhà hàng DineFlow)
 CREATE TABLE IF NOT EXISTS users (

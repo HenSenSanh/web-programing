@@ -46,25 +46,25 @@ docker compose up -d --build
   * [`app/src/db.php`](app/src/db.php) (`getDatabaseConnection()`): Lớp kết nối dùng cho các trang PHP (`login.php`, `dashboard.php`, `products.php`, `documents.php`), gọi về `App\Core\Database::getConnection()`.
   * [`app/src/config.php`](app/src/config.php) & [`.env`](.env): Đọc thông số cấu hình `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `QR_BASE_URL`.
 * **Schema & Dữ liệu mẫu SQL:**
-  * [`database/init.sql`](database/init.sql): Toàn bộ cấu trúc bảng **OLTP** (tài khoản, RBAC, bàn ăn, 35 món ăn + ảnh `/frontend/img/*`, topping, phiên bàn, KDS, hóa đơn POS) và **Star Schema OLAP** (`dim_time`, `dim_menu_item`, `dim_chef`, `fact_order_items`, `fact_clickstream`, `combo_rules`), kèm dữ liệu mẫu 7 ngày cho Dashboard BI & Ma trận Menu Engineering. Tự động import vào MySQL khi volume `mysql_data` được khởi tạo mới.
+  * [`database/init.sql`](database/init.sql): Toàn bộ cấu trúc bảng **OLTP** (tài khoản, RBAC, bàn ăn, 35 món ăn + ảnh `/frontend/img/*`, topping, phiên bàn, KDS, hóa đơn POS) và **Star Schema OLAP** (`dim_time`, `dim_menu_item`, `dim_chef`, `fact_order_items`, `fact_clickstream`, `combo_rules`), kèm dữ liệu mẫu 7 ngày cho Dashboard BI & Ma trận Menu Engineering. Tự động import vào MySQL (`dineflow_db`) khi volume `mysql_data` được khởi tạo mới.
   * [`database/migrations/`](database/migrations) & [`database/seed_role_permissions.sql`](database/seed_role_permissions.sql): Script nâng cấp schema/quyền cho database đang chạy mà không cần `down -v`.
   * [`database/schema.sql`](database/schema.sql) & [`database/seed.php`](database/seed.php): Dùng cho SQLite fallback khi chạy unit test tách biệt.
 
-### 🔌 3 cách truy cập trực tiếp vào Database MySQL (`login_system`)
+### 🔌 3 cách truy cập trực tiếp vào Database MySQL (`dineflow_db`)
 
 1. **Qua trình duyệt với phpMyAdmin (Khuyên dùng):**
    * Mở: `http://localhost:8081/`
-   * **Username:** `login_user` | **Password:** `login_password` | **Database:** `login_system`
-   * *(Hoặc đăng nhập quyền cao nhất: Username `root` / Password `root_password` — cấu hình trong [`.env`](.env) và [`docker-compose.yml`](docker-compose.yml)).*
+   * **Username:** `dineflow` | **Password:** `dineflow123` | **Database:** `dineflow_db`
+   * *(Hoặc đăng nhập quyền root: Username `root` / Password `root123` — cấu hình trong [`.env`](.env) và [`docker-compose.yml`](docker-compose.yml)).*
 2. **Qua dòng lệnh MySQL CLI trong Docker:**
    ```bash
-   docker exec -it dineflow_mysql mysql -ulogin_user -plogin_password login_system
+   docker exec -it dineflow_mysql mysql -udineflow -pdineflow123 dineflow_db
    ```
 3. **Qua phần mềm DB bên ngoài (DBeaver / Navicat / MySQL Workbench / DataGrip):**
    * **Host:** `127.0.0.1` (hoặc `localhost`)
    * **Port:** `3307` *(Docker ánh xạ `3307:3306`)*
-   * **Database:** `login_system`
-   * **Username / Password:** `login_user` / `login_password` (hoặc `root` / `root_password`)
+   * **Database:** `dineflow_db`
+   * **Username / Password:** `dineflow` / `dineflow123` (hoặc `root` / `root123`)
 
 ---
 
@@ -83,7 +83,7 @@ docker compose up -d --build
 | **Màn hình Điều phối Bếp (KDS)** | `http://localhost:8080/frontend/kds/index.php` | Nhận đơn mới, cảnh báo thời gian nấu > 15 phút, chuyển `PENDING -> COOKING -> COMPLETED` |
 | **Màn hình Thu ngân (POS)** | `http://localhost:8080/frontend/pos/index.php` | Tính tạm tính, VAT 8%, làm tròn 500đ, VietQR & đóng phiên |
 | **Giám sát Vận hành (Live Ops)** | `http://localhost:8080/frontend/live-ops/index.php` | Theo dõi bàn đang mở, cảnh báo chậm bếp, luật gợi ý Apriori & đồng bộ báo cáo |
-| **Quản trị CSDL phpMyAdmin** | `http://localhost:8081/` | Xem/sửa trực tiếp bảng `login_system` |
+| **Quản trị CSDL phpMyAdmin** | `http://localhost:8081/` | Xem/sửa trực tiếp bảng `dineflow_db` |
 
 ### 🔑 Tài khoản mẫu trong MySQL (`database/init.sql`)
 * **Admin (`ADMIN`):** `admin` (`admin@dineflow.vn`) — Mật khẩu: `Admin@123` *(hoặc `123456`)* → Toàn quyền quản trị, BI Dashboard, cấu hình hệ thống.
@@ -95,9 +95,9 @@ docker compose up -d --build
 
 **Nâng cấp database cũ từ volume có sẵn (không dùng `down -v`):**
 ```bash
-mysql -h 127.0.0.1 -P 3307 -u root -proot_password login_system < database/migrations/20261117_rbac_permissions_catalog.sql
-mysql -h 127.0.0.1 -P 3307 -u root -proot_password login_system < database/migrations/20261117_menu_topping_audit.sql
-mysql -h 127.0.0.1 -P 3307 -u root -proot_password login_system < database/seed_role_permissions.sql
+mysql -h 127.0.0.1 -P 3307 -u root -proot123 dineflow_db < database/migrations/20261117_rbac_permissions_catalog.sql
+mysql -h 127.0.0.1 -P 3307 -u root -proot123 dineflow_db < database/migrations/20261117_menu_topping_audit.sql
+mysql -h 127.0.0.1 -P 3307 -u root -proot123 dineflow_db < database/seed_role_permissions.sql
 ```
 
 ---

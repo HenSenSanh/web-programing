@@ -26,10 +26,10 @@ services:
     restart: always
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
-      MYSQL_DATABASE: ${DB_DATABASE:-login_system}
-      MYSQL_USER: ${DB_USERNAME:-login_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-login_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${DB_DATABASE:-dineflow_db}
+      MYSQL_USER: ${DB_USERNAME:-dineflow}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-dineflow123}
     ports:
       - "3307:3306"
     volumes:

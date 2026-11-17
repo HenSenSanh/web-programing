@@ -35,9 +35,9 @@ class Database
         // 2. MySQL connection (Docker environment)
         $host = getenv('DB_HOST') ?: 'mysql';
         $port = getenv('DB_PORT') ?: 3306;
-        $dbname = getenv('DB_DATABASE') ?: 'login_system';
-        $user = getenv('DB_USERNAME') ?: 'login_user';
-        $pass = getenv('DB_PASSWORD') ?: 'login_password';
+        $dbname = getenv('DB_DATABASE') ?: 'dineflow_db';
+        $user = getenv('DB_USERNAME') ?: 'dineflow';
+        $pass = getenv('DB_PASSWORD') ?: 'dineflow123';
 
         try {
             require_once __DIR__ . '/../src/encoding.php';
