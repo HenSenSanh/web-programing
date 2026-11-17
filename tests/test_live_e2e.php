@@ -107,7 +107,6 @@ echo "=======================================================================\n\
 echo "[1/3] Frontend Routes, Static Assets & .htaccess 302 Redirects\n";
 
 $routes200 = [
-    '/demo_tester.html',
     '/frontend/admin/table-management.html',
     '/frontend/admin/menu-management.html',
     '/frontend/menu/index.html?token=tbl-01-sess',

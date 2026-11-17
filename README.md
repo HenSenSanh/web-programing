@@ -67,7 +67,7 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
   * **Trang Đăng nhập & Đăng ký:** Xây dựng giao diện `login.php` và `register.php`, tự chuyển hướng nhân viên tới đúng màn hình theo vai trò (`ADMIN` → Dashboard, `CREATOR` → Quản lý Bàn, `KEEPER` → Bếp KDS, `VIEWER` → Thu ngân POS), hỗ trợ `Remember Me` và kích hoạt email SMTP qua PHPMailer.
   * **Quản lý Bàn ăn & QR:** Xem trạng thái các bàn, thêm bàn mới (`tables.manage`), mở phiên cho bàn (`tables.open`) và tạo mã QR chứa `session_token` (tùy biến URL gốc cho điện thoại trên mạng LAN).
   * **Quản lý Thực đơn hợp nhất (`products.php`):** Thêm món mới qua modal (hỗ trợ `image_url` và đồng bộ tự động sang `products`), chỉnh sửa món, bật/tắt trạng thái còn món/hết món từng món, cấu hình topping trực tiếp cho từng món (`menu_item_toppings`), thống kê động toàn catalog và phân trang thật SQL (`COUNT(*)`, `LIMIT`, `OFFSET`) giữ bộ lọc URL.
-* **Các file phụ trách:** `README_TV1.md`, `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `app/public/partials/staff_portal_nav.php`, `app/public/frontend/admin/table-management.php`, `app/Controllers/AdminCatalogController.php`.
+* **Các file phụ trách:** `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `app/public/partials/staff_portal_nav.php`, `app/public/frontend/admin/table-management.php`, `app/Controllers/AdminCatalogController.php`.
 
 ---
 
@@ -98,16 +98,16 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
   * **Bảo vệ Giao dịch & Đồng bộ Giỏ hàng chung:** Bọc các thao tác chốt đơn/thanh toán trong Database Transaction, đảm bảo toàn vẹn tổng tiền hóa đơn và `Idempotency-Key` chống gửi trùng đơn.
   * **Data Pipeline (ETL) & Gợi ý Apriori:** Vận hành luồng ETL tự động đổ dữ liệu sang OLAP khi thanh toán, tính toán luật kết hợp Apriori (Support, Confidence, Lift) và giám sát vi phạm SLA bếp (> 15 phút).
   * **Cổng Kiểm thử Tự động:** Xây dựng và chạy bộ test `tests/run_tests.php` (**61 ca kiểm thử**) và `tests/test_tv4_core.php` kiểm chứng các module cốt lõi.
-* **Các file phụ trách:** `tv4.md`, `docker-compose.yml`, `database/init.sql`, `app/src/`, `app/Services/`, `app/Controllers/`, `tests/run_tests.php`, `tests/test_tv4_core.php`.
+* **Các file phụ trách:** `docker-compose.yml`, `database/init.sql`, `app/src/`, `app/Services/`, `app/Controllers/`, `tests/run_tests.php`, `tests/test_tv4_core.php`, `tests/test_live_e2e.php`.
 
 ---
 
 ### 👤 THÀNH VIÊN 5 (TV5) — Báo Cáo Doanh Thu BI & Ma Trận Thực Đơn
 * **Trách nhiệm chính:**
-  * **BI Dashboard (`dashboard.php` & `demo_tester.html`):** Hiển thị KPI tổng quan, doanh thu theo ngày/khung giờ cao điểm và đối soát tài chính OLAP vs POS từ API `/api/v1/bi/dashboard-summary` và `/api/v1/bi/revenue-over-time` (truy vấn từ kho Star Schema).
-  * **Ma trận Menu Engineering (`/api/v1/bi/menu-engineering-matrix`):** Thống kê lượt xem (clickstream), số lượng bán, doanh thu, tỷ lệ chuyển đổi và phân nhóm 4 góc phần tư (`⭐ Star`, `🐴 Plowhorse`, `🧩 Puzzle`, `🐕 Dog`) kèm khuyến nghị kinh doanh trên `dashboard.php` và `demo_tester.html`.
+  * **BI Dashboard (`dashboard.php`):** Hiển thị KPI tổng quan, doanh thu theo ngày/khung giờ cao điểm và đối soát tài chính OLAP vs POS từ API `/api/v1/bi/dashboard-summary` và `/api/v1/bi/revenue-over-time` (truy vấn từ kho Star Schema).
+  * **Ma trận Menu Engineering (`/api/v1/bi/menu-engineering-matrix`):** Thống kê lượt xem (clickstream), số lượng bán, doanh thu, tỷ lệ chuyển đổi và phân nhóm 4 góc phần tư (`⭐ Star`, `🐴 Plowhorse`, `🧩 Puzzle`, `🐕 Dog`) kèm khuyến nghị kinh doanh trên `dashboard.php`.
   * **Báo cáo Hiệu suất, SLA & Xuất Excel (`.xlsx` / `.csv`):** Theo dõi chỉ số SLA bếp và xuất báo cáo doanh thu / ma trận thực đơn ra file Excel `.xlsx` chuẩn OpenXML (`ZipArchive`) và `.csv` UTF-8 BOM (chống formula injection) qua API `/api/v1/bi/export-report`. Tất cả endpoint `/api/v1/bi/*` được bảo vệ bởi RBAC quyền `reports.view`.
-* **Các file phụ trách:** `tv5.md`, `app/public/dashboard.php`, `app/Controllers/DataPipelineController.php` (BI endpoints), phần biểu đồ BI & Menu Engineering trong `app/public/demo_tester.html`.
+* **Các file phụ trách:** `app/public/dashboard.php`, `app/Controllers/DataPipelineController.php` (BI endpoints).
 
 ---
 
@@ -130,7 +130,6 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds/index.php` *(alias `/frontend/kds/`)* | TV3 |
 | **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos/index.php` *(alias `/frontend/pos/`)* | TV3 |
 | **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/live-ops/index.php` *(alias `/frontend/live-ops/`)* | TV4 |
-| **Simulator Demo Toàn Luồng E2E** | `http://localhost:8080/demo_tester.html` | TV4 & TV5 |
 | **Quản trị Cơ sở dữ liệu phpMyAdmin** | `http://localhost:8081/` | TV4 & Cả nhóm |
 
 ### 🔑 Tài khoản mẫu có sẵn trong MySQL Docker (`database/init.sql`):
@@ -177,4 +176,4 @@ docker compose exec php-app php /var/www/tests/test_live_e2e.php
 Phạm vi bao phủ của 3 bộ kiểm thử:
 * `tests/run_tests.php` (**122 ca kiểm thử**): Mục 38–40 (Auth/Email/Login), Ma trận RBAC/Landing/Portal Shell/401-403, Thực đơn 35 món & phân trang SQL, Vòng đời Bàn/KDS/POS, Acceptance quản lý món/topping snapshot/audit/hồi quy hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8 (BI Matrix 4 Quadrants & Export Excel `.xlsx` / `.csv` / `.json`).
 * `tests/test_tv4_core.php` (**23 ca kiểm thử**): SharedCartService, Idempotent EtlService, AprioriService và DataPipelineController.
-* `tests/test_live_e2e.php` (**69 ca kiểm thử**): Kiểm thử toàn luồng HTTP + Apache + MySQL 8.0 thực tế (static assets, `.htaccess` 302 aliases, PHP session/RBAC guards, Portal Tab Shell `?embed=1`, AJAX không reload ở `products.php` / `documents.php`, `& 401` API guards, Open Table → QR Menu → Shared Cart → Order → KDS → POS → ETL → BI → `.xlsx`).
+* `tests/test_live_e2e.php` (**72 ca kiểm thử**): Kiểm thử toàn luồng HTTP + Apache + MySQL 8.0 thực tế (static assets, `.htaccess` 302 aliases, PHP session/RBAC guards, Portal Tab Shell `?embed=1`, AJAX không reload ở `products.php` / `documents.php`, `& 401` API guards, Cloudflare Tunnel URL, 35 ảnh món, Open Table → QR Menu → Shared Cart → Order → KDS → POS → ETL → BI → `.xlsx`).
