@@ -13,6 +13,29 @@ function formatTableLabel(rawName, fallbackId) {
   return `Bàn ${str.padStart(2, '0')}`;
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  }[ch]));
+}
+
+function formatBillToppings(item) {
+  if (!item.topping_details_recorded) {
+    return 'Chưa có dữ liệu lịch sử topping';
+  }
+  const toppings = Array.isArray(item.toppings) ? item.toppings : [];
+  if (toppings.length === 0) {
+    return 'Không chọn topping';
+  }
+  return 'Topping: ' + toppings
+    .map(t => `${escapeHtml(t.name)} (+${Number(t.unit_price || 0).toLocaleString('vi-VN')} đ)`)
+    .join(', ');
+}
+
 // Hiển thị badge trạng thái món từ KDS trên hóa đơn POS
 function renderItemStatusBadge(status) {
   const st = String(status || '').toUpperCase();
@@ -86,9 +109,9 @@ function renderSessionsGrid(container, countBadge) {
           <div class="col">
             <button class="btn ${btnClass} w-100 py-3 text-start shadow-sm position-relative"
                     onclick="selectSession(${tableId})">
-              <div class="fw-bold fs-6"><i class="bi bi-geo-alt-fill"></i> ${label}</div>
+              <div class="fw-bold fs-6"><i class="bi bi-geo-alt-fill"></i> ${escapeHtml(label)}</div>
               <small class="d-block text-truncate ${isSelected ? 'text-white-50' : 'text-muted'}" style="max-width: 135px;">
-                ${tokenDisplay}
+                ${escapeHtml(tokenDisplay)}
               </small>
               <span class="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-danger">
                 ${itemCount} món
@@ -122,7 +145,7 @@ async function selectSession(tableId, silent = false) {
 
     document.getElementById('pos-empty-state').classList.add('d-none');
     document.getElementById('pos-bill-details').classList.remove('d-none');
-    document.getElementById('selected-table-title').innerHTML = `<i class="bi bi-receipt"></i> Hóa Đơn: <strong>${label}</strong>`;
+    document.getElementById('selected-table-title').innerHTML = `<i class="bi bi-receipt"></i> Hóa Đơn: <strong>${escapeHtml(label)}</strong>`;
     document.getElementById('selected-session-badge').innerText = badgeText;
 
     const tbody = document.getElementById('bill-items-body');
@@ -139,8 +162,9 @@ async function selectSession(tableId, silent = false) {
         return `
           <tr>
             <td class="fw-semibold">
-              ${item.item_name || 'Món ăn'}
+              ${escapeHtml(item.item_name || 'Món ăn')}
               ${renderItemStatusBadge(item.status)}
+              <div class="small fw-normal text-muted mt-1">${formatBillToppings(item)}</div>
             </td>
             <td class="text-center"><span class="badge bg-secondary">${qty}</span></td>
             <td class="text-end">${unitPrice.toLocaleString('vi-VN')} đ</td>
@@ -192,7 +216,7 @@ async function selectSession(tableId, silent = false) {
 function loadSessionDetailsFromInput() {
   const inputVal = document.getElementById('session-id-input').value.trim();
   if (!inputVal) {
-    alert('Vui lòng nhập Session ID, Token QR hoặc Số bàn!');
+    alert('Vui lòng nhập Session ID hoặc Số bàn!');
     return;
   }
 

@@ -70,8 +70,33 @@
           >
             Chưa kiểm tra
           </span>
+          <a
+            href="/login.php"
+            target="_blank"
+            class="px-3 py-1.5 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100"
+          >
+            <i class="fa-solid fa-right-to-bracket mr-1"></i> Đăng nhập Staff
+          </a>
         </div>
       </header>
+
+      <div
+        id="authWarningBanner"
+        class="hidden bg-amber-50 border border-amber-300 text-amber-900 rounded-xl px-4 py-3 text-xs flex flex-wrap items-center justify-between gap-2 shadow-sm"
+      >
+        <div>
+          <b>Cần phiên đăng nhập nhân viên (RBAC):</b>
+          <span id="authWarningText">
+            Các API /admin/*, /staff/* và /bi/* yêu cầu đăng nhập đúng vai trò (hoặc Admin toàn quyền).
+          </span>
+        </div>
+        <a
+          href="/login.php"
+          class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold whitespace-nowrap"
+        >
+          Đăng nhập tại /login.php
+        </a>
+      </div>
 
       <!-- 3 CỘT CHỨC NĂNG -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -87,7 +112,8 @@
               1. Bàn Ăn & Điện Thoại Khách (TV1 & TV2)
             </h2>
             <span
-              class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono"
+              id="lblCurrentTableBadge"
+              class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-mono font-semibold"
             >
               Bàn 01
             </span>
@@ -95,16 +121,46 @@
 
           <!-- MỞ BÀN -->
           <div class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2">
-            <div class="font-semibold text-slate-700">
-              Mở Phiên Bàn (Admin/Thu Ngân)
+            <div class="flex items-center justify-between">
+              <span class="font-semibold text-slate-700">
+                Mở Phiên Bàn (Admin/Thu Ngân)
+              </span>
+              <span class="text-[10px] text-slate-500">15 Bàn QR Dine</span>
+            </div>
+
+            <div class="space-y-1">
+              <label class="block text-[11px] font-semibold text-slate-700">
+                Chọn bàn phục vụ (Bàn 01 ➔ Bàn 15):
+              </label>
+              <select
+                id="simTableSelect"
+                onchange="onSimTableChange()"
+                class="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium text-slate-800"
+              >
+                <option value="1" data-name="Bàn 01">Bàn 01 (🟠 Đang phục vụ)</option>
+                <option value="2" data-name="Bàn 02">Bàn 02 (🟠 Đang phục vụ)</option>
+                <option value="3" data-name="Bàn 03">Bàn 03 (🟢 Trống - Sẵn sàng)</option>
+                <option value="4" data-name="Bàn 04">Bàn 04 (🟢 Trống - Sẵn sàng)</option>
+                <option value="5" data-name="Bàn 05">Bàn 05 (🟠 Đang phục vụ)</option>
+                <option value="6" data-name="Bàn 06">Bàn 06 (🟢 Trống - Sẵn sàng)</option>
+                <option value="7" data-name="Bàn 07">Bàn 07 (🟢 Trống - Sẵn sàng)</option>
+                <option value="8" data-name="Bàn 08">Bàn 08 (🟢 Trống - Sẵn sàng)</option>
+                <option value="9" data-name="Bàn 09">Bàn 09 (🟢 Trống - Sẵn sàng)</option>
+                <option value="10" data-name="Bàn 10">Bàn 10 (🟢 Trống - Sẵn sàng)</option>
+                <option value="11" data-name="Bàn 11">Bàn 11 (🟢 Trống - Sẵn sàng)</option>
+                <option value="12" data-name="Bàn 12">Bàn 12 (🟢 Trống - Sẵn sàng)</option>
+                <option value="13" data-name="Bàn 13">Bàn 13 (🟢 Trống - Sẵn sàng)</option>
+                <option value="14" data-name="Bàn 14">Bàn 14 (🟢 Trống - Sẵn sàng)</option>
+                <option value="15" data-name="Bàn 15">Bàn 15 (🟢 Trống - Sẵn sàng)</option>
+              </select>
             </div>
 
             <button
               onclick="openTableSession()"
               class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-medium transition"
             >
-              <i class="fa-solid fa-qrcode mr-1"></i> Tạo Phiên Bàn 1 & Lấy
-              Token QR
+              <i class="fa-solid fa-qrcode mr-1"></i>
+              <span id="btnOpenTableLabel">Mở / Kết Nối Bàn 01 & Lấy Token QR</span>
             </button>
 
             <div class="space-y-1">
@@ -141,27 +197,74 @@
               </span>
             </div>
 
+            <div class="space-y-1.5 pt-1">
+              <label class="block text-[11px] font-semibold text-slate-700">
+                Chọn món ăn trong Thực đơn (35 món):
+              </label>
+              <select
+                id="simMenuSelect"
+                onchange="onSimDishChange()"
+                class="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium text-slate-800"
+              >
+                <option value="1" data-name="Mì Cay Hải Sản Cấp Độ 7" data-price="65000">#1 - Mì Cay Hải Sản Cấp Độ 7 (65,000đ)</option>
+                <option value="2" data-name="Lẩu Thái Tomyum Bò Mỹ" data-price="189000">#2 - Lẩu Thái Tomyum Bò Mỹ (189,000đ)</option>
+                <option value="3" data-name="Cơm Trộn Hàn Quốc Bibimbap" data-price="55000">#3 - Cơm Trộn Hàn Quốc Bibimbap (55,000đ)</option>
+                <option value="4" data-name="Mì Ý Sốt Bò Bằm Bolognaise" data-price="59000">#4 - Mì Ý Sốt Bò Bằm Bolognaise (59,000đ)</option>
+                <option value="5" data-name="Khoai Tây Chiên Lắc Phô Mai" data-price="35000">#5 - Khoai Tây Chiên Lắc Phô Mai (35,000đ)</option>
+                <option value="6" data-name="Gà Rán Sốt Cay Hàn Quốc (4 miếng)" data-price="69000">#6 - Gà Rán Sốt Cay Hàn Quốc (4 miếng) (69,000đ)</option>
+                <option value="7" data-name="Kim Chi Cải Thảo Truyền Thống" data-price="15000">#7 - Kim Chi Cải Thảo Truyền Thống (15,000đ)</option>
+                <option value="8" data-name="Trà Đào Cam Sả Tươi" data-price="32000">#8 - Trà Đào Cam Sả Tươi (32,000đ)</option>
+                <option value="9" data-name="Trà Sữa Trân Châu Hoàng Kim" data-price="35000">#9 - Trà Sữa Trân Châu Hoàng Kim (35,000đ)</option>
+                <option value="10" data-name="Coca-Cola Lon Lạnh" data-price="18000">#10 - Coca-Cola Lon Lạnh (18,000đ)</option>
+                <option value="11" data-name="Cơm Bò Xào Nấm Kim Châm" data-price="62000">#11 - Cơm Bò Xào Nấm Kim Châm (62,000đ)</option>
+                <option value="12" data-name="Lẩu Kim Chi Hải Sản Hàn Quốc" data-price="179000">#12 - Lẩu Kim Chi Hải Sản Hàn Quốc (179,000đ)</option>
+                <option value="13" data-name="Nem Chua Rán Hà Nội (8 cái)" data-price="45000">#13 - Nem Chua Rán Hà Nội (8 cái) (45,000đ)</option>
+                <option value="14" data-name="Phô Mai Que Kéo Sợi (5 cái)" data-price="42000">#14 - Phô Mai Que Kéo Sợi (5 cái) (42,000đ)</option>
+                <option value="15" data-name="Nước Ép Dưa Hấu Tươi" data-price="30000">#15 - Nước Ép Dưa Hấu Tươi (30,000đ)</option>
+                <option value="16" data-name="Trà Vải Hoa Hồng Nhiệt Đới" data-price="35000">#16 - Trà Vải Hoa Hồng Nhiệt Đới (35,000đ)</option>
+                <option value="17" data-name="Mì Udon Xào Bò Nhật Bản" data-price="68000">#17 - Mì Udon Xào Bò Nhật Bản (68,000đ)</option>
+                <option value="18" data-name="Cơm Rang Dưa Bò Truyền Thống" data-price="55000">#18 - Cơm Rang Dưa Bò Truyền Thống (55,000đ)</option>
+                <option value="19" data-name="Bánh Bạch Tuộc Takoyaki (6 viên)" data-price="40000">#19 - Bánh Bạch Tuộc Takoyaki (6 viên) (40,000đ)</option>
+                <option value="20" data-name="Xúc Xích Đức Nướng Than Hoa" data-price="38000">#20 - Xúc Xích Đức Nướng Than Hoa (38,000đ)</option>
+                <option value="21" data-name="Trà Chanh Giã Tay Quảng Đông" data-price="28000">#21 - Trà Chanh Giã Tay Quảng Đông (28,000đ)</option>
+                <option value="22" data-name="Sinh Tố Bơ Sáp Dừa Tươi" data-price="42000">#22 - Sinh Tố Bơ Sáp Dừa Tươi (42,000đ)</option>
+                <option value="23" data-name="Bún Đậu Mắm Tôm Thập Cẩm" data-price="65000">#23 - Bún Đậu Mắm Tôm Thập Cẩm (65,000đ)</option>
+                <option value="24" data-name="Bò Bít Tết Sốt Tiêu Đen Kèm Bánh Mì" data-price="89000">#24 - Bò Bít Tết Sốt Tiêu Đen Kèm Bánh Mì (89,000đ)</option>
+                <option value="25" data-name="Bánh Mì Bơ Tỏi Nướng Giòn" data-price="25000">#25 - Bánh Mì Bơ Tỏi Nướng Giòn (25,000đ)</option>
+                <option value="26" data-name="Salad Cà Chua Dưa Leo Dầu Giấm" data-price="30000">#26 - Salad Cà Chua Dưa Leo Dầu Giấm (30,000đ)</option>
+                <option value="27" data-name="Cà Phê Sữa Đá Phin Truyền Thống" data-price="25000">#27 - Cà Phê Sữa Đá Phin Truyền Thống (25,000đ)</option>
+                <option value="28" data-name="Trà Xoài Macchiato Kem Muối" data-price="38000">#28 - Trà Xoài Macchiato Kem Muối (38,000đ)</option>
+                <option value="29" data-name="Súp Gà Ngô Non Trứng Cút" data-price="35000">#29 - Súp Gà Ngô Non Trứng Cút (35,000đ)</option>
+                <option value="30" data-name="Cháo Ếch Singapore Nồi Đất" data-price="75000">#30 - Cháo Ếch Singapore Nồi Đất (75,000đ)</option>
+                <option value="31" data-name="Ngô Ngọt Chiên Bơ Giòn" data-price="35000">#31 - Ngô Ngọt Chiên Bơ Giòn (35,000đ)</option>
+                <option value="32" data-name="Bánh Gối Nhân Thịt Miến (3 cái)" data-price="30000">#32 - Bánh Gối Nhân Thịt Miến (3 cái) (30,000đ)</option>
+                <option value="33" data-name="Chè Dừa Dầm Hải Phòng" data-price="32000">#33 - Chè Dừa Dầm Hải Phòng (32,000đ)</option>
+                <option value="34" data-name="Tàu Hũ Trân Châu Đường Đen" data-price="28000">#34 - Tàu Hũ Trân Châu Đường Đen (28,000đ)</option>
+                <option value="35" data-name="Combo Lẩu Nướng Thần Thánh 4 Người" data-price="399000">#35 - Combo Lẩu Nướng Thần Thánh 4 Người (399,000đ)</option>
+              </select>
+            </div>
+
             <div class="grid grid-cols-2 gap-2 pt-1">
               <button
-                onclick="viewItem(1)"
+                onclick="viewSelectedDish()"
                 class="p-2 border rounded bg-white hover:bg-slate-100 text-left"
               >
-                <div class="font-semibold text-slate-800">Mì Cay Cấp 7</div>
-                <div class="text-[10px] text-slate-500">65,000đ</div>
+                <div id="lblViewDishName" class="font-semibold text-slate-800 truncate">Mì Cay Hải Sản Cấp Độ 7</div>
+                <div id="lblViewDishPrice" class="text-[10px] text-slate-500">65,000đ</div>
                 <span
                   class="inline-block mt-1 text-[10px] text-blue-600 bg-blue-50 px-1 rounded"
                 >
-                  Bấm: View Item (TV4)
+                  👁️ Bấm: View Item (Clickstream)
                 </span>
               </button>
 
               <button
-                onclick="addToCart(1, 'Mì Cay Hải Sản Cấp Độ 7', 80000)"
+                onclick="addSelectedDishToCart()"
                 class="p-2 border rounded bg-white hover:bg-indigo-50 text-left border-indigo-200"
               >
-                <div class="font-semibold text-indigo-700">+ Thêm Giỏ Hàng</div>
-                <div class="text-[10px] text-slate-500">
-                  80,000đ (+ Phô mai)
+                <div class="font-semibold text-indigo-700">🛒 + Thêm Giỏ Hàng</div>
+                <div id="lblAddDishPrice" class="text-[10px] text-slate-500">
+                  65,000đ (Giá gốc DB)
                 </div>
                 <span
                   class="inline-block mt-1 text-[10px] text-indigo-600 bg-indigo-50 px-1 rounded"
@@ -278,7 +381,7 @@
                 >Món Hay Gọi Kèm (TV4 Lead)</span
               >
               <button
-                onclick="loadRecommendations(1)"
+                onclick="loadRecommendations(getSelectedSimDish().id)"
                 class="text-[10px] text-indigo-600 hover:underline"
               >
                 Tải lại
@@ -287,7 +390,7 @@
 
             <div id="recommendationsList" class="space-y-1.5 min-h-[60px]">
               <div class="text-[11px] text-slate-400 italic">
-                Bấm "Tải lại" để lấy gợi ý cho Mì Cay...
+                Bấm "Tải lại" hoặc chọn món ở Cột 1 để lấy gợi ý Apriori...
               </div>
             </div>
           </div>
@@ -353,16 +456,25 @@
           <div
             class="bg-slate-50 p-3 rounded-lg border text-xs space-y-2 flex-1 flex flex-col"
           >
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between flex-wrap gap-1">
               <span class="font-semibold text-slate-700"
                 >Ma Trận Menu Engineering (TV5)</span
               >
-              <button
-                onclick="loadMenuMatrix()"
-                class="text-[10px] text-indigo-600 hover:underline"
-              >
-                Cập nhật
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  onclick="exportBiCsv('menu-matrix')"
+                  class="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-0.5 rounded font-semibold"
+                  title="Tải file Excel .xlsx có định dạng bảng, màu sắc và độ rộng cột chuẩn"
+                >
+                  📥 Xuất Excel (.xlsx)
+                </button>
+                <button
+                  onclick="loadMenuMatrix()"
+                  class="text-[10px] text-indigo-600 hover:underline font-medium"
+                >
+                  Cập nhật
+                </button>
+              </div>
             </div>
 
             <div class="overflow-y-auto max-h-48 border rounded bg-white">
@@ -373,14 +485,15 @@
                     <th class="p-1.5 text-right">Xem</th>
                     <th class="p-1.5 text-right">Bán</th>
                     <th class="p-1.5 text-right">Doanh Thu</th>
-                    <th class="p-1.5 text-right">Chuyển đổi</th>
+                    <th class="p-1.5 text-right">C.Đổi</th>
+                    <th class="p-1.5">Nhóm</th>
                   </tr>
                 </thead>
 
                 <tbody id="matrixTableBody" class="divide-y divide-slate-100">
                   <tr>
                     <td
-                      colspan="5"
+                      colspan="6"
                       class="p-2 text-center text-slate-400 italic"
                     >
                       Chưa tải dữ liệu...
@@ -488,35 +601,140 @@
         }
       }
 
-      // TV1: MỞ PHIÊN BÀN
+      let authBannerShown = false;
+
+      function showAuthBanner(status, endpoint) {
+        const banner = document.getElementById("authWarningBanner");
+        const text = document.getElementById("authWarningText");
+        if (banner) banner.classList.remove("hidden");
+        if (text) {
+          text.textContent =
+            status === 403
+              ? `Tài khoản hiện tại không đủ quyền gọi ${endpoint} (HTTP 403). Vui lòng đăng nhập tài khoản có quyền phù hợp (hoặc admin) tại /login.php.`
+              : `Phiên nhân viên chưa đăng nhập khi gọi ${endpoint} (HTTP 401). Vui lòng đăng nhập tại /login.php rồi tải lại trang.`;
+        }
+        if (!authBannerShown) {
+          authBannerShown = true;
+          log(
+            `[RBAC HTTP ${status}] Endpoint ${endpoint} yêu cầu đăng nhập staff (/login.php).`,
+            "warn",
+          );
+        }
+      }
+
+      // TẢI DANH SÁCH 15 BÀN ĂN KÈM TRẠNG THÁI THỰC TẾ TỪ DB
+      async function loadTablesForSimulator() {
+        try {
+          const res = await fetch(`${getBaseUrl()}/api/v1/admin/tables`);
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, "/api/v1/admin/tables");
+            return;
+          }
+          if (!res.ok) return;
+          const tables = await res.json();
+          if (!Array.isArray(tables) || tables.length === 0) return;
+
+          const select = document.getElementById("simTableSelect");
+          if (!select) return;
+
+          const currentSelectedId = Number(select.value) || 1;
+          const sorted = [...tables].sort((a, b) => Number(a.id) - Number(b.id));
+
+          select.innerHTML = sorted
+            .map((t) => {
+              const id = Number(t.id);
+              const tName = t.table_number || `Bàn ${String(id).padStart(2, "0")}`;
+              const isOccupied = String(t.status || "").toUpperCase() === "OCCUPIED";
+              const statusText = isOccupied ? "🟠 Đang phục vụ" : "🟢 Trống - Sẵn sàng";
+              const selectedAttr = id === currentSelectedId ? "selected" : "";
+              return `<option value="${id}" data-name="${escapeHtml(tName)}" data-status="${escapeHtml(t.status || 'AVAILABLE')}" ${selectedAttr}>
+                ${escapeHtml(tName)} (${statusText})
+              </option>`;
+            })
+            .join("");
+        } catch (e) {
+          // Keep default 15 options if offline
+        }
+      }
+
+      function getSelectedSimTable() {
+        const select = document.getElementById("simTableSelect");
+        if (!select || !select.selectedOptions || !select.selectedOptions[0]) {
+          return { id: 1, name: "Bàn 01" };
+        }
+        const opt = select.selectedOptions[0];
+        const id = Number(opt.value) || 1;
+        return {
+          id: id,
+          name: opt.getAttribute("data-name") || `Bàn ${String(id).padStart(2, "0")}`,
+        };
+      }
+
+      function onSimTableChange() {
+        const tbl = getSelectedSimTable();
+        const badge = document.getElementById("lblCurrentTableBadge");
+        const btnLabel = document.getElementById("btnOpenTableLabel");
+        if (badge) badge.textContent = tbl.name;
+        if (btnLabel) btnLabel.textContent = `Mở / Kết Nối ${tbl.name} & Lấy Token QR`;
+
+        clearInterval(cartPollTimer);
+        currentSessionId = "";
+        currentSessionToken = "";
+        localCart = [];
+        renderCart();
+        document.getElementById("txtSessionId").textContent = "Chưa mở (Bấm nút trên)";
+        document.getElementById("txtSessionToken").textContent = "Chưa có";
+        const statusEl = document.getElementById("wsStatus");
+        if (statusEl) {
+          statusEl.textContent = `Cart: Đã chọn ${tbl.name}`;
+          statusEl.className = "text-[10px] bg-slate-200 px-2 py-0.5 rounded";
+        }
+      }
+
+      // TV1: MỞ PHIÊN BÀN (Tự động kết nối vào phiên đang ACTIVE nếu bàn đang mở sẵn)
       async function openTableSession() {
         const url = getBaseUrl();
+        const tbl = getSelectedSimTable();
 
         try {
-          const res = await fetch(`${url}/api/v1/admin/tables/1/open-session`, {
+          const res = await fetch(`${url}/api/v1/admin/tables/${tbl.id}/open-session`, {
             method: "POST",
           });
 
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, `/api/v1/admin/tables/${tbl.id}/open-session`);
+          }
+
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
+          if (!res.ok && !(res.status === 409 && data.session_id && data.session_token)) {
+            throw new Error(data.error || data.detail || `HTTP ${res.status}`);
+          }
 
           currentSessionId = data.session_id;
           currentSessionToken = data.session_token;
 
           document.getElementById("txtSessionId").textContent =
-            String(currentSessionId).slice(0, 13) + "...";
+            String(currentSessionId).slice(0, 15) + "...";
 
           document.getElementById("txtSessionToken").textContent =
             currentSessionToken;
 
-          log(
-            `Mở phiên bàn 1 thành công! Token: ${currentSessionToken}`,
-            "success",
-          );
+          if (res.status === 409) {
+            log(
+              `${tbl.name} đang mở sẵn (INV-6 bảo vệ phiên) ➔ Đã lấy Token hiện hành: ${currentSessionToken}`,
+              "success",
+            );
+          } else {
+            log(
+              `Mở phiên ${tbl.name} mới thành công! Token: ${currentSessionToken}`,
+              "success",
+            );
+          }
 
           connectCartRest(currentSessionToken);
+          loadTablesForSimulator();
         } catch (e) {
-          log("Lỗi mở bàn: " + e.message, "error");
+          log(`Lỗi mở ${tbl.name}: ` + e.message, "error");
         }
       }
 
@@ -558,11 +776,76 @@
         cartPollTimer = setInterval(() => pullSharedCart(token), 4000);
       }
 
+      // TẢI DANH SÁCH 35 MÓN ĂN CHO DROPDOWN SIMULATOR
+      async function loadMenuForSimulator() {
+        try {
+          const res = await fetch(`${getBaseUrl()}/api/v1/admin/menu-items`);
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, "/api/v1/admin/menu-items");
+            return;
+          }
+          if (!res.ok) return;
+          const items = await res.json();
+          if (!Array.isArray(items) || items.length < 35) return;
+
+          const select = document.getElementById("simMenuSelect");
+          if (!select) return;
+
+          const sorted = [...items].sort((a, b) => Number(a.id) - Number(b.id));
+          select.innerHTML = sorted
+            .map(
+              (m) => `
+              <option value="${Number(m.id)}" data-name="${escapeHtml(m.name)}" data-price="${Number(m.price || 0)}">
+                #${Number(m.id)} - ${escapeHtml(m.name)} (${Number(m.price || 0).toLocaleString("vi-VN")}đ)
+              </option>
+            `,
+            )
+            .join("");
+          onSimDishChange();
+        } catch (e) {
+          // Keep default 35 options if offline
+        }
+      }
+
+      function getSelectedSimDish() {
+        const select = document.getElementById("simMenuSelect");
+        if (!select || !select.selectedOptions || !select.selectedOptions[0]) {
+          return { id: 1, name: "Mì Cay Hải Sản Cấp Độ 7", price: 65000 };
+        }
+        const opt = select.selectedOptions[0];
+        return {
+          id: Number(opt.value) || 1,
+          name: opt.getAttribute("data-name") || "Mì Cay Hải Sản Cấp Độ 7",
+          price: Number(opt.getAttribute("data-price")) || 65000,
+        };
+      }
+
+      function onSimDishChange() {
+        const dish = getSelectedSimDish();
+        const nameEl = document.getElementById("lblViewDishName");
+        const priceEl = document.getElementById("lblViewDishPrice");
+        const addPriceEl = document.getElementById("lblAddDishPrice");
+        if (nameEl) nameEl.textContent = dish.name;
+        if (priceEl) priceEl.textContent = dish.price.toLocaleString("vi-VN") + "đ";
+        if (addPriceEl) addPriceEl.textContent = dish.price.toLocaleString("vi-VN") + "đ (Giá chuẩn DB)";
+        loadRecommendations(dish.id);
+      }
+
+      function viewSelectedDish() {
+        const dish = getSelectedSimDish();
+        viewItem(dish.id);
+      }
+
+      function addSelectedDishToCart() {
+        const dish = getSelectedSimDish();
+        addToCart(dish.id, dish.name, dish.price);
+      }
+
       // TV4: GỬI CLICKSTREAM EVENT
       async function viewItem(itemId) {
         if (!currentSessionId) {
-          log("Vui lòng bấm 'Tạo Phiên Bàn' trước!", "warn");
-          return;
+          await openTableSession();
+          if (!currentSessionId) return;
         }
 
         try {
@@ -580,6 +863,8 @@
             `Đã gửi sự kiện Clickstream VIEW_ITEM cho món #${itemId} vào FactClickstream`,
             "info",
           );
+          loadMenuMatrix();
+          loadDashboardSummary();
         } catch (e) {
           log("Lỗi gửi Clickstream: " + e.message, "error");
         }
@@ -588,8 +873,8 @@
       // TV2: THÊM MÓN VÀO GIỎ HÀNG
       async function addToCart(id, name, price) {
         if (!currentSessionToken) {
-          log("Chưa có phiên bàn! Hãy bấm 'Tạo Phiên Bàn' trước.", "warn");
-          return;
+          await openTableSession();
+          if (!currentSessionToken) return;
         }
 
         const existing = localCart.find((i) => i.menu_item_id === id);
@@ -602,10 +887,8 @@
             name: name,
             quantity: 1,
             unit_price: price,
-            selected_toppings: [
-              { id: 1, name: "Thêm Phô Mai Kéo Sợi", price: 15000 },
-            ],
-            note: "Ít cay",
+            selected_toppings: [],
+            note: "Ghi chú từ Simulator",
           });
         }
 
@@ -664,6 +947,8 @@
           return;
         }
 
+        const submittedSnapshot = [...localCart];
+
         try {
           const res = await fetch(
             `${getBaseUrl()}/api/v1/client/session/${encodeURIComponent(currentSessionToken)}/submit-order`,
@@ -682,55 +967,64 @@
 
           latestOrderId = data.order_id;
 
-          const itemIds = data.order_item_ids || [1];
-          const latestItemId = itemIds[0] || 1;
+          const itemIds = Array.isArray(data.order_item_ids) && data.order_item_ids.length > 0
+            ? data.order_item_ids
+            : [1];
 
           log(
-            `Đặt món thành công! Mã đơn hàng: #${latestOrderId}, Item: #${latestItemId}`,
+            `Đặt món thành công! Mã đơn hàng: #${latestOrderId} (${itemIds.length} dòng món)`,
             "success",
           );
 
           localCart = [];
           renderCart();
 
-          renderKitchenItem(latestOrderId, latestItemId);
+          renderKitchenItem(latestOrderId, itemIds, submittedSnapshot);
         } catch (e) {
           log("Lỗi đặt món: " + e.message, "error");
         }
       }
 
-      // TV3: HIỂN THỊ MÓN TRÊN KDS
-      function renderKitchenItem(orderId, orderItemId = 1) {
+      // TV3: HIỂN THỊ MÓN TRÊN KDS (Hiển thị đúng toàn bộ món khách vừa đặt)
+      function renderKitchenItem(orderId, orderItemIds = [1], submittedItems = []) {
         const box = document.getElementById("kitchenItemList");
+        const ids = Array.isArray(orderItemIds) ? orderItemIds : [orderItemIds];
 
-        box.innerHTML = `
+        box.innerHTML = ids
+          .map((itemId, idx) => {
+            const dishInfo = submittedItems[idx] || {};
+            const dishName = dishInfo.name || "Món ăn trong đơn";
+            const dishQty = Number(dishInfo.quantity) || 1;
+            const dishPrice = Number(dishInfo.unit_price) || 0;
+            return `
         <div class="p-3 bg-white border rounded shadow-sm space-y-2 border-amber-200">
-
           <div class="flex items-center justify-between font-bold text-slate-800">
-            <span>Đơn #${orderId} - Món #${orderItemId}: Mì Cay Hải Sản</span>
-            <span id="kdsStatusBadge"
+            <span>Đơn #${orderId} • Món #${itemId}: ${escapeHtml(dishName)}</span>
+            <span id="kdsStatusBadge_${itemId}"
               class="px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800">
               PENDING
             </span>
           </div>
 
           <div class="text-[11px] text-slate-500">
-            Số lượng: 2 | Ghi chú: Ít cay, thêm phô mai
+            Số lượng: <b>${dishQty}</b> | Đơn giá chuẩn DB: ${dishPrice.toLocaleString("vi-VN")}đ
           </div>
 
           <div class="flex gap-2 pt-1">
-            <button onclick="updateKitchenStatus(${orderItemId}, 'COOKING')"
+            <button onclick="updateKitchenStatus(${itemId}, 'COOKING')"
               class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded font-medium text-[10px]">
               Bếp Nấu (COOKING)
             </button>
 
-            <button onclick="updateKitchenStatus(${orderItemId}, 'COMPLETED')"
+            <button onclick="updateKitchenStatus(${itemId}, 'COMPLETED')"
               class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-medium text-[10px]">
               Nấu Xong (COMPLETED)
             </button>
           </div>
         </div>
       `;
+          })
+          .join("");
       }
 
       // TV3: CẬP NHẬT TRẠNG THÁI MÓN
@@ -750,10 +1044,16 @@
             },
           );
 
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, "/api/v1/staff/kds/item-status");
+          }
+
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
 
-          const badge = document.getElementById("kdsStatusBadge");
+          const badge =
+            document.getElementById(`kdsStatusBadge_${orderItemId}`) ||
+            document.getElementById("kdsStatusBadge");
 
           if (badge) {
             badge.textContent = status;
@@ -788,6 +1088,10 @@
             },
           );
 
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, `/api/v1/staff/pos/checkout/${currentSessionId}`);
+          }
+
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || data.detail || `HTTP ${res.status}`);
 
@@ -795,7 +1099,7 @@
 
           document.getElementById("checkoutResult").innerHTML = `
           <div class="p-2 bg-emerald-50 text-emerald-800 rounded border border-emerald-200 mt-2">
-            ✅ Đã thanh toán:
+            ✅ Đã thanh toán (gồm VAT 8%):
             <b>${paidAmount.toLocaleString()} VNĐ</b><br>
             🚀 ETL Background đã tự động đẩy sang Star Schema OLAP.
           </div>
@@ -806,12 +1110,20 @@
             "success",
           );
 
+          // Reset phiên bàn trên UI sau khi đã đóng bàn thành công
+          clearInterval(cartPollTimer);
+          currentSessionId = "";
+          currentSessionToken = "";
+          document.getElementById("txtSessionId").textContent = "Đã đóng (AVAILABLE)";
+          document.getElementById("txtSessionToken").textContent = "Đã thu hồi Token cũ";
+          loadTablesForSimulator();
+
           // TV5: Tải lại toàn bộ dữ liệu BI sau thanh toán
           setTimeout(() => {
             loadDashboardSummary();
             loadRevenueChart();
             loadMenuMatrix();
-          }, 1200);
+          }, 800);
         } catch (e) {
           log("Lỗi thanh toán: " + e.message, "error");
         }
@@ -880,6 +1192,10 @@
             `${getBaseUrl()}/api/v1/bi/dashboard-summary`,
           );
 
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, "/api/v1/bi/dashboard-summary");
+          }
+
           if (!res.ok) {
             throw new Error("HTTP " + res.status);
           }
@@ -917,6 +1233,10 @@
           const res = await fetch(
             `${getBaseUrl()}/api/v1/bi/revenue-over-time`,
           );
+
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, "/api/v1/bi/revenue-over-time");
+          }
 
           if (!res.ok) {
             throw new Error("HTTP " + res.status);
@@ -984,6 +1304,10 @@
             `${getBaseUrl()}/api/v1/bi/menu-engineering-matrix`,
           );
 
+          if (res.status === 401 || res.status === 403) {
+            showAuthBanner(res.status, "/api/v1/bi/menu-engineering-matrix");
+          }
+
           if (!res.ok) {
             throw new Error("HTTP " + res.status);
           }
@@ -991,11 +1315,25 @@
           const items = await res.json();
           const tbody = document.getElementById("matrixTableBody");
 
-          // Hiển thị toàn bộ món, không giới hạn 6 món
+          // Hiển thị toàn bộ món kèm nhãn 4 góc phần tư Menu Engineering
           tbody.innerHTML = items
             .map(
-              (item) => `
-          <tr class="hover:bg-slate-50">
+              (item) => {
+                const qCode = item.quadrant_code || "DOG";
+                let qBadge = "🐕 Dog";
+                let qColor = "bg-slate-100 text-slate-600";
+                if (qCode === "STAR") {
+                  qBadge = "⭐ Star";
+                  qColor = "bg-amber-100 text-amber-800";
+                } else if (qCode === "PLOWHORSE") {
+                  qBadge = "🐴 Plowhorse";
+                  qColor = "bg-emerald-100 text-emerald-800";
+                } else if (qCode === "PUZZLE") {
+                  qBadge = "🧩 Puzzle";
+                  qColor = "bg-indigo-100 text-indigo-800";
+                }
+                return `
+          <tr class="hover:bg-slate-50" title="${escapeHtml(item.recommendation_action || '')}">
 
             <td class="p-1.5 font-medium text-slate-800">
               ${escapeHtml(item.name)}
@@ -1017,8 +1355,15 @@
               ${item.conversion_rate}%
             </td>
 
+            <td class="p-1.5 whitespace-nowrap">
+              <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${qColor}">
+                ${qBadge}
+              </span>
+            </td>
+
           </tr>
-        `,
+        `;
+              },
             )
             .join("");
 
@@ -1031,6 +1376,12 @@
         }
       }
 
+      function exportBiCsv(type = "menu-matrix") {
+        const url = `${getBaseUrl()}/api/v1/bi/export-report?type=${encodeURIComponent(type)}&format=xlsx`;
+        log(`Đang tải báo cáo Excel định dạng chuẩn (.xlsx) (${type})...`, "info");
+        window.open(url, "_blank");
+      }
+
       // =====================================================
       // TỰ ĐỘNG TẢI DỮ LIỆU KHI MỞ TRANG
       // =====================================================
@@ -1039,6 +1390,8 @@
           document.getElementById("serverUrl").value = location.origin;
         }
         checkHealth();
+        loadTablesForSimulator();
+        loadMenuForSimulator();
 
         // TV4
         loadRecommendations(1);

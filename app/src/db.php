@@ -7,6 +7,10 @@ function getDatabaseConnection(): PDO
         return $pdoInstance;
     }
 
+    if (!class_exists('App\Core\Database') && file_exists(__DIR__ . '/../Core/Database.php')) {
+        require_once __DIR__ . '/../Core/Database.php';
+    }
+
     if (class_exists('App\Core\Database')) {
         $pdoInstance = \App\Core\Database::getConnection();
         if ($pdoInstance->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
@@ -79,7 +83,7 @@ function initSqliteFallback(PDO $db): void
     }
 
     // Thay thế kiểu dữ liệu sang SQLite tương thích
-    $cleanSql = str_ireplace("INT AUTO_INCREMENT PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT", $cleanSql);
+    $cleanSql = preg_replace('/\b(?:BIG|TINY|SMALL|MEDIUM)?INT\s+AUTO_INCREMENT\s+PRIMARY\s+KEY\b/i', 'INTEGER PRIMARY KEY AUTOINCREMENT', $cleanSql);
     $cleanSql = preg_replace("/ENGINE=[^;]+;/i", ";", $cleanSql);
     $cleanSql = preg_replace("/ENUM\([^)]+\)/i", "TEXT", $cleanSql);
     $cleanSql = preg_replace("/INDEX\s+[a-zA-Z0-9_]+\s*\([^)]+\),?/i", "", $cleanSql);

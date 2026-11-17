@@ -64,20 +64,20 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
 
 ### 👤 THÀNH VIÊN 1 (TV1) — Quản Lý Bàn Ăn, Thực Đơn & Xác Thực
 * **Trách nhiệm chính:**
-  * **Trang Đăng nhập & Đăng ký:** Xây dựng giao diện `login.php` và `register.php`, tích hợp mã hóa mật khẩu, ghi nhớ đăng nhập `Remember Me` và gửi email kích hoạt tài khoản qua SMTP.
-  * **Quản lý Bàn ăn & QR:** Xem trạng thái các bàn (Trống / Đang ăn / Đang chờ thanh toán), mở bàn cho khách và tự động tạo mã QR chứa `session_token`.
-  * **Quản lý Thực đơn (Bài A — Phân trang thật):** Thêm, sửa, xóa món ăn, chỉnh sửa đơn giá, bật/tắt trạng thái còn món/hết món. Áp dụng kỹ thuật phân trang thật bằng `COUNT(*)`, `LIMIT`, `OFFSET` trên MySQL, giữ nguyên bộ lọc tìm kiếm trên thanh URL.
-* **Các file phụ trách:** `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `app/public/frontend/admin/table-management.html`, `app/public/frontend/admin/menu-management.html`.
+  * **Trang Đăng nhập & Đăng ký:** Xây dựng giao diện `login.php` và `register.php`, tự chuyển hướng nhân viên tới đúng màn hình theo vai trò (`ADMIN` → Dashboard, `CREATOR` → Quản lý Bàn, `KEEPER` → Bếp KDS, `VIEWER` → Thu ngân POS), hỗ trợ `Remember Me` và kích hoạt email SMTP qua PHPMailer.
+  * **Quản lý Bàn ăn & QR:** Xem trạng thái các bàn, thêm bàn mới (`tables.manage`), mở phiên cho bàn (`tables.open`) và tạo mã QR chứa `session_token` (tùy biến URL gốc cho điện thoại trên mạng LAN).
+  * **Quản lý Thực đơn hợp nhất (`products.php`):** Thêm món mới qua modal (hỗ trợ `image_url` và đồng bộ tự động sang `products`), chỉnh sửa món, bật/tắt trạng thái còn món/hết món từng món, cấu hình topping trực tiếp cho từng món (`menu_item_toppings`), thống kê động toàn catalog và phân trang thật SQL (`COUNT(*)`, `LIMIT`, `OFFSET`) giữ bộ lọc URL.
+* **Các file phụ trách:** `README_TV1.md`, `app/public/login.php`, `app/public/register.php`, `app/public/products.php`, `app/public/partials/staff_portal_nav.php`, `app/public/frontend/admin/table-management.php`, `app/Controllers/AdminCatalogController.php`.
 
 ---
 
 ### 👤 THÀNH VIÊN 2 (TV2) — Giao Diện Khách Quét QR & Giỏ Hàng Chung
 * **Trách nhiệm chính:**
-  * **Menu Khách trên Điện thoại (`/frontend/menu/index.html?token={session_token}`):** Hiển thị danh mục món ăn, hình ảnh, mô tả, nhãn "Món Hot", tùy chọn topping và ghi chú món.
+  * **Menu Khách trên Điện thoại (`/frontend/menu/index.html?token={session_token}`):** Hiển thị danh mục món ăn, hình ảnh, mô tả, nhãn "Món Hot", danh sách topping hợp lệ được cấu hình riêng cho từng món, và drawer giỏ hàng/lịch sử đơn.
   * **Giỏ hàng thời gian thực:** Thao tác trên cây HTML DOM mượt mà không tải lại trang, đồng bộ giỏ hàng chung giữa nhiều thiết bị cùng bàn qua REST API (`/api/v1/client/session/{token}/cart`).
-  * **Gửi đơn đặt món an toàn:** Gửi danh sách món xuống bếp kèm mã `Idempotency-Key` (chặn gửi trùng khi bấm đúp chuột), hỗ trợ khách gọi thêm nhiều đợt vào cùng một phiên bàn.
+  * **Gửi đơn & hủy món an toàn:** Gửi danh sách món xuống bếp kèm mã `Idempotency-Key` lưu `sessionStorage` (chặn gửi trùng khi bấm đúp hoặc retry), hỗ trợ gọi thêm nhiều đợt vào cùng phiên, cho phép hủy món đang `PENDING` (`ClientCancellationController`) và hiển thị snapshot topping đã đặt.
   * **Gợi ý món ăn kèm:** Hiển thị thanh "🔥 Món hay được gọi kèm" trên popup chọn món lấy từ API gợi ý của TV4.
-* **Các file phụ trách:** `app/public/frontend/menu/index.html`, `app/public/frontend/js/menu.js`, `app/public/frontend/css/menu.css`.
+* **Các file phụ trách:** `app/public/frontend/menu/index.html`, `app/public/frontend/js/menu.js`, `app/public/frontend/css/menu.css`, `app/public/frontend/css/shop.css`, `app/Controllers/ClientOrderController.php`, `app/Controllers/ClientCancellationController.php`.
 
 ---
 
@@ -104,10 +104,10 @@ Hệ thống được thiết kế theo mô hình **Modular Monolith** trên n�
 
 ### 👤 THÀNH VIÊN 5 (TV5) — Báo Cáo Doanh Thu BI & Ma Trận Thực Đơn
 * **Trách nhiệm chính:**
-  * **BI Dashboard (`dashboard.php` & `demo_tester.html`):** Hiển thị KPI tổng quan, doanh thu theo giờ/ngày từ API `/api/v1/bi/dashboard-summary` và `/api/v1/bi/revenue-over-time` (truy vấn từ kho Star Schema).
-  * **Ma trận Menu Engineering (`/api/v1/bi/menu-engineering-matrix`):** Thống kê lượt xem (clickstream), số lượng bán, doanh thu và tỷ lệ chuyển đổi theo từng món ăn trên `demo_tester.html`.
-  * **Báo cáo Hiệu suất & SLA:** Theo dõi chỉ số SLA bếp và báo cáo doanh thu tại `dashboard.php` (tính năng xuất file Excel `.xlsx` riêng là hạng mục mở rộng sau MVP).
-* **Các file phụ trách:** `app/public/dashboard.php`, `app/Controllers/DataPipelineController.php` (BI endpoints), phần biểu đồ BI trong `demo_tester.html`.
+  * **BI Dashboard (`dashboard.php` & `demo_tester.html`):** Hiển thị KPI tổng quan, doanh thu theo ngày/khung giờ cao điểm và đối soát tài chính OLAP vs POS từ API `/api/v1/bi/dashboard-summary` và `/api/v1/bi/revenue-over-time` (truy vấn từ kho Star Schema).
+  * **Ma trận Menu Engineering (`/api/v1/bi/menu-engineering-matrix`):** Thống kê lượt xem (clickstream), số lượng bán, doanh thu, tỷ lệ chuyển đổi và phân nhóm 4 góc phần tư (`⭐ Star`, `🐴 Plowhorse`, `🧩 Puzzle`, `🐕 Dog`) kèm khuyến nghị kinh doanh trên `dashboard.php` và `demo_tester.html`.
+  * **Báo cáo Hiệu suất, SLA & Xuất Excel (`.xlsx` / `.csv`):** Theo dõi chỉ số SLA bếp và xuất báo cáo doanh thu / ma trận thực đơn ra file Excel `.xlsx` chuẩn OpenXML (`ZipArchive`) và `.csv` UTF-8 BOM (chống formula injection) qua API `/api/v1/bi/export-report`. Tất cả endpoint `/api/v1/bi/*` được bảo vệ bởi RBAC quyền `reports.view`.
+* **Các file phụ trách:** `tv5.md`, `app/public/dashboard.php`, `app/Controllers/DataPipelineController.php` (BI endpoints), phần biểu đồ BI & Menu Engineering trong `app/public/demo_tester.html`.
 
 ---
 
@@ -120,43 +120,60 @@ Khi Server Docker đang bật, các bạn mở trình duyệt và truy cập cá
 | **Trang chủ hệ thống** | `http://localhost:8080/` | Cả nhóm |
 | **Đăng ký tài khoản** | `http://localhost:8080/register.php` | TV1 |
 | **Đăng nhập hệ thống** | `http://localhost:8080/login.php` | TV1 |
-| **Dashboard Tổng quan** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
-| **Quản lý Thực đơn (Phân trang)** | `http://localhost:8080/products.php` | TV1 |
+| **Dashboard Tổng quan & BI** | `http://localhost:8080/dashboard.php` | TV1 & TV5 |
+| **Quản lý Thực đơn (Hợp nhất)** | `http://localhost:8080/products.php` | TV1 |
 | **Hóa đơn & In phiếu thanh toán** | `http://localhost:8080/documents.php` | TV3 & TV4 |
-| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/admin/table-management.html` | TV1 |
-| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/admin/menu-management.html` | TV1 |
+| **TV1 - Quản lý Bàn & Sinh mã QR** | `http://localhost:8080/frontend/admin/table-management.php` *(alias `.html`)* | TV1 |
+| **TV1 - Quản lý Danh mục Món ăn** | `http://localhost:8080/frontend/admin/menu-management.php` *(chuyển hướng `/products.php`)* | TV1 |
 | **TV2 - Menu Khách Quét QR** | `http://localhost:8080/frontend/menu/index.html?token=tbl-01-sess` | TV2 |
-| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds/` | TV3 |
-| **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos/` | TV3 |
-| **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/live-ops/` | TV4 |
+| **TV3 - Màn hình Bếp KDS** | `http://localhost:8080/frontend/kds/index.php` *(alias `/frontend/kds/`)* | TV3 |
+| **TV3 - Màn hình Thu ngân POS** | `http://localhost:8080/frontend/pos/index.php` *(alias `/frontend/pos/`)* | TV3 |
+| **TV4 - Màn hình Điều phối Live Ops** | `http://localhost:8080/frontend/live-ops/index.php` *(alias `/frontend/live-ops/`)* | TV4 |
 | **Simulator Demo Toàn Luồng E2E** | `http://localhost:8080/demo_tester.html` | TV4 & TV5 |
 | **Quản trị Cơ sở dữ liệu phpMyAdmin** | `http://localhost:8081/` | TV4 & Cả nhóm |
 
 ### 🔑 Tài khoản mẫu có sẵn trong MySQL Docker (`database/init.sql`):
 * **Tài khoản Quản trị nhà hàng (`ADMIN`):** `admin` (`admin@dineflow.vn`) — Mật khẩu: `Admin@123` (hoặc `123456`)
-* **Tài khoản Thu ngân & Phục vụ (`CREATOR`):** `creator` (`creator@dineflow.vn`) — Mật khẩu: `123456`
+* **Tài khoản Phục vụ & Mở bàn (`CREATOR`):** `creator` (`creator@dineflow.vn`) — Mật khẩu: `123456`
 * **Tài khoản Điều phối Bếp KDS (`KEEPER`):** `keeper` (`keeper@dineflow.vn`) — Mật khẩu: `123456`
-* **Tài khoản Giám sát & Báo cáo BI (`VIEWER`):** `viewer` (`viewer@dineflow.vn`) — Mật khẩu: `123456`
+* **Tài khoản Thu ngân POS & Báo cáo BI (`VIEWER`):** `viewer` (`viewer@dineflow.vn`) — Mật khẩu: `123456`
 * *(Lưu ý: `database/seed.php` chỉ dùng riêng cho SQLite fallback với `admin`/`admin123`, `cashier1`/`cashier123`, `chef_hung`/`chef123`.)*
+
+### 🔐 Ma trận quyền theo role & Nâng cấp Database cũ [MVP]
+
+| Role | Quyền nghiệp vụ |
+|---|---|
+| `ADMIN` | Toàn quyền quản trị bàn, menu, KDS, POS, hóa đơn, báo cáo BI và dữ liệu. |
+| `CREATOR` | Xem/mở bàn, xem thực đơn và theo dõi KDS; không sửa menu, không cập nhật trạng thái KDS hay checkout/đóng phiên. |
+| `KEEPER` | Xem và cập nhật trạng thái món trên KDS; không mở bàn, không quản lý menu hay checkout. |
+| `VIEWER` | Xem/xác nhận thanh toán POS và đóng phiên, xem/in hóa đơn và xem/xuất báo cáo BI. |
+
+API nhân viên kiểm tra permission server-side (`401` khi chưa đăng nhập, `403` khi thiếu quyền). Các API menu khách (`/api/v1/client/*`, `/data/clickstream`, `/data/recommendations/*`) xác thực theo phiên QR, không yêu cầu tài khoản nhân viên.
+Sau đăng nhập, nhân viên được chuyển tới đúng trang mặc định theo role: `ADMIN` → `dashboard.php`, `CREATOR` → `frontend/admin/table-management.php`, `KEEPER` → `frontend/kds/index.php`, `VIEWER` → `frontend/pos/index.php`.
+
+**Nâng cấp volume MySQL đã có sẵn (không dùng `down -v`):**
+```bash
+# Thứ tự bắt buộc nếu nâng cấp từ database cũ trước ngày 2026-11-17:
+# (Nếu từ trước PR #13 thì chạy thêm database/migrations/20261115_add_orders_idempotency_unique.sql)
+mysql -u root -p login_system < database/migrations/20261117_rbac_permissions_catalog.sql
+mysql -u root -p login_system < database/migrations/20261117_menu_topping_audit.sql
+mysql -u root -p login_system < database/seed_role_permissions.sql
+```
+Sau khi migration xong, quản trị viên cấu hình liên kết topping cho từng món trong `products.php` (không tự động gán topping mặc định để tránh sai nghiệp vụ).
 
 ---
 
 ## 🧪 4. HƯỚNG DẪN CHẠY BỘ KIỂM THỬ TỰ ĐỘNG BẰNG DOCKER
 
-Mỗi khi bất kỳ thành viên nào chỉnh sửa code, cần chạy lại bộ kiểm thử bên trong container Docker:
+Mỗi khi chỉnh sửa code, chạy cả 3 bộ kiểm thử bên trong container Docker (`docker compose exec` hoặc `docker-compose exec`):
 
 ```bash
 docker compose exec php-app php /var/www/tests/run_tests.php
 docker compose exec php-app php /var/www/tests/test_tv4_core.php
+docker compose exec php-app php /var/www/tests/test_live_e2e.php
 ```
 
-Màn hình console `run_tests.php` sẽ tự động thực thi **61 ca kiểm thử** bao phủ toàn bộ:
-* 7 ca kiểm thử đăng ký tài khoản (Mục 38)
-* 4 ca kiểm thử xác nhận email qua token (Mục 39)
-* 7 ca kiểm thử đăng nhập và ghi nhớ cookie (Mục 40)
-* 6 ca kiểm thử ma trận phân quyền RBAC
-* 4 ca kiểm thử Thực đơn 35 món ăn QR Dine & Phân trang thật trên DB
-* 5 ca kiểm thử Vòng đời Phiên bàn QR, Đơn bếp KDS & Hóa đơn POS
-* 28 ca kiểm thử 7 Trụ cột Chất lượng & Bất biến Nghiệp vụ TV4 (Phần 7: Anti-Tamper, Idempotency-Key, ETL Idempotent, Apriori, Kitchen SLA >900s, Shared Cart Transaction, Star Schema Integrity).
-
-Kết quả mong đợi: **`61 PASSED / 61 TOTAL (100% PASS)`**.
+Phạm vi bao phủ của 3 bộ kiểm thử:
+* `tests/run_tests.php` (**121 ca kiểm thử**): Mục 38–40 (Auth/Email/Login), Ma trận RBAC/Landing/Portal/401-403, Thực đơn 35 món & phân trang SQL, Vòng đời Bàn/KDS/POS, Acceptance quản lý món/topping snapshot/audit/hồi quy hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8 (BI Matrix 4 Quadrants & Export Excel `.xlsx` / `.csv` / `.json`).
+* `tests/test_tv4_core.php` (**23 ca kiểm thử**): SharedCartService, Idempotent EtlService, AprioriService và DataPipelineController.
+* `tests/test_live_e2e.php` (**64 ca kiểm thử**): Kiểm thử toàn luồng HTTP + Apache + MySQL 8.0 thực tế (static assets, `.htaccess` 302 aliases, PHP session/RBAC guards & `401` API guards, Open Table → QR Menu → Shared Cart → Order → KDS → POS → ETL → BI → `.xlsx`).

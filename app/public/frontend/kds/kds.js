@@ -84,6 +84,11 @@ function renderKdsUI() {
     const tableNo = item.table_number || item.table_no || item.table_name || (item.session_id ? `Bàn ${item.session_id}` : 'Bàn 01');
     const quantity = item.quantity || 1;
     const note = item.notes || item.note || 'Không có';
+    const toppingDetails = item.topping_details_recorded
+      ? (Array.isArray(item.toppings) && item.toppings.length
+        ? item.toppings.map(topping => escapeHtml(topping.name)).join(', ')
+        : 'Không chọn topping')
+      : 'Đơn cũ chưa lưu chi tiết topping';
     const isPending = item.status === 'PENDING';
 
     // Đếm thời gian chờ SLA và màu cảnh báo
@@ -110,6 +115,9 @@ function renderKdsUI() {
             </div>
             <p class="card-text text-secondary mb-0">
               <strong>Ghi chú:</strong> <span class="text-danger fw-semibold">${escapeHtml(note)}</span>
+            </p>
+            <p class="card-text text-secondary mt-2 mb-0">
+              <strong>Topping:</strong> <span class="fw-semibold">${toppingDetails}</span>
             </p>
           </div>
           <div class="card-footer bg-white border-0 pb-3">

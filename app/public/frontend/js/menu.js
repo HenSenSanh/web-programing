@@ -161,17 +161,25 @@
           <strong>Đơn #${escapeHTML(order.id)}</strong>
           <time>${escapeHTML(order.time ? new Date(order.time).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "")}</time>
         </header>
-        ${order.items.map((item) => `
+        ${order.items.map((item) => {
+          const savedToppings = Array.isArray(item.toppings) ? item.toppings : [];
+          const toppingInfo = item.topping_details_recorded
+            ? (savedToppings.length
+              ? `Topping: ${savedToppings.map((top) => `${escapeHTML(top.name)} (+${money(top.unit_price)})`).join(", ")}`
+              : "Không chọn topping")
+            : "Đơn cũ chưa lưu chi tiết topping";
+          return `
           <div class="sent-order-item">
             <div>
               <strong>${escapeHTML(item.name)}</strong>
-              <small>${Number(item.quantity || 0)} phần · ${money(item.line_total)}${item.note ? ` · Ghi chú: ${escapeHTML(item.note)}` : ""}</small>
+              <small>${Number(item.quantity || 0)} phần · ${money(item.line_total)} · ${toppingInfo}${item.note ? ` · Ghi chú: ${escapeHTML(item.note)}` : ""}</small>
             </div>
             <div class="sent-order-actions">
               <span class="order-status" data-status="${escapeHTML(item.status)}">${escapeHTML(orderStatusLabels[item.status] || item.status)}</span>
               ${item.status === "PENDING" && item.id ? `<button type="button" class="cancel-order-button" data-cancel-order-item="${Number(item.id)}">Hủy món</button>` : ""}
             </div>
-          </div>`).join("")}
+          </div>`;
+        }).join("")}
       </article>`).join("");
   }
 
@@ -351,20 +359,23 @@
     const item = menuItems.find((candidate) => String(candidate.id) === String(itemId));
     if (!item || item.is_available === false) return;
     activeItem = item;
+    const itemToppings = Array.isArray(item.toppings)
+      ? item.toppings.filter((top) => top.is_available !== false)
+      : [];
     els.dialog.dataset.quantity = "1";
     els.dialogContent.innerHTML = `
       <div class="dialog-visual">${imageOrEmoji(item, "dish-emoji")}</div>
       <div class="dialog-body">
         <h2>${escapeHTML(item.name)}</h2>
         <p>${escapeHTML(item.description || "Món được chế biến nóng sốt ngay sau khi bếp nhận đơn.")}</p>
-        ${toppings.length ? `
+        ${itemToppings.length ? `
           <div class="option-heading">CHỌN THÊM TOPPING</div>
           <div class="topping-list">
-            ${toppings.map((top) => `
+            ${itemToppings.map((top) => `
               <label class="topping-option">
                 <input type="checkbox" value="${top.id}">
                 <span>${escapeHTML(top.name)}</span>
-                <strong>+${money(top.extra_price)}</strong>
+                <strong>+${money(top.extra_price ?? top.price)}</strong>
               </label>
             `).join("")}
           </div>
@@ -422,13 +433,21 @@
       .catch(() => {});
   }
 
+  function getActiveToppingsPool() {
+    if (activeItem && Array.isArray(activeItem.toppings)) {
+      return activeItem.toppings.filter((top) => top.is_available !== false);
+    }
+    return toppings;
+  }
+
   function updateDialogPrice() {
     if (!activeItem) return;
     const qty = Number(els.dialog.dataset.quantity || 1);
+    const pool = getActiveToppingsPool();
     const chosen = [...els.dialog.querySelectorAll(".topping-option input:checked")];
     const topTotal = chosen.reduce((sum, input) => {
-      const found = toppings.find((top) => String(top.id) === input.value);
-      return sum + (found ? Number(found.extra_price) : 0);
+      const found = pool.find((top) => String(top.id) === input.value);
+      return sum + (found ? Number(found.extra_price ?? found.price ?? 0) : 0);
     }, 0);
     const total = qty * (Number(activeItem.price) + topTotal);
     $("#add-configured").innerHTML = `Thêm · ${money(total)} <span>→</span>`;
@@ -623,6 +642,7 @@
       pendingIdempotencyKey = null;
       sessionStorage.removeItem(idempotencyStorageKey);
       await syncCart();
+      await loadSentOrders();
       closeCart();
       toast(wasAlreadyAccepted ? `Đơn #${result.order_id} đã được nhận trước đó.` : `Đã gửi đơn #${result.order_id} xuống bếp thành công!`);
     } catch (error) {
@@ -703,7 +723,8 @@
       return;
     }
     if (event.target.id === "add-configured") {
-      const chosen = [...els.dialog.querySelectorAll(".topping-option input:checked")].map((input) => toppings.find((top) => String(top.id) === input.value)).filter(Boolean).map((top) => ({ id: Number(top.id), name: top.name, price: Number(top.extra_price) }));
+      const pool = getActiveToppingsPool();
+      const chosen = [...els.dialog.querySelectorAll(".topping-option input:checked")].map((input) => pool.find((top) => String(top.id) === input.value)).filter(Boolean).map((top) => ({ id: Number(top.id), name: top.name, price: Number(top.extra_price ?? top.price ?? 0) }));
       addToCart(activeItem, Number(els.dialog.dataset.quantity || 1), chosen, $("#item-note").value);
       els.dialog.close();
     }

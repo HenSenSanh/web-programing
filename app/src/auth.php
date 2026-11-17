@@ -200,7 +200,7 @@ function verifyEmailToken(string $token): array
 function requireLogin(): void
 {
     if (!isset($_SESSION['user_id'])) {
-        header("Location: login.php");
+        header("Location: /login.php");
         exit;
     }
 }
@@ -225,6 +225,6 @@ function logoutUser(): void
     setcookie("remember_user", "", time() - 3600, "/");
     setcookie("remember_token", "", time() - 3600, "/");
 
-    header("Location: login.php");
+    header("Location: /login.php");
     exit;
 }

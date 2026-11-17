@@ -115,11 +115,11 @@ $routes200 = [
     '/frontend/css/menu.css',
     '/frontend/js/menu.js',
     '/frontend/js/qrcode.js',
-    '/frontend/kds/',
+    '/frontend/kds/index.html',
     '/frontend/kds/kds.js',
-    '/frontend/pos/',
+    '/frontend/pos/index.html',
     '/frontend/pos/pos.js',
-    '/frontend/live-ops/',
+    '/frontend/live-ops/index.html',
     '/frontend/live-ops/live-ops.js',
     '/frontend/live-ops/style.css',
 ];
@@ -164,13 +164,31 @@ $syntheticSessionId = null;
 $syntheticSessionToken = null;
 
 try {
-    foreach (['/dashboard.php', '/products.php', '/documents.php'] as $protected) {
+    $protectedPages = [
+        '/dashboard.php',
+        '/products.php',
+        '/documents.php',
+        '/frontend/admin/table-management.php',
+        '/frontend/kds/index.php',
+        '/frontend/pos/index.php',
+        '/frontend/live-ops/index.php',
+    ];
+    foreach ($protectedPages as $protected) {
         $unauth = httpRequest('GET', $baseUrl . $protected);
         $loc = $unauth['headers']['location'] ?? '';
         assertE2e(
             "E2E-AUTH-GUARD: Unauthenticated {$protected} redirects to login.php",
             $unauth['status'] === 302 && str_contains($loc, 'login.php'),
             "HTTP {$unauth['status']}, Location='{$loc}'"
+        );
+    }
+
+    foreach (['/api/v1/admin/tables', '/api/v1/bi/export-report?type=menu-matrix&format=xlsx'] as $protectedApi) {
+        $unauthApi = httpRequest('GET', $baseUrl . $protectedApi);
+        assertE2e(
+            "E2E-API-AUTH: Unauthenticated {$protectedApi} rejected with 401",
+            $unauthApi['status'] === 401,
+            "HTTP {$unauthApi['status']}"
         );
     }
 
@@ -201,26 +219,36 @@ try {
     $dashRes = httpRequest('GET', $baseUrl . '/dashboard.php', null, [], $cookieFile);
     $dashErr = preg_match('/Fatal error|Warning:|Notice:|Parse error/i', $dashRes['body']) === 1;
     assertE2e(
-        'E2E-DASHBOARD: Authenticated /dashboard.php renders new links cleanly',
+        'E2E-DASHBOARD: Authenticated /dashboard.php renders PR#14 + TV5 links cleanly',
         $dashRes['status'] === 200
             && !$dashErr
-            && str_contains($dashRes['body'], '/frontend/live-ops/')
-            && str_contains($dashRes['body'], '/frontend/admin/table-management.html')
-            && str_contains($dashRes['body'], '/frontend/kds/')
+            && str_contains($dashRes['body'], '/frontend/live-ops/index.php')
+            && str_contains($dashRes['body'], '/frontend/admin/table-management.php')
+            && str_contains($dashRes['body'], '/frontend/kds/index.php')
+            && str_contains($dashRes['body'], '/frontend/pos/index.php')
+            && str_contains($dashRes['body'], '/api/v1/bi/export-report')
             && !str_contains($dashRes['body'], 'tv4_data_pipeline.html')
             && !str_contains($dashRes['body'], '/frontend/tv1/')
             && !str_contains($dashRes['body'], '/frontend/kds.html'),
         "HTTP {$dashRes['status']}"
     );
 
-    foreach (['/products.php', '/documents.php'] as $staffPage) {
+    $staffPortals = [
+        '/products.php',
+        '/documents.php',
+        '/frontend/admin/table-management.php',
+        '/frontend/kds/index.php',
+        '/frontend/pos/index.php',
+        '/frontend/live-ops/index.php',
+    ];
+    foreach ($staffPortals as $staffPage) {
         $pageRes = httpRequest('GET', $baseUrl . $staffPage, null, [], $cookieFile);
         $hasErr = preg_match('/Fatal error|Warning:|Notice:|Parse error/i', $pageRes['body']) === 1;
         assertE2e(
-            "E2E-PORTAL: Authenticated {$staffPage} loads cleanly & links /frontend/live-ops/",
+            "E2E-PORTAL: Authenticated {$staffPage} loads cleanly & links /frontend/live-ops/index.php",
             $pageRes['status'] === 200
                 && !$hasErr
-                && str_contains($pageRes['body'], '/frontend/live-ops/')
+                && str_contains($pageRes['body'], '/frontend/live-ops/index.php')
                 && !str_contains($pageRes['body'], 'tv4_data_pipeline.html'),
             "HTTP {$pageRes['status']}"
         );
@@ -240,7 +268,7 @@ try {
     );
 
     $tmpTableName = 'E2E-' . substr(uniqid(), -6);
-    $createTbl = httpRequest('POST', $baseUrl . '/api/v1/admin/tables', ['table_number' => $tmpTableName]);
+    $createTbl = httpRequest('POST', $baseUrl . '/api/v1/admin/tables', ['table_number' => $tmpTableName], [], $cookieFile);
     $syntheticTableId = (int)($createTbl['json']['id'] ?? 0);
     assertE2e(
         'E2E-API-TABLE: POST /api/v1/admin/tables creates test table',
@@ -248,7 +276,7 @@ try {
         "HTTP {$createTbl['status']}"
     );
 
-    $openRes = httpRequest('POST', $baseUrl . "/api/v1/admin/tables/{$syntheticTableId}/open-session");
+    $openRes = httpRequest('POST', $baseUrl . "/api/v1/admin/tables/{$syntheticTableId}/open-session", null, [], $cookieFile);
     $syntheticSessionId = $openRes['json']['session_id'] ?? null;
     $syntheticSessionToken = $openRes['json']['session_token'] ?? null;
     $qrUrl = $openRes['json']['qr_url'] ?? '';
@@ -261,7 +289,7 @@ try {
         "HTTP {$openRes['status']}, qr_url='{$qrUrl}'"
     );
 
-    $doubleOpen = httpRequest('POST', $baseUrl . "/api/v1/admin/tables/{$syntheticTableId}/open-session");
+    $doubleOpen = httpRequest('POST', $baseUrl . "/api/v1/admin/tables/{$syntheticTableId}/open-session", null, [], $cookieFile);
     assertE2e(
         'E2E-INV6: Duplicate open-session on OCCUPIED table blocked with 409',
         $doubleOpen['status'] === 409,
@@ -274,7 +302,7 @@ try {
         $sessInfo['status'] === 200 && ($sessInfo['json']['status'] ?? '') === 'ACTIVE'
     );
 
-    $catalog = httpRequest('GET', $baseUrl . '/api/v1/admin/menu-catalog');
+    $catalog = httpRequest('GET', $baseUrl . '/api/v1/admin/menu-catalog', null, [], $cookieFile);
     $firstDish = $catalog['json']['categories'][0]['items'][0] ?? null;
     $dishId = (int)($firstDish['id'] ?? 1);
     $realPrice = (float)($firstDish['price'] ?? 65000);
@@ -343,7 +371,7 @@ try {
         "HTTP {$dupOrder['status']}"
     );
 
-    $kdsList = httpRequest('GET', $baseUrl . '/api/v1/staff/kds/active-items');
+    $kdsList = httpRequest('GET', $baseUrl . '/api/v1/staff/kds/active-items', null, [], $cookieFile);
     $foundKds = false;
     if (is_array($kdsList['json'])) {
         foreach ($kdsList['json'] as $ki) {
@@ -359,12 +387,12 @@ try {
         'order_item_id' => $orderItemId,
         'status' => 'COOKING',
         'chef_id' => 1,
-    ]);
+    ], [], $cookieFile);
     $kdsDone = httpRequest('POST', $baseUrl . '/api/v1/staff/kds/item-status', [
         'order_item_id' => $orderItemId,
         'status' => 'COMPLETED',
         'chef_id' => 1,
-    ]);
+    ], [], $cookieFile);
     assertE2e(
         'E2E-KDS-TRANSITION: PENDING -> COOKING -> COMPLETED sets completed_at',
         $kdsCook['status'] === 200
@@ -373,7 +401,7 @@ try {
             && !empty($kdsDone['json']['completed_at'])
     );
 
-    $billRes = httpRequest('GET', $baseUrl . "/api/v1/staff/pos/table-bill/{$syntheticTableId}");
+    $billRes = httpRequest('GET', $baseUrl . "/api/v1/staff/pos/table-bill/{$syntheticTableId}", null, [], $cookieFile);
     $expectedFinal = round(($expectedSubtotal * 1.08) / 500) * 500;
     assertE2e(
         'E2E-POS-BILL: Table bill computes VAT 8% & 500 VND rounding accurately',
@@ -386,7 +414,7 @@ try {
 
     $checkoutRes = httpRequest('POST', $baseUrl . "/api/v1/staff/pos/checkout/{$syntheticSessionId}", [
         'payment_method' => 'CASH',
-    ]);
+    ], [], $cookieFile);
     assertE2e(
         'E2E-POS-CHECKOUT: Checkout closes session, creates invoice & runs ETL',
         $checkoutRes['status'] === 200
@@ -398,7 +426,7 @@ try {
 
     $dupCheckout = httpRequest('POST', $baseUrl . "/api/v1/staff/pos/checkout/{$syntheticSessionId}", [
         'payment_method' => 'CASH',
-    ]);
+    ], [], $cookieFile);
     assertE2e(
         'E2E-POS-NO-DOUBLE: Second checkout on closed session blocked with 400',
         $dupCheckout['status'] === 400,
@@ -428,13 +456,20 @@ try {
         '/api/v1/bi/menu-engineering-matrix',
     ];
     foreach ($analyticsRoutes as $ar) {
-        $arRes = httpRequest('GET', $baseUrl . $ar);
+        $arRes = httpRequest('GET', $baseUrl . $ar, null, [], $cookieFile);
         assertE2e(
             "E2E-ANALYTICS: GET {$ar} returns valid JSON (200)",
             $arRes['status'] === 200 && is_array($arRes['json']),
             "HTTP {$arRes['status']}"
         );
     }
+
+    $xlsxRes = httpRequest('GET', $baseUrl . '/api/v1/bi/export-report?type=menu-matrix&format=xlsx', null, [], $cookieFile);
+    assertE2e(
+        'E2E-BI-EXPORT-XLSX: Authenticated export-report returns valid OpenXML .xlsx binary',
+        $xlsxRes['status'] === 200 && str_starts_with($xlsxRes['body'], "PK\x03\x04") && strlen($xlsxRes['body']) > 1000,
+        "HTTP {$xlsxRes['status']}, bytes=" . strlen($xlsxRes['body'])
+    );
 } finally {
     if ($cookieFile && file_exists($cookieFile)) {
         @unlink($cookieFile);

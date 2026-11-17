@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Core\Database;
+use App\Services\OrderToppingSnapshotService;
 use App\Services\SharedCartService;
 use PDO;
 
@@ -105,7 +106,7 @@ class ClientOrderController
                     ORDER BY id ASC
                 ");
                 $stmtItems->execute([$existing['id']]);
-                $existingItems = $stmtItems->fetchAll();
+                $existingItems = OrderToppingSnapshotService::attach($db, $stmtItems->fetchAll());
 
                 $this->rollbackWriteTransaction($db);
                 http_response_code(409);
@@ -127,6 +128,7 @@ class ClientOrderController
 
             $stmtItem = $db->prepare("SELECT id, name, price, is_available FROM menu_items WHERE id = ?{$lockSuffix}");
             $stmtTop = $db->prepare("SELECT id, name, price, is_available FROM toppings WHERE id = ?{$lockSuffix}");
+            $stmtTopMap = $db->prepare("SELECT 1 FROM menu_item_toppings WHERE menu_item_id = ? AND topping_id = ? LIMIT 1");
 
             foreach ($items as $index => $item) {
                 if (!is_array($item)) {
@@ -170,6 +172,7 @@ class ClientOrderController
                 $unitPrice = (float)$realItem['price'];
 
                 $toppingExtra = 0.0;
+                $toppingSnapshots = [];
                 $rawToppings = $item['selected_toppings'] ?? $item['toppings'] ?? [];
                 if (!is_array($rawToppings)) {
                     $this->rejectOrder($db, 422, 'INVALID_TOPPINGS', 'Danh sách topping không hợp lệ', [
@@ -207,7 +210,22 @@ class ClientOrderController
                         ]);
                         return;
                     }
-                    $toppingExtra += (float)$topRow['price'];
+                    $stmtTopMap->execute([$itemId, $topId]);
+                    if (!$stmtTopMap->fetchColumn()) {
+                        $this->rejectOrder($db, 422, 'TOPPING_NOT_ALLOWED_FOR_ITEM', 'Topping chưa được gán cho món ăn này', [
+                            'item_index' => $index,
+                            'menu_item_id' => $itemId,
+                            'topping_id' => $topId,
+                        ]);
+                        return;
+                    }
+                    $toppingPrice = (float)$topRow['price'];
+                    $toppingExtra += $toppingPrice;
+                    $toppingSnapshots[] = [
+                        'id' => (int)$topRow['id'],
+                        'name' => $topRow['name'],
+                        'unit_price' => $toppingPrice,
+                    ];
                 }
 
                 $unitPrice += $toppingExtra;
@@ -220,7 +238,8 @@ class ClientOrderController
                     'unit_price' => $unitPrice,
                     'quantity' => $quantity,
                     'subtotal' => $subtotal,
-                    'notes' => $item['notes'] ?? ($item['note'] ?? '')
+                    'notes' => $item['notes'] ?? ($item['note'] ?? ''),
+                    'toppings' => $toppingSnapshots,
                 ];
             }
 
@@ -249,7 +268,9 @@ class ClientOrderController
                     $oi['subtotal'],
                     $oi['notes']
                 ]);
-                $insertedItemIds[] = (int)$db->lastInsertId();
+                $orderItemId = (int)$db->lastInsertId();
+                $insertedItemIds[] = $orderItemId;
+                OrderToppingSnapshotService::save($db, $orderItemId, $oi['toppings']);
             }
 
             // Cập nhật tổng tiền phiên bàn
@@ -347,7 +368,7 @@ class ClientOrderController
     {
         $db = Database::getConnection();
         $stmt = $db->prepare("
-            SELECT oi.*, o.order_code
+            SELECT oi.*, o.order_code, o.created_at AS order_created_at
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN table_sessions ts ON o.session_id = ts.id
@@ -356,6 +377,7 @@ class ClientOrderController
             ORDER BY oi.id DESC
         ");
         $stmt->execute([$token]);
-        echo json_encode($stmt->fetchAll());
+        $items = OrderToppingSnapshotService::attach($db, $stmt->fetchAll());
+        echo json_encode($items, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 }

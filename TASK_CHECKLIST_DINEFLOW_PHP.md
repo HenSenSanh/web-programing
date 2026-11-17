@@ -42,7 +42,7 @@
 
 - [x] **TASK-2.1 [TV1]:** Xây dựng [`app/src/auth.php`](file:///D:/code/test%20Dl/app/src/auth.php), [`app/src/mailer.php`](file:///D:/code/test%20Dl/app/src/mailer.php) và các trang `login.php`, `register.php`, `verify_email.php` (validate form client/server, `Remember Me`, kích hoạt email SMTP qua PHPMailer).
 - [x] **TASK-2.2 [TV1 + TV4]:** Xây dựng lõi RBAC [`app/src/rbac.php`](file:///D:/code/test%20Dl/app/src/rbac.php) (`deny riêng > allow riêng > nhóm > 403`), bảo vệ cả GET và POST trên `dashboard.php`, `products.php`, `documents.php`.
-- [ ] **TASK-2.3 [TV1 + Cả nhóm]:** Hợp nhất giao diện Staff Portal dùng chung thanh điều hướng & `requirePermission` đồng nhất giữa các trang HTML frontend (`/frontend/admin/*`, `/frontend/kds/`, `/frontend/pos/`) và trang PHP (`/dashboard.php`, `/products.php`, `/documents.php`).
+- [ ] **TASK-2.3 [TV1 + Cả nhóm]:** Hợp nhất giao diện Staff Portal bằng shared partial, thanh điều hướng lọc theo quyền, điều hướng cùng tab và `requirePermission` server-side trên `/frontend/admin/*`, `/frontend/kds/`, `/frontend/pos/`, `/frontend/live-ops/`, `/dashboard.php`, `/products.php` và `/documents.php`. Giữ URL `.html` cũ làm redirect alias; chỉ đánh dấu hoàn tất sau khi acceptance tests và kiểm tra thực tế trên trình duyệt theo từng role đạt.
 - [x] **TASK-2.4 [TV1]:** Xây dựng [`app/Controllers/AdminCatalogController.php`](file:///D:/code/test%20Dl/app/Controllers/AdminCatalogController.php) & giao diện Quản lý Bàn ([`app/public/frontend/admin/table-management.html`](file:///D:/code/test%20Dl/app/public/frontend/admin/table-management.html)):
   - [x] Mở bàn & sinh mã QR với `session_token`
   - [x] Chặn mở đè bàn khi bàn đang `OCCUPIED` (**`INV-6`**)
@@ -90,15 +90,15 @@
 - [x] **TASK-5.1 [TV4]:** Hoàn thiện [`app/Services/EtlService.php`](file:///D:/code/test%20Dl/app/Services/EtlService.php) và API `POST /api/v1/data/trigger-batch-etl` đảm bảo tính **Idempotent** (`is_etl_processed = 1`).
 - [x] **TASK-5.2 [TV4]:** Hoàn thiện [`app/Services/AprioriService.php`](file:///D:/code/test%20Dl/app/Services/AprioriService.php) và [`app/Controllers/DataPipelineController.php`](file:///D:/code/test%20Dl/app/Controllers/DataPipelineController.php) (Apriori Support/Confidence/Lift, Combo Rules, Kitchen SLA > 900s).
 - [x] **TASK-5.3 [TV4]:** Hoàn thiện giao diện Điều phối Thời gian thực ([`app/public/frontend/live-ops/index.html`](file:///D:/code/test%20Dl/app/public/frontend/live-ops/index.html)) auto-refresh 5s qua REST API.
-- [x] **TASK-5.4 [TV5]:** Xây dựng API BI (`/api/v1/bi/dashboard-summary`, `/api/v1/bi/revenue-over-time`, `/api/v1/bi/menu-engineering-matrix`), giao diện biểu đồ trên [`app/public/demo_tester.html`](file:///D:/code/test%20Dl/app/public/demo_tester.html) và [`app/public/dashboard.php`](file:///D:/code/test%20Dl/app/public/dashboard.php):
-  - [ ] Bổ sung chức năng xuất báo cáo doanh thu ra tệp **Excel (`.xlsx`)** riêng (mở rộng).
+- [x] **TASK-5.4 [TV5]:** Xây dựng API BI (`/api/v1/bi/dashboard-summary`, `/api/v1/bi/revenue-over-time`, `/api/v1/bi/menu-engineering-matrix`, `/api/v1/bi/export-report` bảo vệ bởi quyền `reports.view`), giao diện biểu đồ & Ma trận Menu Engineering 4 góc phần tư trên [`app/public/demo_tester.html`](app/public/demo_tester.html) và [`app/public/dashboard.php`](app/public/dashboard.php):
+  - [x] Bổ sung chức năng xuất báo cáo doanh thu & ma trận thực đơn ra tệp **Excel `.xlsx` chuẩn OpenXML (đóng khung, tô màu, tự động giãn độ rộng cột)** và **CSV (`.csv` chuẩn UTF-8 BOM + chống CSV formula injection)**.
 
 ---
 
 ## 🧪 GIAI ĐOẠN 6 (SPRINT S5): KIỂM THỬ TÍCH HỢP, SỬA LỖI & NGHIỆM THU BẢO VỆ ĐỒ ÁN
 > **Chủ trì:** **TV4 (Quality & Integration Lead)** | **Tham gia:** Toàn bộ 5 thành viên
 
-- [x] **TASK-6.1 [TV4]:** Xây dựng bộ kiểm thử tự động PHP CLI [`tests/run_tests.php`](file:///D:/code/test%20Dl/tests/run_tests.php) (**64 ca kiểm thử** bao phủ Mục 38–40, Bài B–D và 7 Trụ cột Chất lượng TV4).
-- [x] **TASK-6.2 [TV4]:** Xây dựng bộ kiểm thử lõi E2E TV4 tại [`tests/test_tv4_core.php`](file:///D:/code/test%20Dl/tests/test_tv4_core.php) và trang kiểm thử luồng tích hợp [`app/public/demo_tester.html`](file:///D:/code/test%20Dl/app/public/demo_tester.html).
-- [ ] **TASK-6.3 [TV4]:** Khởi động Docker Desktop và chạy xác nhận lại cả 2 bộ kiểm thử (`docker compose exec php-app php /var/www/tests/run_tests.php` và `test_tv4_core.php`) đạt **100% PASS** trên bản cập nhật mới nhất.
-- [ ] **TASK-6.4 [Cả nhóm]:** Chuẩn bị kịch bản Demo bảo vệ đồ án và phân vai trả lời phản biện trước Hội đồng.
+- [x] **TASK-6.1 [TV4 + TV5 + TV1]:** Xây dựng bộ kiểm thử tự động PHP CLI [`tests/run_tests.php`](tests/run_tests.php) (**121 ca kiểm thử** bao phủ Mục 38–40, Ma trận RBAC/Landing/Portal, Acceptance CRUD/Topping Snapshot/Hủy món, 7 Trụ cột Chất lượng TV4 và Phần 8: Báo cáo BI & Xuất Excel TV5).
+- [x] **TASK-6.2 [TV4]:** Xây dựng bộ kiểm thử lõi E2E TV4 tại [`tests/test_tv4_core.php`](tests/test_tv4_core.php) (**23 ca kiểm thử**), kiểm thử E2E HTTP/MySQL thực tế tại [`tests/test_live_e2e.php`](tests/test_live_e2e.php) (**64 ca kiểm thử**) và trang kiểm thử luồng tích hợp [`app/public/demo_tester.html`](app/public/demo_tester.html).
+- [x] **TASK-6.3 [TV4]:** Khởi động Docker Desktop và chạy xác nhận lại toàn bộ bộ kiểm thử (`run_tests.php` 121/121, `test_tv4_core.php` 23/23, `test_live_e2e.php` 64/64) đạt **100% PASS** trên bản tích hợp hợp nhất.
+- [ ] **TASK-6.4 [Cả nhóm]:** Kiểm tra thủ công đa role trên trình duyệt + quét QR bằng điện thoại thật trên mạng LAN và chuẩn bị kịch bản Demo bảo vệ đồ án trước Hội đồng.

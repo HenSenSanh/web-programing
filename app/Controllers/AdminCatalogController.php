@@ -22,15 +22,23 @@ class AdminCatalogController
 
     public function createTable(): void
     {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $tableNumber = trim($data['table_number'] ?? '');
-        if (!$tableNumber) {
+        $data = json_decode(file_get_contents('php://input') ?: '[]', true);
+        $tableNumber = trim((string)($data['table_number'] ?? ''));
+        if ($tableNumber === '' || strlen($tableNumber) > 20) {
             http_response_code(400);
             echo json_encode(['error' => 'table_number is required']);
             return;
         }
 
         $db = Database::getConnection();
+        $stmtCheck = $db->prepare("SELECT id FROM dining_tables WHERE table_number = ? LIMIT 1");
+        $stmtCheck->execute([$tableNumber]);
+        if ($stmtCheck->fetch()) {
+            http_response_code(409);
+            echo json_encode(['error' => 'Số bàn đã tồn tại']);
+            return;
+        }
+
         $stmt = $db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'AVAILABLE')");
         $stmt->execute([$tableNumber]);
 
@@ -38,7 +46,7 @@ class AdminCatalogController
             'id' => (int)$db->lastInsertId(),
             'table_number' => $tableNumber,
             'status' => 'AVAILABLE'
-        ]);
+        ], JSON_UNESCAPED_UNICODE);
     }
 
     public function openSession(int $tableId): void
@@ -135,25 +143,159 @@ class AdminCatalogController
         echo json_encode($stmt->fetchAll());
     }
 
-    public function createMenuItem(): void
+    public function createMenuItem(?array $payload = null): void
     {
-        $data = json_decode(file_get_contents('php://input'), true);
-        $name = trim($data['name'] ?? '');
-        $categoryId = (int)($data['category_id'] ?? 1);
-        $price = (float)($data['price'] ?? 0);
-        $desc = $data['description'] ?? '';
-        $isHot = !empty($data['is_hot']) ? 1 : 0;
+        $data = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+        $name = trim((string)($data['name'] ?? ''));
+        $categoryId = filter_var($data['category_id'] ?? null, FILTER_VALIDATE_INT);
+        $priceValue = $data['price'] ?? null;
+        $description = trim((string)($data['description'] ?? ''));
+        $price = is_numeric($priceValue) ? (float)$priceValue : -1;
+        $isHot = filter_var($data['is_hot'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+        $imageUrl = $this->sanitizeImageUrl($data['image_url'] ?? '');
+
+        if ($name === '' || strlen($name) > 150 || !is_int($categoryId) || $categoryId < 1 || $price < 0 || $imageUrl === null) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Thông tin món ăn không hợp lệ'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
 
         $db = Database::getConnection();
-        $stmt = $db->prepare("INSERT INTO menu_items (category_id, name, description, price, is_available, is_hot) VALUES (?, ?, ?, ?, 1, ?)");
-        $stmt->execute([$categoryId, $name, $desc, $price, $isHot]);
+        $db->beginTransaction();
+        try {
+            $stmtCategory = $db->prepare('SELECT id FROM categories WHERE id = ?');
+            $stmtCategory->execute([$categoryId]);
+            if (!$stmtCategory->fetch()) {
+                $db->rollBack();
+                http_response_code(422);
+                echo json_encode(['error' => 'Danh mục món không tồn tại'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
 
-        echo json_encode([
-            'id' => (int)$db->lastInsertId(),
-            'name' => $name,
-            'price' => $price,
-            'status' => 'created'
-        ]);
+            $stmt = $db->prepare("
+                INSERT INTO menu_items (category_id, name, description, price, is_available, is_hot, image_url)
+                VALUES (?, ?, ?, ?, 1, ?, ?)
+            ");
+            $stmt->execute([$categoryId, $name, $description, $price, $isHot, $imageUrl !== '' ? $imageUrl : null]);
+            $itemId = (int)$db->lastInsertId();
+
+            $this->syncProductRecord($db, $itemId, $categoryId, $name);
+
+            $newValue = [
+                'name' => $name,
+                'category_id' => $categoryId,
+                'price' => $price,
+                'description' => $description,
+                'is_hot' => (bool)$isHot,
+                'is_available' => true,
+                'image_url' => $imageUrl !== '' ? $imageUrl : null,
+            ];
+            $this->writeAudit($db, 'create', 'menu_item', $itemId, null, $newValue);
+            $db->commit();
+
+            echo json_encode([
+                'id' => $itemId,
+                'name' => $name,
+                'price' => $price,
+                'status' => 'created'
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể tạo món: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function updateMenuItem(int $itemId, ?array $payload = null): void
+    {
+        $data = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+        $name = trim((string)($data['name'] ?? ''));
+        $categoryId = filter_var($data['category_id'] ?? null, FILTER_VALIDATE_INT);
+        $priceValue = $data['price'] ?? null;
+        $description = trim((string)($data['description'] ?? ''));
+        $price = is_numeric($priceValue) ? (float)$priceValue : -1;
+        $isHot = filter_var($data['is_hot'] ?? false, FILTER_VALIDATE_BOOLEAN) ? 1 : 0;
+        $hasImageField = is_array($data) && array_key_exists('image_url', $data);
+        $imageUrl = $hasImageField ? $this->sanitizeImageUrl($data['image_url'] ?? '') : '';
+
+        if ($itemId < 1 || $name === '' || strlen($name) > 150 || !is_int($categoryId) || $categoryId < 1 || $price < 0 || $imageUrl === null) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Thông tin món ăn không hợp lệ'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $db = Database::getConnection();
+        $db->beginTransaction();
+        try {
+            $lock = $this->lockSuffix($db);
+            $stmtItem = $db->prepare("SELECT * FROM menu_items WHERE id = ?{$lock}");
+            $stmtItem->execute([$itemId]);
+            $item = $stmtItem->fetch();
+            if (!$item) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['error' => 'Menu item not found']);
+                return;
+            }
+
+            $stmtCategory = $db->prepare('SELECT id FROM categories WHERE id = ?');
+            $stmtCategory->execute([$categoryId]);
+            if (!$stmtCategory->fetch()) {
+                $db->rollBack();
+                http_response_code(422);
+                echo json_encode(['error' => 'Danh mục món không tồn tại'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $finalImageUrl = $hasImageField
+                ? ($imageUrl !== '' ? $imageUrl : null)
+                : ($item['image_url'] ?? null);
+
+            $oldValue = [
+                'name' => $item['name'],
+                'category_id' => (int)$item['category_id'],
+                'price' => (float)$item['price'],
+                'description' => (string)($item['description'] ?? ''),
+                'is_hot' => (bool)$item['is_hot'],
+                'is_available' => (bool)$item['is_available'],
+                'image_url' => $item['image_url'] ?? null,
+            ];
+            $newValue = [
+                'name' => $name,
+                'category_id' => $categoryId,
+                'price' => $price,
+                'description' => $description,
+                'is_hot' => (bool)$isHot,
+                'is_available' => (bool)$item['is_available'],
+                'image_url' => $finalImageUrl,
+            ];
+
+            if ($oldValue !== $newValue) {
+                $db->prepare("
+                    UPDATE menu_items
+                    SET category_id = ?, name = ?, description = ?, price = ?, is_hot = ?, image_url = ?
+                    WHERE id = ?
+                ")->execute([$categoryId, $name, $description, $price, $isHot, $finalImageUrl, $itemId]);
+                $db->prepare("UPDATE products SET category_id = ?, name = ? WHERE id = ?")
+                    ->execute([$categoryId, $name, $itemId]);
+                $this->writeAudit($db, 'update', 'menu_item', $itemId, $oldValue, $newValue);
+            }
+            $db->commit();
+
+            echo json_encode([
+                'id' => $itemId,
+                'status' => $oldValue === $newValue ? 'unchanged' : 'updated',
+                'item' => $newValue,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể cập nhật món: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public function getMenuCatalog(): void
@@ -168,87 +310,332 @@ class AdminCatalogController
         $rows = $stmtItems ? $stmtItems->fetchAll() : [];
 
         $grouped = [];
+        $stmtCategories = $db->query('SELECT id, name, display_order FROM categories ORDER BY display_order ASC, id ASC');
+        foreach ($stmtCategories->fetchAll() as $category) {
+            $categoryId = (int)$category['id'];
+            $grouped[$categoryId] = [
+                'id' => $categoryId,
+                'name' => $category['name'],
+                'display_order' => (int)$category['display_order'],
+                'items' => [],
+                'toppings' => [],
+            ];
+        }
+
+        $itemsById = [];
         foreach ($rows as $r) {
-            $catId = (int)$r['category_id'];
-            if (!isset($grouped[$catId])) {
-                $grouped[$catId] = [
-                    'id' => $catId,
-                    'name' => $r['category_name'],
-                    'display_order' => (int)$r['display_order'],
-                    'items' => []
-                ];
-            }
             $r['is_available'] = (bool)$r['is_available'];
             $r['is_hot'] = (bool)$r['is_hot'];
             $r['price'] = (float)$r['price'];
-            $grouped[$catId]['items'][] = $r;
+            $r['toppings'] = [];
+            $itemsById[(int)$r['id']] = $r;
         }
 
-        $toppings = [];
-        try {
-            $stmtTop = $db->query("SELECT id, name, price, price as extra_price, is_available FROM toppings ORDER BY id ASC");
-            $toppings = $stmtTop ? $stmtTop->fetchAll() : [];
-            foreach ($toppings as &$t) {
-                $t['price'] = (float)$t['price'];
-                $t['extra_price'] = (float)$t['extra_price'];
-                $t['is_available'] = (bool)$t['is_available'];
+        $toppingsById = [];
+        $stmtTop = $db->query('SELECT id, name, price, is_available FROM toppings ORDER BY id ASC');
+        foreach ($stmtTop->fetchAll() as $row) {
+            $toppingId = (int)$row['id'];
+            $toppingsById[$toppingId] = [
+                'id' => $toppingId,
+                'name' => $row['name'],
+                'price' => (float)$row['price'],
+                'extra_price' => (float)$row['price'],
+                'is_available' => (bool)$row['is_available'],
+            ];
+        }
+
+        $stmtMappings = $db->query("
+            SELECT mit.menu_item_id, mit.topping_id
+            FROM menu_item_toppings mit
+            ORDER BY mit.menu_item_id ASC, mit.topping_id ASC
+        ");
+        foreach ($stmtMappings->fetchAll() as $mapping) {
+            $itemId = (int)$mapping['menu_item_id'];
+            $toppingId = (int)$mapping['topping_id'];
+            if (isset($itemsById[$itemId], $toppingsById[$toppingId])) {
+                $itemsById[$itemId]['toppings'][] = $toppingsById[$toppingId];
             }
-            unset($t);
-        } catch (\Throwable $e) {
-            $toppings = [];
+        }
+
+        foreach ($itemsById as $item) {
+            $categoryId = (int)$item['category_id'];
+            if (isset($grouped[$categoryId])) {
+                $grouped[$categoryId]['items'][] = $item;
+            }
         }
 
         echo json_encode([
             'categories' => array_values($grouped),
-            'available_toppings' => $toppings
-        ], JSON_UNESCAPED_UNICODE);
+            'available_toppings' => array_values($toppingsById)
+        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    public function updateMenuItemToppings(int $itemId, ?array $payload = null): void
+    {
+        $data = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+        $rawToppingIds = is_array($data) ? ($data['topping_ids'] ?? null) : null;
+        if ($itemId < 1 || !is_array($rawToppingIds)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'topping_ids must be an array']);
+            return;
+        }
+
+        $toppingIds = [];
+        foreach ($rawToppingIds as $rawId) {
+            $toppingId = filter_var($rawId, FILTER_VALIDATE_INT);
+            if (!is_int($toppingId) || $toppingId < 1) {
+                http_response_code(422);
+                echo json_encode(['error' => 'Topping không hợp lệ'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+            $toppingIds[] = $toppingId;
+        }
+        $toppingIds = array_values(array_unique($toppingIds));
+        sort($toppingIds);
+
+        $db = Database::getConnection();
+        $db->beginTransaction();
+        try {
+            $stmtItem = $db->prepare("SELECT id FROM menu_items WHERE id = ?{$this->lockSuffix($db)}");
+            $stmtItem->execute([$itemId]);
+            if (!$stmtItem->fetch()) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['error' => 'Menu item not found']);
+                return;
+            }
+
+            if ($toppingIds !== []) {
+                $placeholders = implode(',', array_fill(0, count($toppingIds), '?'));
+                $stmtToppings = $db->prepare("SELECT id FROM toppings WHERE id IN ({$placeholders})");
+                $stmtToppings->execute($toppingIds);
+                $existingIds = array_map('intval', array_column($stmtToppings->fetchAll(), 'id'));
+                sort($existingIds);
+                if ($existingIds !== $toppingIds) {
+                    $db->rollBack();
+                    http_response_code(422);
+                    echo json_encode(['error' => 'Một hoặc nhiều topping không tồn tại'], JSON_UNESCAPED_UNICODE);
+                    return;
+                }
+            }
+
+            $stmtCurrent = $db->prepare('SELECT topping_id FROM menu_item_toppings WHERE menu_item_id = ? ORDER BY topping_id ASC');
+            $stmtCurrent->execute([$itemId]);
+            $oldToppingIds = array_map('intval', array_column($stmtCurrent->fetchAll(), 'topping_id'));
+            if ($oldToppingIds !== $toppingIds) {
+                $db->prepare('DELETE FROM menu_item_toppings WHERE menu_item_id = ?')->execute([$itemId]);
+                $stmtInsert = $db->prepare('INSERT INTO menu_item_toppings (menu_item_id, topping_id) VALUES (?, ?)');
+                foreach ($toppingIds as $toppingId) {
+                    $stmtInsert->execute([$itemId, $toppingId]);
+                }
+                $this->writeAudit(
+                    $db,
+                    'update',
+                    'menu_item_topping',
+                    $itemId,
+                    ['topping_ids' => $oldToppingIds],
+                    ['topping_ids' => $toppingIds]
+                );
+            }
+            $db->commit();
+
+            echo json_encode([
+                'menu_item_id' => $itemId,
+                'topping_ids' => $toppingIds,
+                'status' => $oldToppingIds === $toppingIds ? 'unchanged' : 'updated',
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể cập nhật topping cho món: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public function toggleMenuItemAvailability(int $itemId): void
     {
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT id, is_available FROM menu_items WHERE id = ?");
-        $stmt->execute([$itemId]);
-        $item = $stmt->fetch();
-        if (!$item) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Menu item not found']);
+        $rawAvailability = $_GET['is_available'] ?? null;
+        $requestedAvailability = $rawAvailability === null
+            ? null
+            : filter_var($rawAvailability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($itemId < 1 || ($rawAvailability !== null && $requestedAvailability === null)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'is_available must be true or false']);
             return;
         }
 
-        $newVal = isset($_GET['is_available'])
-            ? (filter_var($_GET['is_available'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
-            : ((int)$item['is_available'] ? 0 : 1);
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare("SELECT id, is_available FROM menu_items WHERE id = ?{$this->lockSuffix($db)}");
+            $stmt->execute([$itemId]);
+            $item = $stmt->fetch();
+            if (!$item) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['error' => 'Menu item not found']);
+                return;
+            }
 
-        $db->prepare("UPDATE menu_items SET is_available = ? WHERE id = ?")->execute([$newVal, $itemId]);
-        echo json_encode([
-            'id' => $itemId,
-            'is_available' => (bool)$newVal,
-            'status' => 'updated'
-        ]);
+            $oldAvailability = (bool)$item['is_available'];
+            $newAvailability = $requestedAvailability ?? !$oldAvailability;
+            if ($oldAvailability !== $newAvailability) {
+                $db->prepare('UPDATE menu_items SET is_available = ? WHERE id = ?')
+                    ->execute([$newAvailability ? 1 : 0, $itemId]);
+                $this->writeAudit(
+                    $db,
+                    'availability.update',
+                    'menu_item',
+                    $itemId,
+                    ['is_available' => $oldAvailability],
+                    ['is_available' => $newAvailability]
+                );
+            }
+            $db->commit();
+
+            echo json_encode([
+                'id' => $itemId,
+                'is_available' => $newAvailability,
+                'status' => $oldAvailability === $newAvailability ? 'unchanged' : 'updated'
+            ]);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể cập nhật trạng thái món: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
     }
 
     public function toggleToppingAvailability(int $toppingId): void
     {
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT id, is_available FROM toppings WHERE id = ?");
-        $stmt->execute([$toppingId]);
-        $top = $stmt->fetch();
-        if (!$top) {
-            http_response_code(404);
-            echo json_encode(['error' => 'Topping not found']);
+        $rawAvailability = $_GET['is_available'] ?? null;
+        $requestedAvailability = $rawAvailability === null
+            ? null
+            : filter_var($rawAvailability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($toppingId < 1 || ($rawAvailability !== null && $requestedAvailability === null)) {
+            http_response_code(422);
+            echo json_encode(['error' => 'is_available must be true or false']);
             return;
         }
 
-        $newVal = isset($_GET['is_available'])
-            ? (filter_var($_GET['is_available'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
-            : ((int)$top['is_available'] ? 0 : 1);
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare("SELECT id, is_available FROM toppings WHERE id = ?{$this->lockSuffix($db)}");
+            $stmt->execute([$toppingId]);
+            $top = $stmt->fetch();
+            if (!$top) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['error' => 'Topping not found']);
+                return;
+            }
 
-        $db->prepare("UPDATE toppings SET is_available = ? WHERE id = ?")->execute([$newVal, $toppingId]);
-        echo json_encode([
-            'id' => $toppingId,
-            'is_available' => (bool)$newVal,
-            'status' => 'updated'
+            $oldAvailability = (bool)$top['is_available'];
+            $newAvailability = $requestedAvailability ?? !$oldAvailability;
+            if ($oldAvailability !== $newAvailability) {
+                $db->prepare("UPDATE toppings SET is_available = ? WHERE id = ?")
+                    ->execute([$newAvailability ? 1 : 0, $toppingId]);
+                $this->writeAudit(
+                    $db,
+                    'availability.update',
+                    'topping',
+                    $toppingId,
+                    ['is_available' => $oldAvailability],
+                    ['is_available' => $newAvailability]
+                );
+            }
+            $db->commit();
+
+            echo json_encode([
+                'id' => $toppingId,
+                'is_available' => $newAvailability,
+                'status' => $oldAvailability === $newAvailability ? 'unchanged' : 'updated'
+            ]);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể cập nhật trạng thái topping: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    private function sanitizeImageUrl(mixed $raw): ?string
+    {
+        $url = trim((string)$raw);
+        if ($url === '') {
+            return '';
+        }
+        if (strlen($url) > 255 || preg_match('/[\r\n\0]/', $url) || preg_match('/^\s*(javascript|vbscript|data:text\/html):/i', $url)) {
+            return null;
+        }
+        return $url;
+    }
+
+    private function syncProductRecord(\PDO $db, int $itemId, int $categoryId, string $name): void
+    {
+        try {
+            $stmtExists = $db->prepare('SELECT id FROM products WHERE id = ?');
+            $stmtExists->execute([$itemId]);
+            if ($stmtExists->fetch()) {
+                $db->prepare('UPDATE products SET category_id = ?, name = ? WHERE id = ?')
+                    ->execute([$categoryId, $name, $itemId]);
+                return;
+            }
+
+            $unitId = (int)$db->query('SELECT id FROM units ORDER BY id ASC LIMIT 1')->fetchColumn();
+            if ($unitId < 1) {
+                return;
+            }
+
+            $sku = sprintf('DISH-%03d', $itemId);
+            $stmtSku = $db->prepare('SELECT id FROM products WHERE sku = ?');
+            $stmtSku->execute([$sku]);
+            if ($stmtSku->fetch()) {
+                $sku = 'DISH-' . $itemId . '-' . substr(bin2hex(random_bytes(2)), 0, 4);
+            }
+
+            $db->prepare("
+                INSERT INTO products (id, category_id, sku, name, unit_id, min_stock, status)
+                VALUES (?, ?, ?, ?, ?, 10, 'ACTIVE')
+            ")->execute([$itemId, $categoryId, $sku, $name, $unitId]);
+        } catch (\Throwable $e) {
+            // Bỏ qua nếu bảng products/units chưa tồn tại trong schema tối giản
+        }
+    }
+
+    private function lockSuffix(\PDO $db): string
+    {
+        return $db->getAttribute(\PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+    }
+
+    private function writeAudit(
+        \PDO $db,
+        string $action,
+        string $entityType,
+        int $entityId,
+        ?array $oldValue,
+        array $newValue
+    ): void {
+        $actorId = filter_var($_SESSION['user_id'] ?? null, FILTER_VALIDATE_INT);
+        if (!is_int($actorId) || $actorId < 1) {
+            throw new \RuntimeException('Authenticated actor is required for menu audit');
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO audit_logs (actor_id, action, entity_type, entity_id, old_value, new_value)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $stmt->execute([
+            $actorId,
+            $action,
+            $entityType,
+            (string)$entityId,
+            $oldValue === null ? null : json_encode($oldValue, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            json_encode($newValue, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
         ]);
     }
 }

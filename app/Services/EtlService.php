@@ -38,14 +38,14 @@ class EtlService
             return true;
         }
 
-        // 2. Lấy toàn bộ món ăn trong các đơn thuộc phiên này
+        // 2. Lấy toàn bộ món ăn hợp lệ (không tính món đã hủy) trong các đơn thuộc phiên này
         $stmtItems = $db->prepare("
             SELECT oi.*, o.created_at as order_created_at, m.name as item_name, m.price as current_item_price, c.name as category_name
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN menu_items m ON oi.menu_item_id = m.id
             LEFT JOIN categories c ON m.category_id = c.id
-            WHERE o.session_id = ?
+            WHERE o.session_id = ? AND oi.status <> 'CANCELLED'
         ");
         $stmtItems->execute([$sessionId]);
         $items = $stmtItems->fetchAll();

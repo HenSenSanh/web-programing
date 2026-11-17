@@ -8,6 +8,11 @@ function sendVerificationEmail(string $toEmail, string $username, string $token)
 
     $smtp = $config['smtp'];
 
+    // Trong môi trường chạy kiểm thử tự động CLI (DINEFLOW_DB_PATH), giả lập gửi mail nhanh không gọi SMTP ngoài
+    if (getenv('DINEFLOW_DB_PATH')) {
+        return true;
+    }
+
     // Nếu có thư viện PHPMailer qua Composer
     $autoload = __DIR__ . '/../vendor/autoload.php';
     if (file_exists($autoload)) {

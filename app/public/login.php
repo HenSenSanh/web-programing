@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/rbac.php';
 
 $message = "";
 
@@ -11,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $result = loginUser($usernameOrEmail, $password, $remember);
 
     if ($result["success"]) {
-        header("Location: dashboard.php");
+        header("Location: " . getStaffLandingPath((int)$_SESSION['user_id']));
         exit;
     }
 
