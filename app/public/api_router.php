@@ -106,6 +106,16 @@ if (preg_match('#^/admin/menu-items/(\d+)/toppings$#', $path, $m) && ($method ==
     $admin->updateMenuItemToppings((int)$m[1]);
     exit;
 }
+if ($path === '/admin/toppings' && $method === 'POST') {
+    requireApiPermission('products.manage');
+    $admin->createTopping();
+    exit;
+}
+if (preg_match('#^/admin/toppings/(\d+)$#', $path, $m) && ($method === 'PATCH' || $method === 'PUT')) {
+    requireApiPermission('products.manage');
+    $admin->updateTopping((int)$m[1]);
+    exit;
+}
 if (preg_match('#^/admin/toppings/(\d+)/toggle-availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
     requireApiPermission('products.manage');
     $admin->toggleToppingAvailability((int)$m[1]);

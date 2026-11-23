@@ -1350,6 +1350,53 @@ $db->prepare("DELETE FROM orders WHERE session_id = ?")->execute([$tqSessId]);
 $db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$tqSessId]);
 $db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$tqTableId]);
 
+// Task 4: Topping CRUD APIs (createTopping / updateTopping + audit logs + RBAC)
+$_SESSION['user_id'] = $matrixUserIds['ADMIN'];
+$topCrudSuffix = substr(uniqid('', true), 0, 8);
+$topCrudName = 'Thêm Trứng Lòng Đào ' . $topCrudSuffix;
+ob_start();
+$adminCatalog->createTopping(['name' => $topCrudName, 'price' => 10000]);
+$createdTopRes = json_decode(ob_get_clean(), true);
+$createdTopId = (int)($createdTopRes['id'] ?? 0);
+
+$stmtTopCreateAudit = $db->prepare("SELECT COUNT(*) FROM audit_logs WHERE entity_type = 'topping' AND entity_id = ? AND action = 'create'");
+$stmtTopCreateAudit->execute([(string)$createdTopId]);
+assertTest(
+    "UX-9.8: AdminCatalogController::createTopping() tạo topping mới và ghi audit_logs",
+    $createdTopId > 0
+        && ($createdTopRes['status'] ?? '') === 'created'
+        && (float)($createdTopRes['price'] ?? 0) === 10000.0
+        && (int)$stmtTopCreateAudit->fetchColumn() === 1
+);
+
+ob_start();
+$adminCatalog->updateTopping($createdTopId, ['name' => $topCrudName . ' VIP', 'price' => 12000]);
+$updatedTopRes = json_decode(ob_get_clean(), true);
+ob_start();
+$adminCatalog->updateTopping($createdTopId, ['name' => $topCrudName . ' VIP', 'price' => 12000]);
+$unchangedTopRes = json_decode(ob_get_clean(), true);
+$stmtTopUpdateAudit = $db->prepare("SELECT COUNT(*) FROM audit_logs WHERE entity_type = 'topping' AND entity_id = ? AND action = 'update'");
+$stmtTopUpdateAudit->execute([(string)$createdTopId]);
+assertTest(
+    "UX-9.9: AdminCatalogController::updateTopping() cập nhật tên/giá và idempotent không tạo audit trùng",
+    ($updatedTopRes['status'] ?? '') === 'updated'
+        && ($unchangedTopRes['status'] ?? '') === 'unchanged'
+        && (int)$stmtTopUpdateAudit->fetchColumn() === 1
+);
+
+ob_start();
+$adminCatalog->createTopping(['name' => '', 'price' => -500]);
+$badTopRes = json_decode(ob_get_clean(), true);
+$keeperManageDecision = apiPermissionDecision($matrixUserIds['KEEPER'], 'products.manage');
+assertTest(
+    "UX-9.10: createTopping từ chối tên rỗng/giá âm và KEEPER bị chặn quyền products.manage (403)",
+    !empty($badTopRes['error']) && $keeperManageDecision['allowed'] === false && $keeperManageDecision['http_status'] === 403
+);
+
+$db->prepare("DELETE FROM audit_logs WHERE entity_type = 'topping' AND entity_id = ?")->execute([(string)$createdTopId]);
+$db->prepare("DELETE FROM toppings WHERE id = ?")->execute([$createdTopId]);
+unset($_SESSION['user_id']);
+
 // -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------

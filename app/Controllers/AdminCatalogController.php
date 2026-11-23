@@ -602,6 +602,113 @@ class AdminCatalogController
         }
     }
 
+    public function createTopping(?array $payload = null): void
+    {
+        $data = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+        $name = trim((string)($data['name'] ?? ''));
+        $priceValue = $data['price'] ?? null;
+        $price = is_numeric($priceValue) ? (float)$priceValue : -1.0;
+        $isAvailable = array_key_exists('is_available', $data)
+            ? (filter_var($data['is_available'], FILTER_VALIDATE_BOOLEAN) ? 1 : 0)
+            : 1;
+
+        if ($name === '' || mb_strlen($name, 'UTF-8') > 100 || $price < 0) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Tên topping (1-100 ký tự) và giá (>= 0) là bắt buộc'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $db = Database::getConnection();
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare('INSERT INTO toppings (name, price, is_available) VALUES (?, ?, ?)');
+            $stmt->execute([$name, $price, $isAvailable]);
+            $toppingId = (int)$db->lastInsertId();
+
+            $newValue = [
+                'name' => $name,
+                'price' => $price,
+                'is_available' => (bool)$isAvailable,
+            ];
+            $this->writeAudit($db, 'create', 'topping', $toppingId, null, $newValue);
+            $db->commit();
+
+            http_response_code(201);
+            echo json_encode([
+                'id' => $toppingId,
+                'name' => $name,
+                'price' => $price,
+                'extra_price' => $price,
+                'is_available' => (bool)$isAvailable,
+                'status' => 'created',
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể tạo topping: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    public function updateTopping(int $toppingId, ?array $payload = null): void
+    {
+        $data = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+        $name = trim((string)($data['name'] ?? ''));
+        $priceValue = $data['price'] ?? null;
+        $price = is_numeric($priceValue) ? (float)$priceValue : -1.0;
+
+        if ($toppingId < 1 || $name === '' || mb_strlen($name, 'UTF-8') > 100 || $price < 0) {
+            http_response_code(422);
+            echo json_encode(['error' => 'Thông tin topping không hợp lệ'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $db = Database::getConnection();
+        $db->beginTransaction();
+        try {
+            $stmt = $db->prepare("SELECT id, name, price, is_available FROM toppings WHERE id = ?{$this->lockSuffix($db)}");
+            $stmt->execute([$toppingId]);
+            $existing = $stmt->fetch();
+            if (!$existing) {
+                $db->rollBack();
+                http_response_code(404);
+                echo json_encode(['error' => 'Topping not found']);
+                return;
+            }
+
+            $oldValue = [
+                'name' => (string)$existing['name'],
+                'price' => (float)$existing['price'],
+                'is_available' => (bool)$existing['is_available'],
+            ];
+            $newValue = [
+                'name' => $name,
+                'price' => $price,
+                'is_available' => (bool)$existing['is_available'],
+            ];
+
+            if ($oldValue !== $newValue) {
+                $db->prepare('UPDATE toppings SET name = ?, price = ? WHERE id = ?')
+                    ->execute([$name, $price, $toppingId]);
+                $this->writeAudit($db, 'update', 'topping', $toppingId, $oldValue, $newValue);
+            }
+            $db->commit();
+
+            echo json_encode([
+                'id' => $toppingId,
+                'status' => $oldValue === $newValue ? 'unchanged' : 'updated',
+                'topping' => $newValue,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            if ($db->inTransaction()) {
+                $db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['error' => 'Không thể cập nhật topping: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
     private function sanitizeImageUrl(mixed $raw): ?string
     {
         $url = trim((string)$raw);
