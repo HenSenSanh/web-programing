@@ -10,10 +10,9 @@ services:
       - ./app:/var/www/html
       - ./composer.json:/var/www/html/composer.json
       - php_vendor:/var/www/html/vendor
-      - ./frontend:/var/www/html/public/frontend
-      - ./demo_tester.html:/var/www/html/public/demo_tester.html
       - ./tests:/var/www/tests
       - ./database:/var/www/database
+      - tunnel_logs:/var/log/cloudflared:ro
     env_file:
       - .env
     depends_on:
@@ -27,10 +26,10 @@ services:
     restart: always
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
-      MYSQL_DATABASE: ${DB_DATABASE:-login_system}
-      MYSQL_USER: ${DB_USERNAME:-login_user}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-login_password}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${DB_DATABASE:-dineflow_db}
+      MYSQL_USER: ${DB_USERNAME:-dineflow}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-dineflow123}
     ports:
       - "3307:3306"
     volumes:
@@ -53,9 +52,23 @@ services:
     networks:
       - dineflow_network
 
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: dineflow_tunnel
+    user: "0:0"
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://php-app:80 --logfile /var/log/cloudflared/tunnel.log
+    volumes:
+      - tunnel_logs:/var/log/cloudflared
+    depends_on:
+      - php-app
+    networks:
+      - dineflow_network
+
 volumes:
   mysql_data:
   php_vendor:
+  tunnel_logs:
 
 networks:
   dineflow_network:

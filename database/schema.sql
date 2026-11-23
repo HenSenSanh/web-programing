@@ -14,6 +14,18 @@ CREATE TABLE IF NOT EXISTS users (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_id INTEGER NULL,
+    action VARCHAR(64) NOT NULL,
+    entity_type VARCHAR(64) NOT NULL,
+    entity_id VARCHAR(64) NOT NULL,
+    old_value JSON NULL,
+    new_value JSON NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (actor_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- 2. OLTP: Dining Tables (15-20 tables)
 CREATE TABLE IF NOT EXISTS dining_tables (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,6 +78,22 @@ CREATE TABLE IF NOT EXISTS toppings (
     name VARCHAR(100) NOT NULL,
     price DECIMAL(12, 2) NOT NULL,
     is_available INTEGER DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS menu_item_toppings (
+    menu_item_id INTEGER NOT NULL,
+    topping_id INTEGER NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (menu_item_id, topping_id),
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (topping_id) REFERENCES toppings(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS order_item_topping_snapshots (
+    order_item_id INTEGER PRIMARY KEY,
+    toppings_json JSON NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_item_id) REFERENCES order_items(id) ON DELETE CASCADE
 );
 
 -- 7. OLTP: Orders

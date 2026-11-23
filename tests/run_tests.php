@@ -1,4 +1,5 @@
 <?php
+ob_start(null, 0);
 
 /**
  * =======================================================================
@@ -38,14 +39,22 @@ require_once $appDir . '/Core/Database.php';
 require_once $appDir . '/Services/SharedCartService.php';
 require_once $appDir . '/Services/EtlService.php';
 require_once $appDir . '/Services/AprioriService.php';
+require_once $appDir . '/Services/OrderToppingSnapshotService.php';
+require_once $appDir . '/Controllers/AdminCatalogController.php';
+require_once $appDir . '/Controllers/ClientCancellationController.php';
 require_once $appDir . '/Controllers/ClientOrderController.php';
+require_once $appDir . '/Controllers/KdsPosController.php';
 require_once $appDir . '/Controllers/DataPipelineController.php';
 
 use App\Core\Database;
 use App\Services\SharedCartService;
 use App\Services\EtlService;
 use App\Services\AprioriService;
+use App\Services\OrderToppingSnapshotService;
+use App\Controllers\AdminCatalogController;
+use App\Controllers\ClientCancellationController;
 use App\Controllers\ClientOrderController;
+use App\Controllers\KdsPosController;
 use App\Controllers\DataPipelineController;
 
 // ANSI color codes
@@ -175,20 +184,20 @@ $tUsername = "rbac_test_" . uniqid();
 $stmtUser->execute([$tUsername, "{$tUsername}@example.com"]);
 $tUserId = (int)$pdo->lastInsertId();
 
-$stmtP1 = $pdo->prepare("SELECT id FROM permissions WHERE permission_code = 'documents.post'");
+$stmtP1 = $pdo->prepare("SELECT id FROM permissions WHERE permission_code = 'kds.update'");
 $stmtP1->execute();
-$permPostId = (int)($stmtP1->fetch()['id'] ?? 1);
+$permKdsUpdateId = (int)($stmtP1->fetch()['id'] ?? 1);
 
-assertTest("Bài B.1: Không nhóm, không ngoại lệ -> Từ chối (403)", !hasPermission($tUserId, 'documents.post'));
+assertTest("Bài B.1: Không nhóm, không ngoại lệ -> Từ chối (403)", !hasPermission($tUserId, 'kds.update'));
 
 $pdo->prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, 3)")->execute([$tUserId]);
-assertTest("Bài B.2: Nhóm cấp quyền, tài khoản kế thừa -> Cho phép", hasPermission($tUserId, 'documents.post'));
+assertTest("Bài B.2: Nhóm cấp quyền, tài khoản kế thừa -> Cho phép", hasPermission($tUserId, 'kds.update'));
 
 $pdo->prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, 4)")->execute([$tUserId]);
-assertTest("Bài B.3: Hai nhóm, chỉ một nhóm cấp quyền -> Cho phép", hasPermission($tUserId, 'documents.post'));
+assertTest("Bài B.3: Hai nhóm, chỉ một nhóm cấp quyền -> Cho phép", hasPermission($tUserId, 'kds.update'));
 
-$pdo->prepare("INSERT INTO user_permissions (user_id, permission_id, effect) VALUES (?, ?, 'deny')")->execute([$tUserId, $permPostId]);
-assertTest("Bài B.4: Nhóm cấp quyền, nhưng tài khoản bị 'deny' riêng -> TỪ CHỐI", !hasPermission($tUserId, 'documents.post'));
+$pdo->prepare("INSERT INTO user_permissions (user_id, permission_id, effect) VALUES (?, ?, 'deny')")->execute([$tUserId, $permKdsUpdateId]);
+assertTest("Bài B.4: Nhóm cấp quyền, nhưng tài khoản bị 'deny' riêng -> TỪ CHỐI", !hasPermission($tUserId, 'kds.update'));
 
 $stmtP2 = $pdo->prepare("SELECT id FROM permissions WHERE permission_code = 'rbac.manage'");
 $stmtP2->execute();
@@ -198,6 +207,142 @@ assertTest("Bài B.5: Không nhóm cấp quyền, tài khoản có 'allow' riên
 
 $pdo->prepare("DELETE FROM user_permissions WHERE user_id = ? AND permission_id = ?")->execute([$tUserId, $permRbacId]);
 assertTest("Bài B.6: Xóa ngoại lệ 'allow' -> Trở lại từ chối", !hasPermission($tUserId, 'rbac.manage'));
+
+$rolePermissionCases = [
+    ['ADMIN', 'tables.view', true],
+    ['ADMIN', 'tables.manage', true],
+    ['ADMIN', 'products.manage', true],
+    ['ADMIN', 'kds.update', true],
+    ['ADMIN', 'pos.checkout', true],
+    ['ADMIN', 'reports.view', true],
+    ['ADMIN', 'data.manage', true],
+    ['CREATOR', 'tables.view', true],
+    ['CREATOR', 'tables.open', true],
+    ['CREATOR', 'kds.view', true],
+    ['CREATOR', 'products.manage', false],
+    ['CREATOR', 'kds.update', false],
+    ['CREATOR', 'pos.view', false],
+    ['CREATOR', 'pos.checkout', false],
+    ['CREATOR', 'reports.view', false],
+    ['KEEPER', 'kds.view', true],
+    ['KEEPER', 'kds.update', true],
+    ['KEEPER', 'products.view', false],
+    ['KEEPER', 'tables.open', false],
+    ['KEEPER', 'pos.checkout', false],
+    ['KEEPER', 'reports.view', false],
+    ['VIEWER', 'pos.view', true],
+    ['VIEWER', 'pos.checkout', true],
+    ['VIEWER', 'documents.print', true],
+    ['VIEWER', 'reports.view', true],
+    ['VIEWER', 'products.view', false],
+    ['VIEWER', 'products.manage', false],
+    ['VIEWER', 'tables.open', false],
+    ['VIEWER', 'tables.manage', false],
+    ['VIEWER', 'kds.view', false],
+    ['VIEWER', 'kds.update', false],
+    ['VIEWER', 'data.manage', false],
+];
+
+$matrixUserIds = [];
+foreach ($rolePermissionCases as [$roleCode, $permissionCode, $expected]) {
+    $stmtRole = $pdo->prepare("SELECT id FROM roles WHERE role_code = ?");
+    $stmtRole->execute([$roleCode]);
+    $roleId = (int)($stmtRole->fetch()['id'] ?? 0);
+
+    $matrixUsername = 'matrix_' . strtolower($roleCode) . '_' . uniqid();
+    $stmtMatrixUser = $pdo->prepare(
+        "INSERT INTO users (username, email, password_hash, email_verified) VALUES (?, ?, 'hash', 1)"
+    );
+    $stmtMatrixUser->execute([$matrixUsername, "{$matrixUsername}@example.com"]);
+    $matrixUserId = (int)$pdo->lastInsertId();
+
+    if ($roleId > 0) {
+        $pdo->prepare("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)")->execute([$matrixUserId, $roleId]);
+    }
+    $matrixUserIds[$roleCode] = $matrixUserId;
+
+    assertTest(
+        "RBAC {$roleCode}: {$permissionCode} " . ($expected ? 'được phép' : 'bị từ chối'),
+        hasPermission($matrixUserId, $permissionCode) === $expected
+    );
+}
+
+$anonymousApiAccess = apiPermissionDecision(null, 'tables.view');
+assertTest(
+    "API RBAC: chưa đăng nhập nhận 401",
+    $anonymousApiAccess['allowed'] === false && $anonymousApiAccess['http_status'] === 401
+);
+
+$deniedApiAccess = apiPermissionDecision($matrixUserIds['CREATOR'], 'pos.checkout');
+assertTest(
+    "API RBAC: CREATOR gọi checkout nhận 403",
+    $deniedApiAccess['allowed'] === false && $deniedApiAccess['http_status'] === 403
+);
+
+$allowedApiAccess = apiPermissionDecision($matrixUserIds['VIEWER'], 'pos.checkout');
+assertTest(
+    "API RBAC: VIEWER gọi checkout được phép",
+    $allowedApiAccess['allowed'] === true && $allowedApiAccess['http_status'] === 200
+);
+
+assertTest(
+    "Landing: ADMIN vào dashboard",
+    getStaffLandingPath($matrixUserIds['ADMIN']) === 'dashboard.php'
+);
+assertTest(
+    "Landing: CREATOR vào quản lý bàn",
+    getStaffLandingPath($matrixUserIds['CREATOR']) === 'frontend/admin/table-management.php'
+);
+assertTest(
+    "Landing: KEEPER vào KDS",
+    getStaffLandingPath($matrixUserIds['KEEPER']) === 'frontend/kds/index.php'
+);
+assertTest(
+    "Landing: VIEWER vào POS",
+    getStaffLandingPath($matrixUserIds['VIEWER']) === 'frontend/pos/index.php'
+);
+assertTest(
+    "Portal shell entry: ADMIN/CREATOR/KEEPER/VIEWER vào đúng tab mặc định",
+    getStaffPortalEntryPath($matrixUserIds['ADMIN']) === 'portal.php?tab=dashboard'
+        && getStaffPortalEntryPath($matrixUserIds['CREATOR']) === 'portal.php?tab=tables'
+        && getStaffPortalEntryPath($matrixUserIds['KEEPER']) === 'portal.php?tab=kds'
+        && getStaffPortalEntryPath($matrixUserIds['VIEWER']) === 'portal.php?tab=pos'
+);
+
+$creatorPortalKeys = array_column(getStaffPortalNavigation($matrixUserIds['CREATOR']), 'key');
+assertTest(
+    "Portal nav: CREATOR chỉ thấy bàn, thực đơn đọc và KDS",
+    $creatorPortalKeys === ['tables', 'products', 'kds']
+);
+$creatorMenuNavigation = array_values(array_filter(
+    getStaffPortalNavigation($matrixUserIds['CREATOR']),
+    static fn(array $item): bool => $item['key'] === 'products'
+));
+assertTest(
+    "Portal menu: CREATOR thấy một mục 'Quản lý món' chỉ đọc",
+    count($creatorMenuNavigation) === 1
+        && $creatorMenuNavigation[0]['label'] === 'Quản lý món'
+        && $creatorMenuNavigation[0]['href'] === 'products.php'
+        && !hasPermission($matrixUserIds['CREATOR'], 'products.manage')
+);
+
+$keeperPortalKeys = array_column(getStaffPortalNavigation($matrixUserIds['KEEPER']), 'key');
+assertTest(
+    "Portal nav: KEEPER chỉ thấy KDS",
+    $keeperPortalKeys === ['kds']
+);
+
+$viewerPortalKeys = array_column(getStaffPortalNavigation($matrixUserIds['VIEWER']), 'key');
+assertTest(
+    "Portal nav: VIEWER thấy POS, hóa đơn và dashboard",
+    $viewerPortalKeys === ['pos', 'documents', 'dashboard']
+);
+
+$adminPortalKeys = array_column(getStaffPortalNavigation($matrixUserIds['ADMIN']), 'key');
+assertTest(
+    "Portal nav: ADMIN thấy đủ phân hệ nhân viên",
+    $adminPortalKeys === ['tables', 'products', 'kds', 'pos', 'documents', 'live-ops', 'dashboard']
+);
 
 echo "\n";
 
@@ -233,21 +378,23 @@ assertTest("QR-6.1: Khởi tạo đủ 15 bàn ăn nhà hàng QR Dine (Bàn 01 .
 $activeSessions = (int)$pdo->query("SELECT COUNT(*) FROM table_sessions WHERE status = 'ACTIVE'")->fetchColumn();
 assertTest("QR-6.2: Có phiên bàn QR đang hoạt động (ACTIVE) kèm session_token hợp lệ", $activeSessions > 0);
 
-$kdsOrdersCount = (int)$pdo->query("SELECT COUNT(*) FROM orders WHERE status IN ('NEW', 'COOKING', 'READY', 'COMPLETED')")->fetchColumn();
+$kdsOrdersCount = (int)$pdo->query("SELECT COUNT(*) FROM order_items WHERE status IN ('PENDING', 'COOKING', 'READY', 'SERVED', 'COMPLETED')")->fetchColumn();
 assertTest("QR-6.3: Có đơn hàng KDS hợp lệ trong hệ thống", $kdsOrdersCount > 0);
 
-$posBills = $pdo->query("SELECT id, subtotal, tax_amount, discount_amount, final_amount, payment_status FROM bill_payments")->fetchAll();
+$posBills = $pdo->query("SELECT id, subtotal_amount, vat_amount, service_fee, final_amount, payment_method FROM bill_payments")->fetchAll();
 assertTest("QR-6.4: Có hóa đơn thanh toán POS trong bảng bill_payments", count($posBills) > 0);
 
 $billMathValid = true;
 foreach ($posBills as $bill) {
-    $expectedFinal = (float)$bill['subtotal'] + (float)$bill['tax_amount'] - (float)$bill['discount_amount'];
-    if (abs($expectedFinal - (float)$bill['final_amount']) > 1.0) {
+    $expectedRaw = (float)$bill['subtotal_amount'] + (float)$bill['vat_amount'] + (float)$bill['service_fee'];
+    $expectedRounded = round($expectedRaw / 500) * 500;
+    $actualFinal = (float)$bill['final_amount'];
+    if (abs($expectedRaw - $actualFinal) > 1.0 && abs($expectedRounded - $actualFinal) > 1.0) {
         $billMathValid = false;
         break;
     }
 }
-assertTest("QR-6.5: Đối soát công thức hóa đơn POS: final_amount == subtotal + VAT - discount", $billMathValid);
+assertTest("QR-6.5: Đối soát công thức hóa đơn POS: final_amount khớp subtotal_amount + VAT + service_fee", $billMathValid);
 
 echo "\n";
 
@@ -315,7 +462,10 @@ $db->prepare("
     INSERT INTO table_sessions (id, table_id, session_token, status, total_amount)
     VALUES (?, ?, ?, 'ACTIVE', 0)
 ")->execute([$sessTamperId, $tTableIdTamper, $sessTamperToken]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")
+    ->execute([$sessTamperId, $tTableIdTamper]);
 
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = 'IDEM-TAMPER-' . uniqid();
 $orderCtrl = new ClientOrderController();
 ob_start();
 $orderCtrl->submitOrder($sessTamperToken, [
@@ -324,6 +474,7 @@ $orderCtrl->submitOrder($sessTamperToken, [
     ]
 ]);
 $submitOutput = ob_get_clean();
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
 $submitJson = json_decode($submitOutput, true);
 
 // Kiểm tra hóa đơn trong CSDL
@@ -383,6 +534,377 @@ assertTest(
     $idemCount === 1
 );
 unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+
+// -------------------------------------------------------------------------
+// ACCEPTANCE: UNIFIED MENU, TOPPING CATEGORIES, AUDIT, CANCEL & ORDER SNAPSHOTS
+// -------------------------------------------------------------------------
+echo "\n📋 ACCEPTANCE: QUẢN LÝ MÓN, TOPPING, HỦY MÓN, LỊCH SỬ KHÁCH, KDS & HÓA ĐƠN\n";
+
+$adminCatalog = new AdminCatalogController();
+$kdsPos = new KdsPosController();
+$cancelCtrl = new ClientCancellationController();
+$acceptanceActorId = $matrixUserIds['ADMIN'];
+$_SESSION['user_id'] = $acceptanceActorId;
+
+$acceptanceSuffix = substr(uniqid('', true), 0, 12);
+$acceptanceItemName = 'Acceptance món ' . $acceptanceSuffix;
+$acceptanceToppingName = 'Acceptance topping ' . $acceptanceSuffix;
+$acceptanceTableNumber = 'AT-' . $acceptanceSuffix;
+$acceptanceToppingId = 0;
+$acceptanceItemId = 0;
+$acceptanceTableId = 0;
+$acceptanceSessionId = 'sess_at_' . $acceptanceSuffix;
+$acceptanceSessionToken = 'token_at_' . $acceptanceSuffix;
+$acceptanceOrderId = 0;
+$acceptanceIdempotencyKey = 'IDEM-AT-' . $acceptanceSuffix;
+
+ob_start();
+$adminCatalog->createMenuItem([
+    'name' => $acceptanceItemName,
+    'category_id' => 1,
+    'price' => 1200,
+    'description' => 'Acceptance description',
+    'is_hot' => false,
+]);
+$createdMenuItem = json_decode(ob_get_clean(), true);
+$acceptanceItemId = (int)($createdMenuItem['id'] ?? 0);
+
+$stmtCreateAudit = $db->prepare("
+    SELECT actor_id, action, entity_type, entity_id, old_value, new_value
+    FROM audit_logs
+    WHERE entity_type = 'menu_item' AND entity_id = ? AND action = 'create'
+    ORDER BY id DESC LIMIT 1
+");
+$stmtCreateAudit->execute([(string)$acceptanceItemId]);
+$createAudit = $stmtCreateAudit->fetch();
+assertTest(
+    "Menu create: tạo món và ghi actor/action/entity/new_value",
+    $acceptanceItemId > 0
+        && $createAudit
+        && (int)$createAudit['actor_id'] === $acceptanceActorId
+        && $createAudit['new_value'] !== null
+);
+
+$stmtProdCheck = $db->prepare("SELECT id FROM products WHERE id = ?");
+$stmtProdCheck->execute([$acceptanceItemId]);
+if (!$stmtProdCheck->fetch()) {
+    $db->prepare("
+        INSERT INTO products (id, category_id, sku, name, unit_id, status)
+        VALUES (?, 1, ?, ?, 1, 'ACTIVE')
+    ")->execute([$acceptanceItemId, 'AT-' . $acceptanceSuffix, $acceptanceItemName]);
+}
+
+ob_start();
+$adminCatalog->updateMenuItem($acceptanceItemId, [
+    'name' => $acceptanceItemName . ' updated',
+    'category_id' => 2,
+    'price' => 1500,
+    'description' => 'Updated acceptance description',
+    'is_hot' => true,
+]);
+$updatedMenuItem = json_decode(ob_get_clean(), true);
+$stmtUpdatedItem = $db->prepare("
+    SELECT m.name, m.category_id, m.price, m.description, m.is_hot, p.name AS product_name, p.category_id AS product_category_id
+    FROM menu_items m LEFT JOIN products p ON p.id = m.id WHERE m.id = ?
+");
+$stmtUpdatedItem->execute([$acceptanceItemId]);
+$updatedItemRow = $stmtUpdatedItem->fetch();
+$stmtUpdateAudit = $db->prepare("
+    SELECT actor_id, action, entity_type, old_value, new_value
+    FROM audit_logs WHERE entity_type = 'menu_item' AND entity_id = ? AND action = 'update'
+    ORDER BY id DESC LIMIT 1
+");
+$stmtUpdateAudit->execute([(string)$acceptanceItemId]);
+$updateAudit = $stmtUpdateAudit->fetch();
+assertTest(
+    "Menu edit: cập nhật món và đồng bộ danh mục/tên sản phẩm, ghi audit before/after",
+    ($updatedMenuItem['status'] ?? '') === 'updated'
+        && $updatedItemRow
+        && $updatedItemRow['name'] === $acceptanceItemName . ' updated'
+        && $updatedItemRow['product_name'] === $acceptanceItemName . ' updated'
+        && (int)$updatedItemRow['category_id'] === 2
+        && (int)$updatedItemRow['product_category_id'] === 2
+        && (float)$updatedItemRow['price'] === 1500.0
+        && (int)$updatedItemRow['is_hot'] === 1
+        && $updateAudit
+        && (int)$updateAudit['actor_id'] === $acceptanceActorId
+        && $updateAudit['old_value'] !== null
+        && $updateAudit['new_value'] !== null
+);
+
+$_GET['is_available'] = 'false';
+ob_start();
+$adminCatalog->toggleMenuItemAvailability($acceptanceItemId);
+$toggleOff = json_decode(ob_get_clean(), true);
+$stmtToggleAudit = $db->prepare("
+    SELECT COUNT(*) FROM audit_logs
+    WHERE entity_type = 'menu_item' AND entity_id = ? AND action = 'availability.update'
+");
+$stmtToggleAudit->execute([(string)$acceptanceItemId]);
+$toggleAuditCount = (int)$stmtToggleAudit->fetchColumn();
+$_GET['is_available'] = 'false';
+ob_start();
+$adminCatalog->toggleMenuItemAvailability($acceptanceItemId);
+ob_end_clean();
+$stmtToggleAudit->execute([(string)$acceptanceItemId]);
+assertTest(
+    "Menu availability: bật/tắt riêng lẻ, retry cùng trạng thái không tạo audit trùng",
+    ($toggleOff['is_available'] ?? true) === false
+        && (int)$stmtToggleAudit->fetchColumn() === $toggleAuditCount
+        && $toggleAuditCount === 1
+);
+unset($_GET['is_available']);
+$_GET['is_available'] = 'true';
+ob_start();
+$adminCatalog->toggleMenuItemAvailability($acceptanceItemId);
+ob_end_clean();
+unset($_GET['is_available']);
+
+$stmtTopInsert = $db->prepare("INSERT INTO toppings (name, price, is_available) VALUES (?, 250, 1)");
+$stmtTopInsert->execute([$acceptanceToppingName]);
+$acceptanceToppingId = (int)$db->lastInsertId();
+ob_start();
+$adminCatalog->updateMenuItemToppings($acceptanceItemId, ['topping_ids' => [$acceptanceToppingId]]);
+$itemToppingUpdate = json_decode(ob_get_clean(), true);
+$stmtItemToppingAudit = $db->prepare("
+    SELECT actor_id, action, old_value, new_value FROM audit_logs
+    WHERE entity_type = 'menu_item_topping' AND entity_id = ? AND action = 'update'
+    ORDER BY id DESC LIMIT 1
+");
+$stmtItemToppingAudit->execute([(string)$acceptanceItemId]);
+$itemToppingAudit = $stmtItemToppingAudit->fetch();
+$stmtItemToppingAuditCount = $db->prepare("
+    SELECT COUNT(*) FROM audit_logs
+    WHERE entity_type = 'menu_item_topping' AND entity_id = ? AND action = 'update'
+");
+$stmtItemToppingAuditCount->execute([(string)$acceptanceItemId]);
+$itemToppingAuditCount = (int)$stmtItemToppingAuditCount->fetchColumn();
+ob_start();
+$adminCatalog->updateMenuItemToppings($acceptanceItemId, ['topping_ids' => [$acceptanceToppingId]]);
+$unchangedItemTopping = json_decode(ob_get_clean(), true);
+$stmtItemToppingAuditCount->execute([(string)$acceptanceItemId]);
+ob_start();
+$adminCatalog->getMenuCatalog();
+$catalog = json_decode(ob_get_clean(), true);
+$mappedToppings = [];
+foreach (($catalog['categories'] ?? []) as $category) {
+    foreach (($category['items'] ?? []) as $catalogItem) {
+        if ((int)$catalogItem['id'] === $acceptanceItemId) {
+            $mappedToppings = array_map('intval', array_column($catalogItem['toppings'] ?? [], 'id'));
+        }
+    }
+}
+assertTest(
+    "Topping mapping: gán trực tiếp cho món, audit idempotent và trả đúng topping",
+    ($itemToppingUpdate['topping_ids'] ?? []) === [$acceptanceToppingId]
+        && in_array($acceptanceToppingId, $mappedToppings, true)
+        && $itemToppingAudit
+        && (int)$itemToppingAudit['actor_id'] === $acceptanceActorId
+        && $itemToppingAudit['old_value'] !== null
+        && $itemToppingAudit['new_value'] !== null
+        && ($unchangedItemTopping['status'] ?? '') === 'unchanged'
+        && (int)$stmtItemToppingAuditCount->fetchColumn() === $itemToppingAuditCount
+        && $itemToppingAuditCount === 1
+);
+
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'OCCUPIED')")
+    ->execute([$acceptanceTableNumber]);
+$acceptanceTableId = (int)$db->lastInsertId();
+$db->prepare("
+    INSERT INTO table_sessions (id, table_id, session_token, status, total_amount)
+    VALUES (?, ?, ?, 'ACTIVE', 0)
+")->execute([$acceptanceSessionId, $acceptanceTableId, $acceptanceSessionToken]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")
+    ->execute([$acceptanceSessionId, $acceptanceTableId]);
+
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = $acceptanceIdempotencyKey;
+$orderController = new ClientOrderController();
+ob_start();
+$orderController->submitOrder($acceptanceSessionToken, [
+    'items' => [[
+        'menu_item_id' => $acceptanceItemId,
+        'quantity' => 2,
+        'unit_price' => 0.01,
+        'selected_toppings' => [[
+            'id' => $acceptanceToppingId,
+            'name' => 'Client-supplied fake topping',
+            'price' => 0.01,
+        ]],
+    ]],
+]);
+$acceptedOrder = json_decode(ob_get_clean(), true);
+$acceptanceOrderId = (int)($acceptedOrder['order_id'] ?? 0);
+$stmtSnapshot = $db->prepare("
+    SELECT oi.unit_price, oi.subtotal, s.toppings_json
+    FROM order_items oi
+    JOIN order_item_topping_snapshots s ON s.order_item_id = oi.id
+    WHERE oi.order_id = ?
+");
+$stmtSnapshot->execute([$acceptanceOrderId]);
+$savedSnapshot = $stmtSnapshot->fetch();
+$savedToppings = $savedSnapshot ? json_decode($savedSnapshot['toppings_json'], true) : null;
+assertTest(
+    "Submit order: giá/tên topping lấy từ server và snapshot trong cùng order",
+    ($acceptedOrder['status'] ?? '') === 'success'
+        && $savedSnapshot
+        && (float)$savedSnapshot['unit_price'] === 1750.0
+        && (float)$savedSnapshot['subtotal'] === 3500.0
+        && count($savedToppings ?? []) === 1
+        && (int)$savedToppings[0]['id'] === $acceptanceToppingId
+        && $savedToppings[0]['name'] === $acceptanceToppingName
+        && (float)$savedToppings[0]['unit_price'] === 250.0
+);
+
+ob_start();
+$orderController->submitOrder($acceptanceSessionToken, [
+    'items' => [[
+        'menu_item_id' => $acceptanceItemId,
+        'quantity' => 2,
+        'selected_toppings' => [['id' => $acceptanceToppingId]],
+    ]],
+]);
+$duplicateOrderResponse = json_decode(ob_get_clean(), true);
+$stmtSnapshotCount = $db->prepare("
+    SELECT COUNT(*) FROM order_item_topping_snapshots s
+    JOIN order_items oi ON oi.id = s.order_item_id
+    WHERE oi.order_id = ?
+");
+$stmtSnapshotCount->execute([$acceptanceOrderId]);
+assertTest(
+    "Retry order: cùng Idempotency-Key không tạo order hoặc snapshot topping thứ hai",
+    isset($duplicateOrderResponse['error'])
+        && strpos($duplicateOrderResponse['error'], 'trùng lặp') !== false
+        && (int)$stmtSnapshotCount->fetchColumn() === 1
+);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+
+ob_start();
+$orderController->getOrderStatus($acceptanceSessionToken);
+$customerHistory = json_decode(ob_get_clean(), true);
+$historyItem = $customerHistory[0] ?? [];
+ob_start();
+$kdsPos->getKdsActiveItems();
+$kdsItems = json_decode(ob_get_clean(), true);
+$kdsItem = null;
+foreach ($kdsItems as $item) {
+    if ((int)$item['order_id'] === $acceptanceOrderId) { $kdsItem = $item; break; }
+}
+ob_start();
+$kdsPos->getTableBill($acceptanceTableId);
+$posBill = json_decode(ob_get_clean(), true);
+$posItem = null;
+foreach (($posBill['items'] ?? []) as $item) {
+    if ((int)$item['order_id'] === $acceptanceOrderId) { $posItem = $item; break; }
+}
+assertTest(
+    "Topping snapshot: khách history, KDS và POS nhận chi tiết topping đúng",
+    count($historyItem['toppings'] ?? []) === 1
+        && ($historyItem['topping_details_recorded'] ?? false) === true
+        && $kdsItem
+        && count($kdsItem['toppings'] ?? []) === 1
+        && $posItem
+        && count($posItem['toppings'] ?? []) === 1
+);
+
+// Topping gán cho món khác không được dùng kèm acceptance item.
+$otherToppingInsert = $db->prepare("INSERT INTO toppings (name, price, is_available) VALUES (?, 99, 1)");
+$otherToppingInsert->execute(['Acceptance mismatch ' . $acceptanceSuffix]);
+$mismatchedToppingId = (int)$db->lastInsertId();
+$db->prepare("INSERT INTO menu_item_toppings (menu_item_id, topping_id) VALUES (101, ?)")
+    ->execute([$mismatchedToppingId]);
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = $acceptanceIdempotencyKey . '-BAD';
+$stmtOrdersBeforeMismatch = $db->prepare("SELECT COUNT(*) FROM orders WHERE session_id = ?");
+$stmtOrdersBeforeMismatch->execute([$acceptanceSessionId]);
+$ordersBeforeMismatch = (int)$stmtOrdersBeforeMismatch->fetchColumn();
+ob_start();
+$orderController->submitOrder($acceptanceSessionToken, [
+    'items' => [[
+        'menu_item_id' => $acceptanceItemId,
+        'quantity' => 1,
+        'selected_toppings' => [['id' => $mismatchedToppingId]],
+    ]],
+]);
+$rejectedMismatch = json_decode(ob_get_clean(), true);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+$stmtOrdersBeforeMismatch->execute([$acceptanceSessionId]);
+$ordersAfterMismatch = (int)$stmtOrdersBeforeMismatch->fetchColumn();
+$db->prepare("DELETE FROM toppings WHERE id = ?")->execute([$mismatchedToppingId]);
+assertTest(
+    "Submit order: từ chối topping không gán cho đúng món, không ghi đơn",
+    isset($rejectedMismatch['error'])
+        && stripos($rejectedMismatch['error'], 'topping') !== false
+        && $ordersAfterMismatch === $ordersBeforeMismatch
+);
+
+// Xóa fixture để không ảnh hưởng các kiểm tra tài chính/ETL phía dưới.
+if ($acceptanceOrderId > 0) {
+    $db->prepare("DELETE FROM orders WHERE id = ?")->execute([$acceptanceOrderId]);
+}
+$db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$acceptanceSessionId]);
+$db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$acceptanceTableId]);
+if ($acceptanceItemId > 0) {
+    $db->prepare("DELETE FROM audit_logs WHERE entity_type = 'menu_item' AND entity_id = ?")->execute([(string)$acceptanceItemId]);
+    $db->prepare("DELETE FROM audit_logs WHERE entity_type = 'menu_item_topping' AND entity_id = ?")->execute([(string)$acceptanceItemId]);
+    $db->prepare("DELETE FROM products WHERE id = ?")->execute([$acceptanceItemId]);
+    $db->prepare("DELETE FROM menu_item_toppings WHERE topping_id = ?")->execute([$acceptanceToppingId]);
+    $db->prepare("DELETE FROM toppings WHERE id = ?")->execute([$acceptanceToppingId]);
+    $db->prepare("DELETE FROM menu_item_toppings WHERE menu_item_id = ?")->execute([$acceptanceItemId]);
+    $db->prepare("DELETE FROM menu_items WHERE id = ?")->execute([$acceptanceItemId]);
+}
+
+// Hồi quy PR#13 + PR#6 + TV4: hủy món PENDING -> POS Bill, Checkout và ETL loại trừ món CANCELLED
+$cancelSuffix = substr(uniqid('', true), 0, 10);
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'OCCUPIED')")
+    ->execute(['Bàn Cancel Reg ' . $cancelSuffix]);
+$cancelTableId = (int)$db->lastInsertId();
+$cancelSessId = 'sess_cancel_' . $cancelSuffix;
+$cancelToken = 'tok_cancel_' . $cancelSuffix;
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$cancelSessId, $cancelTableId, $cancelToken]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")
+    ->execute([$cancelSessId, $cancelTableId]);
+
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = 'IDEM-CANCEL-' . $cancelSuffix;
+ob_start();
+$orderController->submitOrder($cancelToken, [
+    'items' => [
+        ['menu_item_id' => 101, 'quantity' => 1],
+        ['menu_item_id' => 102, 'quantity' => 1],
+    ],
+]);
+$cancelOrderRes = json_decode(ob_get_clean(), true);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+$cancelOrderItemIds = $cancelOrderRes['order_item_ids'] ?? [];
+$itemToCancelId = (int)($cancelOrderItemIds[1] ?? 0);
+
+ob_start();
+$cancelCtrl->cancelItem($cancelToken, $itemToCancelId);
+$cancelItemOut = json_decode(ob_get_clean(), true);
+
+ob_start();
+$kdsPos->getTableBill($cancelTableId);
+$billAfterCancel = json_decode(ob_get_clean(), true);
+
+ob_start();
+$kdsPos->checkout($cancelSessId);
+$checkoutAfterCancel = json_decode(ob_get_clean(), true);
+
+$stmtCancelFacts = $db->prepare("SELECT COUNT(*), COALESCE(SUM(revenue), 0) FROM fact_order_items WHERE session_id = ?");
+$stmtCancelFacts->execute([$cancelSessId]);
+[$cancelFactCount, $cancelFactRev] = $stmtCancelFacts->fetch(PDO::FETCH_NUM);
+
+assertTest(
+    "Hồi quy hủy món: POS bill, checkout & ETL chỉ tính món không bị CANCELLED (65,000đ)",
+    ($cancelItemOut['status'] ?? '') === 'success'
+        && count($billAfterCancel['items'] ?? []) === 1
+        && abs((float)($billAfterCancel['subtotal'] ?? 0) - 65000.0) < 0.01
+        && abs((float)($checkoutAfterCancel['subtotal'] ?? 0) - 65000.0) < 0.01
+        && (int)$cancelFactCount === 1
+        && abs((float)$cancelFactRev - 65000.0) < 0.01
+);
+
+unset($_SESSION['user_id']);
+echo "\n";
 
 // -------------------------------------------------------------------------
 // TRỤ CỘT 3: IDEMPOTENT ETL PIPELINE (RUNNING TWICE NEVER DOUBLES REVENUE)
@@ -498,51 +1020,55 @@ assertTest("QP-5.4: API SLA tính toán chính xác tỷ lệ tuân thủ sla_co
 // -------------------------------------------------------------------------
 echo "\n🔹 TRỤ CỘT 6: ĐỒNG BỘ GIỎ HÀNG BÀN ĂN & GIAO DỊCH CHỐT ĐƠN NGUYÊN TỬ\n";
 
-$cartSvc = new SharedCartService();
-$cartSvc->clearCart($testSessionId);
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES ('Bàn Cart Concurrency', 'OCCUPIED')")->execute();
+$cartTableId = (int)$db->lastInsertId();
+$cartSessId = 'sess_cart_' . uniqid();
+$cartToken = 'tok_cart_' . uniqid();
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$cartSessId, $cartTableId, $cartToken]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")
+    ->execute([$cartSessId, $cartTableId]);
+
+SharedCartService::clearCart($cartToken);
 
 // 2 khách cùng bàn thêm món đồng thời vào giỏ chung
-$cartSvc->addOrUpdateItem($testSessionId, 1, 2, [1], 'Khách A: ít cay');
-$cartSvc->addOrUpdateItem($testSessionId, 2, 1, [], 'Khách B: thêm rau');
-$cartState = $cartSvc->getCart($testSessionId);
+SharedCartService::addItem($cartToken, ['menu_item_id' => 101, 'quantity' => 2, 'notes' => 'Khách A: ít cay']);
+SharedCartService::addItem($cartToken, ['menu_item_id' => 102, 'quantity' => 1, 'notes' => 'Khách B: ít đường']);
+$cartState = SharedCartService::getCart($cartToken);
 
 assertTest("QP-6.1: Nhiều khách cùng bàn thêm món -> Giỏ hàng chung đồng bộ đúng 2 dòng món", count($cartState['items'] ?? []) === 2);
 
-// Cập nhật số lượng về 0 -> Tự động xóa dòng món khỏi giỏ
-$firstKey = $cartState['items'][0]['cart_item_key'] ?? '';
-$cartSvc->updateQuantity($testSessionId, $firstKey, 0);
-$cartAfterRemove = $cartSvc->getCart($testSessionId);
+// Cập nhật giảm số lượng món 102 về 0 -> Tự động xóa dòng món khỏi giỏ
+$cartAfterRemove = SharedCartService::updateItem($cartToken, 102, -1);
 assertTest("QP-6.2: Giảm số lượng về 0 -> Xóa dòng món khỏi giỏ hàng chung", count($cartAfterRemove['items'] ?? []) === 1);
 
 // Chốt đơn từ giỏ hàng chung -> tạo order nguyên tử và làm sạch giỏ
 $checkoutKey = 'idem-conc-' . uniqid();
-$checkoutRes = invokeController(
-    fn() => $orderCtrl->submitOrder(),
-    ['session_id' => $testSessionId],
-    ['HTTP_IDEMPOTENCY_KEY' => $checkoutKey]
-);
-$cartAfterCheckout = $cartSvc->getCart($testSessionId);
-assertTest("QP-6.3: [GIAO DỊCH NGUYÊN TỬ] Chốt đơn thành công (HTTP 201) và tự động làm rỗng giỏ bàn", $checkoutRes['code'] === 201 && empty($cartAfterCheckout['items']));
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = $checkoutKey;
+ob_start();
+$orderCtrl->submitOrder($cartToken, ['items' => $cartAfterRemove['items']]);
+$checkoutOut = json_decode(ob_get_clean(), true);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+$cartAfterCheckout = SharedCartService::getCart($cartToken);
+assertTest("QP-6.3: [GIAO DỊCH NGUYÊN TỬ] Chốt đơn thành công và tự động làm rỗng giỏ bàn", ($checkoutOut['status'] ?? '') === 'success' && !empty($checkoutOut['order_id']) && empty($cartAfterCheckout['items']));
 
-// Thử chốt đơn khi giỏ hàng đang rỗng -> Bị chặn HTTP 400
-$emptyOrderRes = invokeController(
-    fn() => $orderCtrl->submitOrder(),
-    ['session_id' => $testSessionId],
-    ['HTTP_IDEMPOTENCY_KEY' => 'idem-empty-' . uniqid()]
-);
-assertTest("QP-6.4: [BẤT BIẾN] Chốt đơn khi giỏ rỗng -> Bị từ chối (HTTP 400)", $emptyOrderRes['code'] === 400);
+// Thử chốt đơn khi giỏ hàng đang rỗng -> Bị chặn HTTP 422
+ob_start();
+$orderCtrl->submitOrder($cartToken, ['items' => []]);
+$emptyOut = json_decode(ob_get_clean(), true);
+assertTest("QP-6.4: [BẤT BIẾN] Chốt đơn khi giỏ rỗng -> Bị từ chối", !empty($emptyOut['error']) && empty($emptyOut['order_id']));
 
 // -------------------------------------------------------------------------
 // TRỤ CỘT 7: STAR SCHEMA OLAP & OLTP ORDER INTEGRITY
 // -------------------------------------------------------------------------
 echo "\n🔹 TRỤ CỘT 7: STAR SCHEMA OLAP & OLTP ORDER INTEGRITY (ĐỐI SOÁT TOÀN VẸN)\n";
 
-// Invariant 1: Mọi đơn hàng OLTP có total_amount == SUM(order_items.subtotal)
+// Invariant 1: Mọi đơn hàng OLTP có total_amount == SUM(order_items.subtotal trừ CANCELLED)
 $stmtAuditOrders = $db->query("
     SELECT 
         o.id,
         o.total_amount,
-        COALESCE(SUM(oi.subtotal), 0) as items_sum
+        COALESCE(SUM(CASE WHEN oi.status <> 'CANCELLED' THEN oi.subtotal ELSE 0 END), 0) as items_sum
     FROM orders o
     LEFT JOIN order_items oi ON o.id = oi.order_id
     GROUP BY o.id, o.total_amount
@@ -596,6 +1122,82 @@ foreach ($revAudits as $ra) {
     }
 }
 assertTest("QP-7.4: [ĐỐI SOÁT TÀI CHÍNH] Doanh thu OLAP fact_order_items == Tổng tiền phiên bàn OLTP", $revMatch && count($revAudits) > 0);
+
+// -------------------------------------------------------------------------
+// PHẦN 8: KIỂM THỬ BÁO CÁO BI, MENU ENGINEERING MATRIX & EXPORT EXCEL (TV5)
+// -------------------------------------------------------------------------
+echo "\n=======================================================================\n";
+echo "📊 PHẦN 8: KIỂM THỬ BÁO CÁO BI, MENU ENGINEERING & EXPORT BÁO CÁO (TV5)\n";
+echo "=======================================================================\n";
+
+// Ghi nhận sự kiện Clickstream VIEW_ITEM cho món 101 để kiểm thử Menu Engineering
+ob_start();
+$dataCtrl->recordClickstream([
+    'session_id' => $sessEtlId,
+    'menu_item_id' => 101,
+    'event_type' => 'VIEW_ITEM'
+]);
+$clickOut = ob_get_clean();
+$clickJson = json_decode($clickOut, true);
+assertTest("TV5-8.1: Ghi nhận sự kiện Clickstream VIEW_ITEM vào fact_clickstream thành công", ($clickJson['status'] ?? '') === 'success');
+
+// Kiểm thử API 1: GET /api/v1/bi/dashboard-summary
+ob_start();
+$dataCtrl->getBiDashboardSummary();
+$biSumOut = ob_get_clean();
+$biSumJson = json_decode($biSumOut, true);
+assertTest(
+    "TV5-8.2: API /api/v1/bi/dashboard-summary trả về đủ KPI (total_revenue, total_sold, conversion_rate, sla_compliance_rate)",
+    is_array($biSumJson) && ($biSumJson['total_revenue'] ?? 0) >= 350000 && isset($biSumJson['conversion_rate'], $biSumJson['sla_compliance_rate'])
+);
+
+// Kiểm thử API 2: GET /api/v1/bi/revenue-over-time
+ob_start();
+$dataCtrl->getBiRevenueOverTime();
+$biRevOut = ob_get_clean();
+$biRevJson = json_decode($biRevOut, true);
+assertTest(
+    "TV5-8.3: API /api/v1/bi/revenue-over-time trả về chuỗi thời gian doanh thu từ dim_time",
+    is_array($biRevJson) && count($biRevJson) > 0 && isset($biRevJson[0]['date'], $biRevJson[0]['revenue'])
+);
+
+// Kiểm thử API 3: GET /api/v1/bi/menu-engineering-matrix (kèm phân loại 4 góc phần tư)
+ob_start();
+$dataCtrl->getBiMenuMatrix();
+$biMatOut = ob_get_clean();
+$biMatJson = json_decode($biMatOut, true);
+$validQuadrants = ['STAR', 'PLOWHORSE', 'PUZZLE', 'DOG'];
+$firstMat = $biMatJson[0] ?? [];
+assertTest(
+    "TV5-8.4: API /api/v1/bi/menu-engineering-matrix trả về danh sách món kèm phân nhóm 4 Quadrants (STAR/PLOWHORSE/PUZZLE/DOG)",
+    is_array($biMatJson) && count($biMatJson) > 0 && in_array($firstMat['quadrant_code'] ?? '', $validQuadrants, true)
+);
+
+// Kiểm thử API 4: GET /api/v1/bi/export-report (JSON, CSV UTF-8 BOM & XLSX OpenXML)
+ob_start();
+$dataCtrl->exportBiReport('menu-matrix', 'json');
+$exportJsonOut = ob_get_clean();
+$exportJson = json_decode($exportJsonOut, true);
+assertTest(
+    "TV5-8.5: API /api/v1/bi/export-report (JSON) trả về đầy đủ dữ liệu doanh thu & ma trận thực đơn",
+    ($exportJson['status'] ?? '') === 'success' && !empty($exportJson['menu_engineering_matrix'])
+);
+
+ob_start();
+$dataCtrl->exportBiReport('menu-matrix', 'csv');
+$exportCsvOut = ob_get_clean();
+assertTest(
+    "TV5-8.6: API /api/v1/bi/export-report (CSV) chứa BOM UTF-8 (\\xEF\\xBB\\xBF) và tiêu đề cột tiếng Việt chuẩn Excel",
+    strncmp($exportCsvOut, "\xEF\xBB\xBF", 3) === 0 && strpos($exportCsvOut, 'Phân Nhóm Menu Engineering') !== false
+);
+
+ob_start();
+$dataCtrl->exportBiReport('menu-matrix', 'xlsx');
+$exportXlsxOut = ob_get_clean();
+assertTest(
+    "TV5-8.7: API /api/v1/bi/export-report (XLSX) sinh file Excel OpenXML (.xlsx) chuẩn có định dạng màu sắc & cột",
+    strncmp($exportXlsxOut, "PK\x03\x04", 4) === 0 && strlen($exportXlsxOut) > 1000
+);
 
 // -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ

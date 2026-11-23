@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Core\Database;
+use App\Services\OrderToppingSnapshotService;
 use App\Services\SharedCartService;
 use PDO;
 
@@ -105,11 +106,13 @@ class ClientOrderController
                     ORDER BY id ASC
                 ");
                 $stmtItems->execute([$existing['id']]);
-                $existingItems = $stmtItems->fetchAll();
+                $existingItems = OrderToppingSnapshotService::attach($db, $stmtItems->fetchAll());
 
                 $this->rollbackWriteTransaction($db);
+                http_response_code(409);
                 echo json_encode([
-                    'status' => 'success',
+                    'error' => 'Đơn hàng trùng lặp đã được tiếp nhận',
+                    'code' => 'DUPLICATE_ORDER',
                     'order_id' => (int)$existing['id'],
                     'order_code' => $existing['order_code'],
                     'total_amount' => (float)$existing['total_amount'],
@@ -125,6 +128,7 @@ class ClientOrderController
 
             $stmtItem = $db->prepare("SELECT id, name, price, is_available FROM menu_items WHERE id = ?{$lockSuffix}");
             $stmtTop = $db->prepare("SELECT id, name, price, is_available FROM toppings WHERE id = ?{$lockSuffix}");
+            $stmtTopMap = $db->prepare("SELECT 1 FROM menu_item_toppings WHERE menu_item_id = ? AND topping_id = ? LIMIT 1");
 
             foreach ($items as $index => $item) {
                 if (!is_array($item)) {
@@ -168,6 +172,7 @@ class ClientOrderController
                 $unitPrice = (float)$realItem['price'];
 
                 $toppingExtra = 0.0;
+                $toppingSnapshots = [];
                 $rawToppings = $item['selected_toppings'] ?? $item['toppings'] ?? [];
                 if (!is_array($rawToppings)) {
                     $this->rejectOrder($db, 422, 'INVALID_TOPPINGS', 'Danh sách topping không hợp lệ', [
@@ -180,14 +185,22 @@ class ClientOrderController
                     $topId = $this->parsePositiveInteger(
                         is_array($rawTopping) ? ($rawTopping['id'] ?? null) : $rawTopping
                     );
-                    if ($topId === null || isset($seenToppingIds[$topId])) {
-                        $this->rejectOrder($db, 422, 'INVALID_TOPPING_ID', 'Mã topping không hợp lệ hoặc bị lặp', [
+                    $topQty = 1;
+                    if (is_array($rawTopping) && isset($rawTopping['quantity'])) {
+                        $topQty = max(1, (int)$rawTopping['quantity']);
+                    }
+                    if ($topId === null) {
+                        $this->rejectOrder($db, 422, 'INVALID_TOPPING_ID', 'Mã topping không hợp lệ', [
                             'item_index' => $index,
                             'topping_index' => $toppingIndex,
                         ]);
                         return;
                     }
-                    $seenToppingIds[$topId] = true;
+                    if (isset($seenToppingIds[$topId])) {
+                        $seenToppingIds[$topId] += $topQty;
+                        continue;
+                    }
+                    $seenToppingIds[$topId] = $topQty;
 
                     $stmtTop->execute([$topId]);
                     $topRow = $stmtTop->fetch();
@@ -205,7 +218,25 @@ class ClientOrderController
                         ]);
                         return;
                     }
-                    $toppingExtra += (float)$topRow['price'];
+                    $stmtTopMap->execute([$itemId, $topId]);
+                    if (!$stmtTopMap->fetchColumn()) {
+                        $this->rejectOrder($db, 422, 'TOPPING_NOT_ALLOWED_FOR_ITEM', 'Topping chưa được gán cho món ăn này', [
+                            'item_index' => $index,
+                            'menu_item_id' => $itemId,
+                            'topping_id' => $topId,
+                        ]);
+                        return;
+                    }
+                    $toppingPrice = (float)$topRow['price'];
+                    $topSubtotal = $toppingPrice * $topQty;
+                    $toppingExtra += $topSubtotal;
+                    $toppingSnapshots[] = [
+                        'id' => (int)$topRow['id'],
+                        'name' => $topRow['name'],
+                        'unit_price' => $toppingPrice,
+                        'quantity' => $topQty,
+                        'subtotal' => $topSubtotal,
+                    ];
                 }
 
                 $unitPrice += $toppingExtra;
@@ -218,7 +249,8 @@ class ClientOrderController
                     'unit_price' => $unitPrice,
                     'quantity' => $quantity,
                     'subtotal' => $subtotal,
-                    'notes' => $item['notes'] ?? ($item['note'] ?? '')
+                    'notes' => $item['notes'] ?? ($item['note'] ?? ''),
+                    'toppings' => $toppingSnapshots,
                 ];
             }
 
@@ -247,7 +279,9 @@ class ClientOrderController
                     $oi['subtotal'],
                     $oi['notes']
                 ]);
-                $insertedItemIds[] = (int)$db->lastInsertId();
+                $orderItemId = (int)$db->lastInsertId();
+                $insertedItemIds[] = $orderItemId;
+                OrderToppingSnapshotService::save($db, $orderItemId, $oi['toppings']);
             }
 
             // Cập nhật tổng tiền phiên bàn
@@ -345,14 +379,79 @@ class ClientOrderController
     {
         $db = Database::getConnection();
         $stmt = $db->prepare("
-            SELECT oi.*, o.order_code
+            SELECT oi.*, o.order_code, o.created_at AS order_created_at
             FROM order_items oi
             JOIN orders o ON oi.order_id = o.id
             JOIN table_sessions ts ON o.session_id = ts.id
-            WHERE ts.session_token = ?
+            JOIN dining_tables dt ON dt.id = ts.table_id AND dt.current_session_id = ts.id
+            WHERE ts.session_token = ? AND ts.status = 'ACTIVE'
             ORDER BY oi.id DESC
         ");
         $stmt->execute([$token]);
-        echo json_encode($stmt->fetchAll());
+        $items = OrderToppingSnapshotService::attach($db, $stmt->fetchAll());
+        echo json_encode($items, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    public function requestAssistance(string $token): void
+    {
+        $db = Database::getConnection();
+        $input = json_decode(file_get_contents('php://input') ?: '[]', true) ?: [];
+        $requestType = trim($input['type'] ?? $input['request_type'] ?? 'SUPPORT');
+        $note = trim($input['note'] ?? '');
+
+        $stmt = $db->prepare("
+            SELECT ts.id, ts.table_id, dt.table_number
+            FROM table_sessions ts
+            JOIN dining_tables dt ON ts.table_id = dt.id
+            WHERE ts.session_token = ? AND ts.status = 'ACTIVE'
+        ");
+        $stmt->execute([$token]);
+        $session = $stmt->fetch();
+
+        if (!$session) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Phiên bàn không hợp lệ hoặc đã đóng'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+            $idCol = $driver === 'mysql' ? 'INT AUTO_INCREMENT PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+            $db->exec("CREATE TABLE IF NOT EXISTS service_requests (
+                id {$idCol},
+                session_id INT NOT NULL,
+                table_id INT NOT NULL,
+                table_number VARCHAR(50) NULL,
+                request_type VARCHAR(50) NOT NULL,
+                note VARCHAR(255) NULL,
+                status VARCHAR(20) DEFAULT 'PENDING',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )");
+
+            $stmtInsert = $db->prepare("
+                INSERT INTO service_requests (session_id, table_id, table_number, request_type, note, status)
+                VALUES (?, ?, ?, ?, ?, 'PENDING')
+            ");
+            $stmtInsert->execute([
+                $session['id'],
+                $session['table_id'],
+                $session['table_number'],
+                $requestType,
+                $note,
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Yêu cầu hỗ trợ đã được gửi đến nhân viên',
+                'table_number' => $session['table_number'],
+                'request_type' => $requestType,
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Đã tiếp nhận yêu cầu hỗ trợ',
+                'table_number' => $session['table_number'] ?? '',
+            ], JSON_UNESCAPED_UNICODE);
+        }
     }
 }

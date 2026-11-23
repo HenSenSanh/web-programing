@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#245b43">
+  <title>DineFlow · Thực đơn khách gọi món</title>
+  <link rel="stylesheet" href="../css/shop.css">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <a class="brand" href="#top" aria-label="DineFlow trang chủ">
+          <span class="brand-mark">d</span>
+          <span>Dine<span class="brand-accent">Flow</span></span>
+        </a>
+        <div class="table-chip"><span class="live-dot"></span><span id="table-label">Đang tải bàn…</span></div>
+      </div>
+      <div class="topbar-actions">
+        <label class="search-box">
+          <span aria-hidden="true">⌕</span>
+          <input id="search-input" type="search" placeholder="Tìm món ăn (vd: mi cay, tra dao…)" aria-label="Tìm món ăn">
+        </label>
+        <button id="call-staff-btn" class="staff-call-btn" type="button" title="Gọi nhân viên phục vụ">
+          <span class="bell-icon" aria-hidden="true">🛎️</span>
+          <span class="staff-call-text">Gọi nhân viên</span>
+        </button>
+      </div>
+    </header>
+
+    <main id="top">
+      <div id="notice" class="notice" role="status" hidden></div>
+
+      <!-- Bảng cuộn các món ăn HOT / Bán chạy nổi bật -->
+      <section id="favorites" class="hot-carousel-section" aria-label="Món hot bán chạy">
+        <div class="section-heading-compact">
+          <div class="heading-title-group">
+            <span class="hot-badge-flame">🔥</span>
+            <div>
+              <p class="eyebrow">GỢI Ý HÔM NAY</p>
+              <h2>Món bán chạy &amp; nổi bật</h2>
+            </div>
+          </div>
+          <span class="scroll-hint">Vuốt ngang xem thêm →</span>
+        </div>
+        <div id="featured-grid" class="hot-slider" tabindex="0" role="region" aria-label="Danh sách món hot cuộn ngang"></div>
+      </section>
+
+      <!-- Thực đơn tất cả món ăn -->
+      <section id="menu" class="menu-section" aria-label="Thực đơn">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">GỌI MÓN TẠI BÀN</p>
+            <h2>Thực đơn món ăn</h2>
+          </div>
+          <span class="menu-caption">Giá đã niêm yết</span>
+        </div>
+        <nav id="category-list" class="category-list sticky-category" aria-label="Danh mục món"></nav>
+        <div id="menu-grid" class="menu-grid" aria-live="polite"></div>
+      </section>
+
+      <!-- Panel theo dõi các món đã gửi đến bếp -->
+      <aside id="sent-orders" class="side-panel order-tracking-panel" aria-live="polite" aria-label="Theo dõi món đã gọi" aria-hidden="true">
+        <header class="orders-panel-head">
+          <div>
+            <p class="eyebrow">THEO DÕI ĐƠN</p>
+            <h2>Món đã gọi</h2>
+            <p class="orders-live-note">Trạng thái được cập nhật trực tiếp từ bếp</p>
+          </div>
+          <button id="close-orders" class="icon-button" type="button" aria-label="Đóng theo dõi đơn">×</button>
+        </header>
+        <div id="sent-order-list" class="sent-order-list"></div>
+        <footer class="orders-panel-total">
+          <span>Tổng tiền món chưa hủy</span>
+          <strong id="sent-orders-total">0 ₫</strong>
+        </footer>
+      </aside>
+    </main>
+
+    <footer class="page-footer">
+      <span class="brand-mark small">d</span>
+      <span>Được phục vụ bởi DineFlow · Gọi món thông minh</span>
+      <span class="footer-right">Chúc quý khách ngon miệng! <b>✳</b></span>
+    </footer>
+  </div>
+
+  <!-- Thanh nút điều khiển nổi ở đáy màn hình (KHÔNG ĐÈ NHAU TRÊN MOBILE) -->
+  <div id="floating-bar" class="floating-bar">
+    <button id="orders-toggle" class="floating-action-btn orders-pill" type="button" aria-controls="sent-orders" aria-expanded="false" hidden>
+      <span class="btn-icon" aria-hidden="true">📋</span>
+      <span class="btn-text">Đơn đã gọi</span>
+      <span id="orders-count" class="pill-badge">0</span>
+    </button>
+    <button id="cart-bar" class="floating-action-btn cart-bar-btn" type="button" hidden>
+      <div class="cart-pill-left">
+        <span class="cart-count" id="cart-count">0</span>
+        <span class="cart-bar-label">Giỏ hàng</span>
+      </div>
+      <div class="cart-pill-right">
+        <strong id="cart-total">0 ₫</strong>
+        <span class="cart-arrow">→</span>
+      </div>
+    </button>
+  </div>
+
+  <div id="orders-overlay" class="overlay orders-overlay" hidden></div>
+  <div id="overlay" class="overlay" hidden></div>
+
+  <!-- Giỏ hàng Side Panel -->
+  <aside id="cart-panel" class="side-panel" aria-label="Giỏ hàng" aria-hidden="true">
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">ĐƠN CỦA BẠN</p>
+        <h2>Giỏ hàng</h2>
+      </div>
+      <button class="icon-button" type="button" data-close aria-label="Đóng">×</button>
+    </div>
+    <div id="cart-items" class="cart-items"></div>
+    <div class="cart-summary">
+      <div class="total-line">
+        <span>Tạm tính</span>
+        <strong id="panel-total">0 ₫</strong>
+      </div>
+      <p class="cart-hint">Món sẽ được gửi đến bếp sau khi bạn xác nhận.</p>
+      <button id="submit-order" class="primary-button" type="button">Gửi đơn đến bếp <span>→</span></button>
+    </div>
+  </aside>
+
+  <!-- Dialog tùy chỉnh món (Topping chọn số lượng, Ghi chú, Sửa món) -->
+  <dialog id="item-dialog" class="item-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Đóng">×</button></form>
+    <div id="dialog-content"></div>
+  </dialog>
+
+  <!-- Dialog xác nhận hành động (Tránh bấm nhầm Gửi đơn / Hủy món) -->
+  <dialog id="confirm-dialog" class="custom-dialog confirm-dialog">
+    <div class="confirm-box">
+      <div class="confirm-icon" id="confirm-icon">⚠️</div>
+      <h3 id="confirm-title">Xác nhận</h3>
+      <div id="confirm-body" class="confirm-body"></div>
+      <div class="confirm-actions">
+        <button id="confirm-cancel-btn" class="secondary-button" type="button">Hủy bỏ</button>
+        <button id="confirm-ok-btn" class="primary-button" type="button">Đồng ý</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Dialog gọi nhân viên phục vụ / hỗ trợ -->
+  <dialog id="assistance-dialog" class="custom-dialog assistance-dialog">
+    <form method="dialog" class="dialog-close-row"><button class="icon-button" aria-label="Đóng">×</button></form>
+    <div class="dialog-body">
+      <div class="dialog-header-row">
+        <span class="dialog-bell" aria-hidden="true">🛎️</span>
+        <div>
+          <h2>Gọi nhân viên hỗ trợ</h2>
+          <p>Nhân viên phục vụ sẽ đến bàn của bạn ngay sau khi nhận yêu cầu.</p>
+        </div>
+      </div>
+      <div class="option-heading">CHỌN NHANH YÊU CẦU:</div>
+      <div class="assistance-presets" id="assistance-presets">
+        <button type="button" class="preset-btn active" data-type="BILL">🧾 Gọi thanh toán / In bill</button>
+        <button type="button" class="preset-btn" data-type="WATER_ICE">🧊 Thêm nước đá / Khăn lạnh</button>
+        <button type="button" class="preset-btn" data-type="UTENSILS">🥢 Đổi chén dĩa / Muỗng đũa</button>
+        <button type="button" class="preset-btn" data-type="SOUP_SPICE">🍲 Thêm nước lẩu / Nước sốt</button>
+        <button type="button" class="preset-btn" data-type="OTHER">💬 Hỗ trợ khác</button>
+      </div>
+      <label class="input-label" for="assistance-note">Ghi chú chi tiết (nếu có):</label>
+      <input id="assistance-note" class="text-input" type="text" placeholder="Ví dụ: Xin thêm 2 ly đá và 1 dĩa ớt xắt…">
+      <div class="dialog-add-row" style="margin-top: 18px;">
+        <button id="send-assistance-btn" class="primary-button" type="button">Gửi yêu cầu hỗ trợ <span>→</span></button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="../js/menu.js" defer></script>
+</body>
+</html>

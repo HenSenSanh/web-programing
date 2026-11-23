@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" width="640" height="420">
+  <defs>
+    <linearGradient id="bg-takoyaki" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fef2f2"/>
+      <stop offset="100%" stop-color="#fee2e2"/>
+    </linearGradient>
+    <radialGradient id="glow-takoyaki" cx="50%" cy="46%" r="48%">
+      <stop offset="0%" stop-color="#f97316" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh-takoyaki" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#1e1b18" flood-opacity="0.24"/>
+    </filter>
+    <filter id="soft-takoyaki" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="640" height="420" fill="url(#bg-takoyaki)"/>
+  <ellipse cx="320" cy="215" rx="250" ry="165" fill="url(#glow-takoyaki)"/>
+  <ellipse cx="320" cy="348" rx="185" ry="26" fill="#0f172a" opacity="0.12"/>
+    <g filter="url(#sh-takoyaki)">
+    <path d="M136 226 L186 154 L454 154 L504 226 L468 308 L172 308 Z" fill="#b45309"/>
+    <path d="M156 222 L196 164 L444 164 L484 222 L454 294 L186 294 Z" fill="#fef3c7"/>
+  </g>
+  <g filter="url(#soft-takoyaki)">
+    <circle cx="242" cy="204" r="34" fill="#d97706"/><circle cx="320" cy="200" r="34" fill="#d97706"/><circle cx="398" cy="204" r="34" fill="#d97706"/>
+    <circle cx="242" cy="258" r="34" fill="#b45309"/><circle cx="320" cy="254" r="34" fill="#b45309"/><circle cx="398" cy="258" r="34" fill="#b45309"/>
+    <circle cx="242" cy="200" r="31" fill="#f59e0b"/><circle cx="320" cy="196" r="31" fill="#f59e0b"/><circle cx="398" cy="200" r="31" fill="#f59e0b"/>
+    <circle cx="242" cy="254" r="31" fill="#f59e0b"/><circle cx="320" cy="250" r="31" fill="#f59e0b"/><circle cx="398" cy="254" r="31" fill="#f59e0b"/>
+  </g>
+  <g fill="#451a03" opacity="0.88">
+    <ellipse cx="242" cy="190" rx="22" ry="13"/><ellipse cx="320" cy="186" rx="22" ry="13"/><ellipse cx="398" cy="190" rx="22" ry="13"/>
+    <ellipse cx="242" cy="244" rx="22" ry="13"/><ellipse cx="320" cy="240" rx="22" ry="13"/><ellipse cx="398" cy="244" rx="22" ry="13"/>
+  </g>
+  <g stroke="#fef9c3" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M214 196 Q230 180 246 196 T270 194"/><path d="M292 192 Q308 176 324 192 T348 190"/><path d="M370 196 Q386 180 402 196 T426 194"/>
+    <path d="M214 250 Q230 234 246 250 T270 248"/><path d="M292 246 Q308 230 324 246 T348 244"/><path d="M370 250 Q386 234 402 250 T426 248"/>
+  </g>
+  <g stroke="#fbcfe8" stroke-width="3" fill="none" opacity="0.9">
+    <path d="M235 178 C245 162 258 178 268 164"/><path d="M312 174 C324 158 336 174 345 160"/><path d="M390 178 C402 162 414 178 424 164"/>
+  </g>
+  <circle cx="242" cy="184" r="3" fill="#15803d"/><circle cx="320" cy="180" r="3" fill="#15803d"/><circle cx="398" cy="184" r="3" fill="#15803d"/>
+</svg>

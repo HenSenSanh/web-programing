@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/auth.php';
+require_once __DIR__ . '/../src/rbac.php';
 
 $message = "";
 
@@ -11,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $result = loginUser($usernameOrEmail, $password, $remember);
 
     if ($result["success"]) {
-        header("Location: dashboard.php");
+        header("Location: " . getStaffPortalEntryPath((int)$_SESSION['user_id']));
         exit;
     }
 
@@ -24,6 +25,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta charset="UTF-8">
     <title>Đăng nhập</title>
     <link rel="stylesheet" href="css/style.css">
+    <script>
+        if (window.top !== window.self) {
+            window.top.location.href = window.location.href;
+        }
+    </script>
 </head>
 <body>
     <div class="auth-wrapper">

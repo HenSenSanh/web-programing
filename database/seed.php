@@ -57,25 +57,25 @@ function runSeeder(): void
         // 4. Menu Items
         $menuItems = [
             // Món chính
-            ['cat' => 'Món Chính', 'name' => 'Mì Cay Hải Sản Cấp Độ 7', 'desc' => 'Tôm mực tươi rói, nước dùng chua cay đậm đà chuẩn vị Hàn', 'price' => 65000, 'hot' => 1],
-            ['cat' => 'Món Chính', 'name' => 'Lẩu Thái Tomyum Bò Mỹ', 'desc' => 'Thịt bò Mỹ mềm thơm cùng nấm kim châm và rau tươi', 'price' => 189000, 'hot' => 1],
-            ['cat' => 'Món Chính', 'name' => 'Cơm Trộn Hàn Quốc Bibimbap', 'desc' => 'Cơm dẻo kèm thịt băm, trứng ốp la lòng đào và sốt gochujang', 'price' => 55000, 'hot' => 0],
-            ['cat' => 'Món Chính', 'name' => 'Mì Ý Sốt Bò Bằm Bolognaise', 'desc' => 'Sợi mì Ý dai ngon ngập sốt cà chua thịt bò bằm phủ phô mai', 'price' => 59000, 'hot' => 0],
+            ['cat' => 'Món Chính', 'name' => 'Mì Cay Hải Sản Cấp Độ 7', 'desc' => 'Tôm mực tươi rói, nước dùng chua cay đậm đà chuẩn vị Hàn', 'price' => 65000, 'hot' => 1, 'img' => '/frontend/img/mi_cay.jpg'],
+            ['cat' => 'Món Chính', 'name' => 'Lẩu Thái Tomyum Bò Mỹ', 'desc' => 'Thịt bò Mỹ mềm thơm cùng nấm kim châm và rau tươi', 'price' => 189000, 'hot' => 1, 'img' => '/frontend/img/lau_thai.jpg'],
+            ['cat' => 'Món Chính', 'name' => 'Cơm Trộn Hàn Quốc Bibimbap', 'desc' => 'Cơm dẻo kèm thịt băm, trứng ốp la lòng đào và sốt gochujang', 'price' => 55000, 'hot' => 0, 'img' => '/frontend/img/com_tron.jpg'],
+            ['cat' => 'Món Chính', 'name' => 'Mì Ý Sốt Bò Bằm Bolognaise', 'desc' => 'Sợi mì Ý dai ngon ngập sốt cà chua thịt bò bằm phủ phô mai', 'price' => 59000, 'hot' => 0, 'img' => '/frontend/img/mi_y.jpg'],
             // Món ăn kèm
-            ['cat' => 'Món Ăn Kèm', 'name' => 'Khoai Tây Chiên Lắc Phô Mai', 'desc' => 'Khoai giòn rụm áo bột phô mai béo ngậy ngọt mặn', 'price' => 35000, 'hot' => 0],
-            ['cat' => 'Món Ăn Kèm', 'name' => 'Gà Rán Sốt Cay Hàn Quốc (4 miếng)', 'desc' => 'Gà giòn tan đẫm sốt cay ngọt mè rang', 'price' => 69000, 'hot' => 1],
-            ['cat' => 'Món Ăn Kèm', 'name' => 'Kim Chi Cải Thảo Truyền Thống', 'desc' => 'Lên men tự nhiên, giòn cay giải ngấy tuyệt hảo', 'price' => 15000, 'hot' => 0],
+            ['cat' => 'Món Ăn Kèm', 'name' => 'Khoai Tây Chiên Lắc Phô Mai', 'desc' => 'Khoai giòn rụm áo bột phô mai béo ngậy ngọt mặn', 'price' => 35000, 'hot' => 0, 'img' => '/frontend/img/khoai_tay.jpg'],
+            ['cat' => 'Món Ăn Kèm', 'name' => 'Gà Rán Sốt Cay Hàn Quốc (4 miếng)', 'desc' => 'Gà giòn tan đẫm sốt cay ngọt mè rang', 'price' => 69000, 'hot' => 1, 'img' => '/frontend/img/ga_ran.jpg'],
+            ['cat' => 'Món Ăn Kèm', 'name' => 'Kim Chi Cải Thảo Truyền Thống', 'desc' => 'Lên men tự nhiên, giòn cay giải ngấy tuyệt hảo', 'price' => 15000, 'hot' => 0, 'img' => '/frontend/img/kim_chi.jpg'],
             // Đồ uống
-            ['cat' => 'Đồ Uống', 'name' => 'Trà Đào Cam Sả Tươi', 'desc' => 'Trà thanh mát, đào miếng giòn ngọt kết hợp hương sả thơm lừng', 'price' => 32000, 'hot' => 1],
-            ['cat' => 'Đồ Uống', 'name' => 'Trà Sữa Trân Châu Hoàng Kim', 'desc' => 'Trà sữa đậm vị béo thơm kèm trân châu hoàng kim dai dẻo', 'price' => 35000, 'hot' => 1],
-            ['cat' => 'Đồ Uống', 'name' => 'Coca-Cola Lon Lạnh', 'desc' => 'Nước ngọt có gas ướp lạnh sảng khoái', 'price' => 18000, 'hot' => 0],
+            ['cat' => 'Đồ Uống', 'name' => 'Trà Đào Cam Sả Tươi', 'desc' => 'Trà thanh mát, đào miếng giòn ngọt kết hợp hương sả thơm lừng', 'price' => 32000, 'hot' => 1, 'img' => '/frontend/img/tra_dao.jpg'],
+            ['cat' => 'Đồ Uống', 'name' => 'Trà Sữa Trân Châu Hoàng Kim', 'desc' => 'Trà sữa đậm vị béo thơm kèm trân châu hoàng kim dai dẻo', 'price' => 35000, 'hot' => 1, 'img' => '/frontend/img/tra_sua.jpg'],
+            ['cat' => 'Đồ Uống', 'name' => 'Coca-Cola Lon Lạnh', 'desc' => 'Nước ngọt có gas ướp lạnh sảng khoái', 'price' => 18000, 'hot' => 0, 'img' => '/frontend/img/coca.jpg'],
         ];
 
-        $stmtItem = $db->prepare("INSERT INTO menu_items (category_id, name, description, price, is_available, is_hot) VALUES (?, ?, ?, ?, 1, ?)");
+        $stmtItem = $db->prepare("INSERT INTO menu_items (category_id, name, description, price, is_available, is_hot, image_url) VALUES (?, ?, ?, ?, 1, ?, ?)");
         $itemMap = [];
         foreach ($menuItems as $item) {
             $catId = $catIds[$item['cat']];
-            $stmtItem->execute([$catId, $item['name'], $item['desc'], $item['price'], $item['hot']]);
+            $stmtItem->execute([$catId, $item['name'], $item['desc'], $item['price'], $item['hot'], $item['img']]);
             $itemMap[$item['name']] = [
                 'id' => (int)$db->lastInsertId(),
                 'cat' => $item['cat'],

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" width="640" height="420">
+  <defs>
+    <linearGradient id="bg-bo_bit_tet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fef2f2"/>
+      <stop offset="100%" stop-color="#fee2e2"/>
+    </linearGradient>
+    <radialGradient id="glow-bo_bit_tet" cx="50%" cy="46%" r="48%">
+      <stop offset="0%" stop-color="#dc2626" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#dc2626" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sh-bo_bit_tet" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#1e1b18" flood-opacity="0.24"/>
+    </filter>
+    <filter id="soft-bo_bit_tet" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+  <rect width="640" height="420" fill="url(#bg-bo_bit_tet)"/>
+  <ellipse cx="320" cy="215" rx="250" ry="165" fill="url(#glow-bo_bit_tet)"/>
+  <ellipse cx="320" cy="348" rx="185" ry="26" fill="#0f172a" opacity="0.12"/>
+    <g filter="url(#sh-bo_bit_tet)">
+    <rect x="448" y="206" width="90" height="24" rx="12" fill="#1e293b"/>
+    <ellipse cx="305" cy="222" rx="166" ry="120" fill="#0f172a"/>
+    <ellipse cx="305" cy="218" rx="150" ry="106" fill="#1e293b"/>
+  </g>
+  <path d="M214 196 C214 152 296 144 338 170 C366 192 346 254 294 260 C240 264 214 236 214 196 Z" fill="#7c2d12"/>
+  <path d="M224 196 C224 162 290 156 326 178 C348 196 332 244 290 248 C248 252 224 228 224 196 Z" fill="#9a3412"/>
+  <g stroke="#451a03" stroke-width="5" stroke-linecap="round">
+    <line x1="242" y1="176" x2="278" y2="230"/><line x1="274" y1="168" x2="310" y2="222"/><line x1="306" y1="174" x2="328" y2="208"/>
+  </g>
+  <rect x="262" y="188" width="28" height="20" rx="5" fill="#fde047" transform="rotate(-18 276 198)"/>
+  <circle cx="378" cy="228" r="36" fill="#ffffff"/>
+  <circle cx="380" cy="226" r="15" fill="#f59e0b"/>
+  <g fill="#facc15" stroke="#ca8a04" stroke-width="1">
+    <rect x="220" y="264" width="54" height="11" rx="4" transform="rotate(-10 247 269)"/>
+    <rect x="234" y="278" width="58" height="11" rx="4" transform="rotate(8 263 283)"/>
+    <rect x="274" y="268" width="56" height="11" rx="4" transform="rotate(-4 302 273)"/>
+  </g>
+  <circle cx="386" cy="176" r="12" fill="#ef4444"/><circle cx="408" cy="186" r="11" fill="#dc2626"/>
+</svg>

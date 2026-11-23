@@ -1,0 +1,381 @@
+<?php
+require_once __DIR__ . '/../../../src/auth.php';
+require_once __DIR__ . '/../../../src/rbac.php';
+requireLogin();
+requirePermission('data.manage');
+$staffPortalActive = 'live-ops';
+?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/staff-portal.css">
+    <title>DineFlow - Trung Tâm Điều Phối & Phân Tích Dữ Liệu (Live Ops)</title>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen antialiased selection:bg-indigo-100 selection:text-indigo-900">
+    <?php require __DIR__ . '/../../partials/staff_portal_nav.php'; ?>
+
+    <!-- Toast Notifications Container -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-[9999] flex flex-col gap-2.5 max-w-md w-full pointer-events-auto"></div>
+
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-slate-200 shadow-xs">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold tracking-tight text-slate-900">DINEFLOW</span>
+                        <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                            Giám Sát Vận Hành
+                        </span>
+                        <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                            <span id="livePulseDot" class="w-2 h-2 rounded-full bg-emerald-500 pulse-live"></span>
+                            <span>Trực tiếp</span>
+                        </span>
+                    </div>
+                    <h1 class="text-sm font-semibold text-slate-600 mt-0.5">Bảng Điều Khiển Vận Hành Nhà Hàng Theo Thời Gian Thực</h1>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 text-xs font-medium">
+                <a href="../menu/index.html?token=tbl-01-sess" target="_blank" class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition" title="Giao diện khách chọn món">
+                    📱 Menu Khách
+                </a>
+
+                <div class="h-4 w-px bg-slate-300 mx-1"></div>
+
+                <button onclick="toggleAutoRefresh()" id="btnAutoToggle" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition font-mono">
+                    ⏱️ <span id="countdownLabel">Auto 5s</span>
+                </button>
+                <button onclick="manualRefresh()" id="btnManualRefresh" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition flex items-center gap-1.5 shadow-sm shadow-indigo-200">
+                    <svg id="refreshIcon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>Làm mới</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        <!-- Live Status Bar -->
+        <div class="bg-white rounded-xl px-4 py-3 border border-slate-200/90 shadow-xs flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div class="flex flex-wrap items-center gap-3 text-slate-600">
+                <span class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <strong class="text-slate-800">Trạng thái:</strong> Đang kết nối hệ thống nhà hàng
+                </span>
+                <span class="text-slate-300">•</span>
+                <span>Tự động cập nhật mỗi 5 giây</span>
+            </div>
+            <div class="text-slate-500">
+                Cập nhật lúc: <strong id="lastUpdatedTime" class="text-slate-700 font-mono">--:--:--</strong>
+            </div>
+        </div>
+
+        <!-- KPI Executive Stat Cards (5 Cards) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            
+            <!-- Bàn đang mở -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+                <div class="flex items-center justify-between text-slate-500 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Bàn Đang Mở</span>
+                    <span class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">🪑</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="activeTablesCount" class="text-2xl font-bold text-slate-900 tracking-tight">0</span>
+                    <span class="text-xs text-slate-500 font-medium">bàn có khách</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Đang phục vụ tại quầy</p>
+            </div>
+
+            <!-- Doanh thu hôm nay -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+                <div class="flex items-center justify-between text-slate-500 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Đơn &amp; Doanh Thu</span>
+                    <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">💵</span>
+                </div>
+                <div class="flex items-baseline gap-1.5">
+                    <span id="todayRevenue" class="text-2xl font-bold text-emerald-600 tracking-tight">0 đ</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1"><span id="todayOrdersCount">0</span> đơn đã thanh toán</p>
+            </div>
+
+            <!-- Chờ bếp nấu -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+                <div class="flex items-center justify-between text-slate-500 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Chờ Bếp Nấu (KDS)</span>
+                    <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs">👨‍🍳</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="kdsPendingCount" class="text-2xl font-bold text-amber-600 tracking-tight">0</span>
+                    <span class="text-xs text-slate-500 font-medium">món đang chế biến</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Theo dõi trên màn hình bếp</p>
+            </div>
+
+            <!-- Dữ liệu báo cáo đã ghi nhận -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+                <div class="flex items-center justify-between text-slate-500 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Món Đã Thống Kê</span>
+                    <span class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">📊</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="olapFactCount" class="text-2xl font-bold text-indigo-600 tracking-tight">0</span>
+                    <span class="text-xs text-slate-500 font-medium">lượt gọi món</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Tổng doanh số: <span id="olapRevenue" class="font-semibold text-slate-700">0 đ</span></p>
+            </div>
+
+            <!-- SLA Bếp (>15 phút) -->
+            <div class="bg-white rounded-xl p-4 border border-slate-200/90 shadow-xs relative overflow-hidden">
+                <div class="flex items-center justify-between text-slate-500 mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider">Hiệu Suất Bếp</span>
+                    <span class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs">⏱️</span>
+                </div>
+                <div class="flex items-baseline gap-2">
+                    <span id="slaViolationsCount" class="text-2xl font-bold text-rose-600 tracking-tight">0</span>
+                    <span class="text-xs text-rose-600 font-semibold">món quá 15 phút</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Đúng hạn: <strong id="slaComplianceRate" class="text-emerald-600 font-bold">100%</strong></p>
+            </div>
+
+        </div>
+
+        <!-- Section 1: Real-time Live Tables Grid -->
+        <div class="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                        <span>Giám Sát Bàn Ăn, Giỏ Hàng &amp; Đơn Bếp Thời Gian Thực</span>
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Hiển thị các bàn đang phục vụ, giỏ hàng khách đang chọn và tiến độ bếp.</p>
+                </div>
+                <a href="../admin/table-management.php" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 transition">
+                    <span>Quản lý sơ đồ bàn</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
+            </div>
+
+            <!-- Tables Grid Container -->
+            <div id="tablesGrid" class="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="col-span-full py-8 text-center text-slate-400 text-xs">
+                    Đang tải danh sách bàn ăn...
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: Two Columns: Kitchen SLA Monitoring & Apriori Combo Upsell -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Left Panel: Kitchen SLA Monitoring & Bottlenecks -->
+            <div class="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                            <span>Giám Sát Tiến Độ Chế Biến Bếp</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Theo dõi các món đang chờ chế biến và món thường vượt ngưỡng 15 phút.</p>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 border border-rose-200/60">
+                        Mục tiêu: &le; 15 phút
+                    </span>
+                </div>
+
+                <div class="p-5 flex-1 space-y-4">
+                    <!-- Dishes Currently Pending in KDS -->
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                            <span>Món Đang Chờ Bếp Nấu</span>
+                            <span class="text-[11px] font-normal text-slate-500">Cập nhật theo KDS</span>
+                        </h3>
+                        <div class="border border-slate-200 rounded-lg overflow-hidden">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-3.5 py-2.5">Món Ăn</th>
+                                        <th class="px-3.5 py-2.5">Bàn</th>
+                                        <th class="px-3.5 py-2.5">Trạng Thái</th>
+                                        <th class="px-3.5 py-2.5 text-right">Cảnh Báo SLA</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kdsPendingTableBody" class="divide-y divide-slate-100 text-slate-700">
+                                    <tr><td colspan="4" class="px-3.5 py-4 text-center text-slate-400">Không có món nào đang chờ</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Dish Bottlenecks -->
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                            <span>Món Thường Bị Chậm Bếp</span>
+                            <span class="text-[11px] font-normal text-slate-500">Trung bình nấu &gt; 15 phút</span>
+                        </h3>
+                        <div class="border border-slate-200 rounded-lg overflow-hidden">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                                    <tr>
+                                        <th class="px-3.5 py-2.5">Tên Món</th>
+                                        <th class="px-3.5 py-2.5">Danh Mục</th>
+                                        <th class="px-3.5 py-2.5">TG Nấu TB</th>
+                                        <th class="px-3.5 py-2.5 text-right">Tỷ Lệ Trễ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dishBottlenecksTableBody" class="divide-y divide-slate-100 text-slate-700">
+                                    <tr><td colspan="4" class="px-3.5 py-4 text-center text-slate-400">Đang tải điểm nghẽn món...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Apriori Association Rules & Manual Combo Upsell -->
+            <div class="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden flex flex-col">
+                <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                            <span>Gợi Ý Món Ăn Kèm &amp; Thiết Lập Combo</span>
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Tự động gợi ý món ăn kèm phù hợp và cấu hình ưu đãi mua kèm.</p>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                        Gợi ý thông minh
+                    </span>
+                </div>
+
+                <div class="p-5 flex-1 space-y-5">
+                    
+                    <!-- Manual Combo Upsell Form -->
+                    <div class="bg-slate-50/80 rounded-xl p-4 border border-slate-200 space-y-3.5">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold text-slate-900">Thiết Lập Cặp Món Gợi Ý Mua Kèm</h3>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Khi khách chọn món (Món A):</label>
+                                <select id="selectSourceItem" onchange="onSourceItemChange()" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition">
+                                    <option value="">Đang tải danh sách món...</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Hệ thống gợi ý mua kèm (Món B):</label>
+                                <select id="selectTargetItem" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition">
+                                    <option value="">Đang tải danh sách món...</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Độ tin cậy (Confidence):</label>
+                                <select id="inputConfidence" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition">
+                                    <option value="0.95">95% (Rất cao)</option>
+                                    <option value="0.85" selected>85% (Mặc định)</option>
+                                    <option value="0.75">75% (Trung bình)</option>
+                                    <option value="0.60">60% (Thử nghiệm)</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Giảm giá mua kèm (%):</label>
+                                <input type="number" id="inputDiscount" min="0" max="50" value="10" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden transition" placeholder="VD: 10">
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-1">
+                            <button onclick="saveComboRule()" id="btnSaveCombo" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition shadow-xs flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <span>Lưu Cặp Món Gợi Ý</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Recommendation Preview for Selected Dish -->
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center justify-between">
+                            <span>Xem Trước Gợi Ý Trên Menu Khách</span>
+                        </h3>
+                        <div id="recommendationsPreview" class="bg-slate-50 rounded-lg p-3.5 border border-slate-200 min-h-[70px] flex items-center justify-center text-xs text-slate-500">
+                            Chọn một món ở Món A bên trên để xem danh sách món gợi ý kèm...
+                        </div>
+                    </div>
+
+                    <!-- Association Rules Table -->
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5 flex items-center justify-between">
+                            <span>Danh Sách Cặp Món Đang Gợi Ý</span>
+                            <span class="text-[11px] font-normal text-slate-500">Tổng hợp từ đơn hàng thực tế</span>
+                        </h3>
+                        <div class="border border-slate-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
+                                    <tr>
+                                        <th class="px-3.5 py-2">Món Chọn</th>
+                                        <th class="px-3.5 py-2">Món Gợi Ý</th>
+                                        <th class="px-3.5 py-2">Độ Tin Cậy</th>
+                                        <th class="px-3.5 py-2 text-right">Ưu Đãi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="associationRulesTableBody" class="divide-y divide-slate-100 text-slate-700">
+                                    <tr><td colspan="4" class="px-3.5 py-3 text-center text-slate-400">Đang tải danh sách luật...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Section 3: Report Sync Trigger -->
+        <div class="bg-white rounded-xl border border-slate-200/90 shadow-xs p-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span>Đồng Bộ Số Liệu Báo Cáo Doanh Thu</span>
+                </h3>
+                <p class="text-xs text-slate-500 mt-1 max-w-2xl">
+                    Tổng hợp các hóa đơn đã đóng để cập nhật ngay lên bảng báo cáo doanh thu, khung giờ cao điểm và hiệu suất bếp mà không trùng lặp số liệu.
+                </p>
+            </div>
+            <div>
+                <button onclick="triggerBatchETL()" id="btnTriggerEtl" class="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition shadow-sm shadow-emerald-200 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    <span>Cập Nhật Số Liệu Báo Cáo Ngay</span>
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="live-ops.js"></script>
+</body>
+</html>

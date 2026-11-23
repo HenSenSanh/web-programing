@@ -29,16 +29,17 @@ if (!function_exists('envValue')) {
 
 return [
     "app" => [
-        "name" => envValue("APP_NAME", "PHP Login & Warehouse System"),
+        "name" => envValue("APP_NAME", "DineFlow QRDine"),
         "url" => envValue("APP_URL", "http://localhost:8080"),
-        "session_name" => envValue("SESSION_NAME", "LOGIN_SYSTEM_SESSION"),
+        "qr_base_url" => rtrim(envValue("QR_BASE_URL", ""), '/'),
+        "session_name" => envValue("SESSION_NAME", "DINEFLOW_SESSION"),
     ],
     "db" => [
         "host" => envValue("DB_HOST", "mysql"),
         "port" => envValue("DB_PORT", "3306"),
-        "database" => envValue("DB_DATABASE", "login_system"),
-        "username" => envValue("DB_USERNAME", "login_user"),
-        "password" => envValue("DB_PASSWORD", "login_password"),
+        "database" => envValue("DB_DATABASE", "dineflow_db"),
+        "username" => envValue("DB_USERNAME", "dineflow"),
+        "password" => envValue("DB_PASSWORD", "dineflow123"),
     ],
     "smtp" => [
         "host" => envValue("SMTP_HOST", "smtp.gmail.com"),
@@ -46,6 +47,6 @@ return [
         "username" => envValue("SMTP_USERNAME", ""),
         "password" => envValue("SMTP_PASSWORD", ""),
         "from_email" => envValue("SMTP_FROM_EMAIL", ""),
-        "from_name" => envValue("SMTP_FROM_NAME", "PHP Login System"),
+        "from_name" => envValue("SMTP_FROM_NAME", "DineFlow QRDine"),
     ],
 ];
