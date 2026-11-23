@@ -91,8 +91,31 @@ function runSeeder(): void
             ['name' => 'Thêm Xúc Xích Đức', 'price' => 12000],
         ];
         $stmtTop = $db->prepare("INSERT INTO toppings (name, price, is_available) VALUES (?, ?, 1)");
+        $toppingIds = [];
         foreach ($toppings as $top) {
             $stmtTop->execute([$top['name'], $top['price']]);
+            $toppingIds[$top['name']] = (int)$db->lastInsertId();
+        }
+
+        $stmtMapTop = $db->prepare("INSERT OR IGNORE INTO menu_item_toppings (menu_item_id, topping_id) VALUES (?, ?)");
+        foreach ($itemMap as $dishName => $meta) {
+            if ($meta['cat'] === 'Món Chính') {
+                foreach (['Thêm Bò Mỹ Thượng Hạng', 'Thêm Phô Mai Mozzarella Kéo Sợi', 'Thêm Xúc Xích Đức'] as $topName) {
+                    if (isset($toppingIds[$topName])) {
+                        $stmtMapTop->execute([$meta['id'], $toppingIds[$topName]]);
+                    }
+                }
+            } elseif ($meta['cat'] === 'Món Ăn Kèm' && stripos($dishName, 'Kim Chi') === false) {
+                foreach (['Thêm Phô Mai Mozzarella Kéo Sợi', 'Thêm Xúc Xích Đức'] as $topName) {
+                    if (isset($toppingIds[$topName])) {
+                        $stmtMapTop->execute([$meta['id'], $toppingIds[$topName]]);
+                    }
+                }
+            } elseif ($meta['cat'] === 'Đồ Uống' && stripos($dishName, 'Trà') !== false) {
+                if (isset($toppingIds['Thêm Trân Châu Hoàng Kim'])) {
+                    $stmtMapTop->execute([$meta['id'], $toppingIds['Thêm Trân Châu Hoàng Kim']]);
+                }
+            }
         }
 
         // 6. Combo rules (Gợi ý kèm Apriori)

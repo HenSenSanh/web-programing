@@ -1200,6 +1200,32 @@ assertTest(
 );
 
 // -------------------------------------------------------------------------
+// PHẦN 9: CẢI TIẾN MENU KHÁCH, SỐ LƯỢNG TOPPING, QUẢN LÝ MÓN, KDS & GỌI NHÂN VIÊN
+// -------------------------------------------------------------------------
+echo "\n=======================================================================\n";
+echo "🍽️ PHẦN 9: KIỂM THỬ TOPPING QUANTITY, KDS BÁO HẾT, QUẢN LÝ TOPPING & HỖ TRỢ\n";
+echo "=======================================================================\n";
+
+$srTableExists = (bool)$db->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='service_requests' LIMIT 1")->fetchColumn();
+assertTest("UX-9.1: Schema tạo sẵn bảng service_requests cho tính năng gọi nhân viên", $srTableExists);
+
+$stmtLauToppings = $db->query("SELECT topping_id FROM menu_item_toppings WHERE menu_item_id = 12 ORDER BY topping_id ASC");
+$lauToppingIds = $stmtLauToppings ? array_map('intval', $stmtLauToppings->fetchAll(PDO::FETCH_COLUMN)) : [];
+assertTest(
+    "UX-9.2: Dữ liệu seed mặc định gán topping (1, 2, 4) cho Lẩu Kim Chi (#12)",
+    $lauToppingIds === [1, 2, 4],
+    'got: ' . json_encode($lauToppingIds)
+);
+
+$stmtTraSuaToppings = $db->query("SELECT topping_id FROM menu_item_toppings WHERE menu_item_id = 9 ORDER BY topping_id ASC");
+$traSuaToppingIds = $stmtTraSuaToppings ? array_map('intval', $stmtTraSuaToppings->fetchAll(PDO::FETCH_COLUMN)) : [];
+assertTest(
+    "UX-9.3: Dữ liệu seed mặc định gán Trân Châu (#3) cho Trà Sữa (#9)",
+    $traSuaToppingIds === [3],
+    'got: ' . json_encode($traSuaToppingIds)
+);
+
+// -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------
 $totalTests = $passCount + $failCount;

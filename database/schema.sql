@@ -154,6 +154,22 @@ CREATE TABLE IF NOT EXISTS combo_rules (
     FOREIGN KEY (target_item_id) REFERENCES menu_items(id)
 );
 
+-- 10b. OLTP: Service Requests (Call Staff / Table Support)
+CREATE TABLE IF NOT EXISTS service_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id VARCHAR(64) NOT NULL,
+    table_id INTEGER NOT NULL,
+    request_type VARCHAR(32) NOT NULL DEFAULT 'CALL_STAFF',
+    message VARCHAR(255) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME NULL,
+    resolved_by INTEGER NULL,
+    FOREIGN KEY (session_id) REFERENCES table_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (table_id) REFERENCES dining_tables(id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 -- =========================================================================
 -- OLAP: STAR SCHEMA (DIMENSIONS & FACTS)
 -- =========================================================================

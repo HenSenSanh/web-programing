@@ -826,12 +826,57 @@ CREATE TABLE IF NOT EXISTS shared_carts (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS service_requests (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    session_id VARCHAR(64) NOT NULL,
+    table_id INT NOT NULL,
+    request_type VARCHAR(32) NOT NULL DEFAULT 'CALL_STAFF',
+    message VARCHAR(255) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMP NULL,
+    resolved_by INT NULL,
+    INDEX idx_sr_status_created (status, created_at),
+    INDEX idx_sr_session (session_id),
+    FOREIGN KEY (session_id) REFERENCES table_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (table_id) REFERENCES dining_tables(id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO toppings (id, name, price, is_available) VALUES
 (1, 'Thêm Bò Mỹ Thượng Hạng', 25000.00, 1),
 (2, 'Thêm Phô Mai Mozzarella Kéo Sợi', 15000.00, 1),
 (3, 'Thêm Trân Châu Hoàng Kim', 8000.00, 1),
 (4, 'Thêm Xúc Xích Đức', 12000.00, 1)
 ON DUPLICATE KEY UPDATE name = VALUES(name), price = VALUES(price);
+
+INSERT INTO menu_item_toppings (menu_item_id, topping_id) VALUES
+(1, 1), (1, 2), (1, 4),
+(2, 1), (2, 2), (2, 4),
+(3, 1), (3, 2), (3, 4),
+(4, 1), (4, 2), (4, 4),
+(5, 2), (5, 4),
+(6, 2), (6, 4),
+(8, 3),
+(9, 3),
+(11, 1), (11, 2), (11, 4),
+(12, 1), (12, 2), (12, 4),
+(13, 2), (13, 4),
+(14, 2), (14, 4),
+(16, 3),
+(17, 1), (17, 2), (17, 4),
+(18, 1), (18, 2), (18, 4),
+(19, 2), (19, 4),
+(20, 2), (20, 4),
+(21, 3),
+(24, 1), (24, 2), (24, 4),
+(25, 2), (25, 4),
+(28, 3),
+(31, 2), (31, 4),
+(33, 3),
+(34, 3),
+(35, 1), (35, 2), (35, 4)
+ON DUPLICATE KEY UPDATE topping_id = VALUES(topping_id);
 
 INSERT INTO combo_rules (id, source_item_id, target_item_id, confidence, discount_percent) VALUES
 (1, 1, 8, 0.8800, 10),
