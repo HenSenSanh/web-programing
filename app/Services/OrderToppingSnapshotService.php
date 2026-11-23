@@ -44,7 +44,14 @@ class OrderToppingSnapshotService
                 if (!is_array($decoded)) {
                     throw new InvalidArgumentException('Invalid order topping snapshot format');
                 }
-                $snapshotsByItemId[(int)$row['order_item_id']] = $decoded;
+                $normalized = [];
+                foreach ($decoded as $entry) {
+                    if (is_array($entry)) {
+                        $entry['quantity'] = max(1, (int)($entry['quantity'] ?? 1));
+                        $normalized[] = $entry;
+                    }
+                }
+                $snapshotsByItemId[(int)$row['order_item_id']] = $normalized;
             }
         }
 

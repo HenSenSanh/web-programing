@@ -1225,6 +1225,131 @@ assertTest(
     'got: ' . json_encode($traSuaToppingIds)
 );
 
+// Task 2: Topping quantities in SharedCartService, ClientOrderController, and OrderToppingSnapshotService
+$tqSuffix = substr(uniqid('', true), 0, 10);
+$tqToken = 'tok_tq_' . $tqSuffix;
+$tqSessId = 'sess_tq_' . $tqSuffix;
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'OCCUPIED')")->execute(['Bàn TQ ' . $tqSuffix]);
+$tqTableId = (int)$db->lastInsertId();
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$tqSessId, $tqTableId, $tqToken]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")->execute([$tqSessId, $tqTableId]);
+
+SharedCartService::clearCart($tqToken);
+$tqCart = SharedCartService::setCart($tqToken, [[
+    'menu_item_id' => 12,
+    'quantity' => 2,
+    'unit_price' => 1,
+    'selected_toppings' => [
+        ['id' => 2, 'name' => 'Fake Cheese', 'price' => 1, 'quantity' => 2],
+        ['id' => 2, 'quantity' => 5], // duplicate -> ignored
+        ['id' => 1, 'quantity' => 0], // explicit 0 -> dropped
+        ['id' => 4],                  // omitted -> defaults to 1
+        ['id' => 3, 'quantity' => 1], // not mapped to dish 12 -> dropped
+    ],
+    'note' => 'Ít cay',
+]]);
+$tqCartItem = $tqCart['items'][0] ?? [];
+$tqCartTops = $tqCartItem['toppings'] ?? [];
+assertTest(
+    "UX-9.4: SharedCartService::setCart() lọc qty=0/trùng/sai món, lấy giá & tên DB, tính đúng 221,000đ",
+    abs((float)($tqCartItem['unit_price'] ?? 0) - 221000.0) < 0.01
+        && count($tqCartTops) === 2
+        && (int)($tqCartTops[0]['id'] ?? 0) === 2
+        && (int)($tqCartTops[0]['quantity'] ?? 0) === 2
+        && ($tqCartTops[0]['name'] ?? '') === 'Thêm Phô Mai Mozzarella Kéo Sợi'
+        && (int)($tqCartTops[1]['id'] ?? 0) === 4
+        && (int)($tqCartTops[1]['quantity'] ?? 0) === 1,
+    'cartItem=' . json_encode($tqCartItem, JSON_UNESCAPED_UNICODE)
+);
+
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = 'IDEM-TQ-OK-' . $tqSuffix;
+ob_start();
+$orderCtrl->submitOrder($tqToken, [
+    'items' => [[
+        'menu_item_id' => 12,
+        'quantity' => 2,
+        'unit_price' => 1,
+        'selected_toppings' => [
+            ['id' => 2, 'quantity' => 2, 'price' => 1],
+            ['id' => 4, 'quantity' => 1, 'price' => 1],
+        ],
+        'note' => 'Ít cay',
+    ]],
+]);
+$tqOrderRes = json_decode(ob_get_clean(), true);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+$tqOrderId = (int)($tqOrderRes['order_id'] ?? 0);
+
+ob_start();
+$orderCtrl->getOrderStatus($tqToken);
+$tqHistory = json_decode(ob_get_clean(), true);
+ob_start();
+$kdsPos->getKdsActiveItems();
+$tqKds = json_decode(ob_get_clean(), true);
+$tqKdsItem = null;
+foreach ($tqKds as $row) {
+    if ((int)($row['order_id'] ?? 0) === $tqOrderId) { $tqKdsItem = $row; break; }
+}
+ob_start();
+$kdsPos->getTableBill($tqTableId);
+$tqBill = json_decode(ob_get_clean(), true);
+$tqBillItem = $tqBill['items'][0] ?? [];
+
+assertTest(
+    "UX-9.5: submitOrder tính đúng giá topping x2 (442,000đ) và lưu quantity=2 cho History, KDS, POS",
+    ($tqOrderRes['status'] ?? '') === 'success'
+        && abs((float)($tqOrderRes['total_amount'] ?? 0) - 442000.0) < 0.01
+        && (int)($tqHistory[0]['toppings'][0]['quantity'] ?? 0) === 2
+        && (int)($tqKdsItem['toppings'][0]['quantity'] ?? 0) === 2
+        && (int)($tqBillItem['toppings'][0]['quantity'] ?? 0) === 2,
+    'res=' . json_encode($tqOrderRes, JSON_UNESCAPED_UNICODE)
+);
+
+$badQuantities = [0, -1, 11, 'abc'];
+$allBadQtyRejected = true;
+$stmtTqOrderCount = $db->prepare("SELECT COUNT(*) FROM orders WHERE session_id = ?");
+$stmtTqOrderCount->execute([$tqSessId]);
+$ordersBeforeBadQty = (int)$stmtTqOrderCount->fetchColumn();
+foreach ($badQuantities as $badIdx => $badQty) {
+    $_SERVER['HTTP_IDEMPOTENCY_KEY'] = 'IDEM-TQ-BAD-' . $tqSuffix . '-' . $badIdx;
+    ob_start();
+    $orderCtrl->submitOrder($tqToken, [
+        'items' => [[
+            'menu_item_id' => 12,
+            'quantity' => 1,
+            'selected_toppings' => [['id' => 2, 'quantity' => $badQty]],
+        ]],
+    ]);
+    $badOut = json_decode(ob_get_clean(), true);
+    unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+    if (($badOut['code'] ?? '') !== 'INVALID_TOPPING_QUANTITY') {
+        $allBadQtyRejected = false;
+    }
+}
+$stmtTqOrderCount->execute([$tqSessId]);
+$ordersAfterBadQty = (int)$stmtTqOrderCount->fetchColumn();
+assertTest(
+    "UX-9.6: submitOrder từ chối topping quantity 0, -1, 11, 'abc' (INVALID_TOPPING_QUANTITY) và không tạo đơn",
+    $allBadQtyRejected && $ordersAfterBadQty === $ordersBeforeBadQty
+);
+
+// Legacy snapshot without 'quantity' key -> normalized to 1
+$tqOrderItemId = (int)($tqOrderRes['order_item_ids'][0] ?? 0);
+$db->prepare("UPDATE order_item_topping_snapshots SET toppings_json = ? WHERE order_item_id = ?")
+    ->execute([json_encode([['id' => 2, 'name' => 'Legacy Top', 'unit_price' => 15000]], JSON_UNESCAPED_UNICODE), $tqOrderItemId]);
+$attachedLegacy = OrderToppingSnapshotService::attach($db, [['id' => $tqOrderItemId]]);
+assertTest(
+    "UX-9.7: OrderToppingSnapshotService::attach() chuẩn hóa snapshot cũ không có quantity về 1",
+    (int)($attachedLegacy[0]['toppings'][0]['quantity'] ?? 0) === 1
+);
+
+SharedCartService::clearCart($tqToken);
+$db->prepare("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE session_id = ?)")->execute([$tqSessId]);
+$db->prepare("DELETE FROM orders WHERE session_id = ?")->execute([$tqSessId]);
+$db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$tqSessId]);
+$db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$tqTableId]);
+
 // -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------

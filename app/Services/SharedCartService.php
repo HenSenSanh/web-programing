@@ -285,11 +285,14 @@ class SharedCartService
 
         $stmtMenu = $db ? $db->prepare("SELECT name, price FROM menu_items WHERE id = ?") : null;
         $stmtTopping = null;
+        $stmtToppingMap = null;
         if ($db) {
             try {
-                $stmtTopping = $db->prepare("SELECT price FROM toppings WHERE id = ?");
+                $stmtTopping = $db->prepare("SELECT id, name, price, is_available FROM toppings WHERE id = ?");
+                $stmtToppingMap = $db->prepare("SELECT 1 FROM menu_item_toppings WHERE menu_item_id = ? AND topping_id = ? LIMIT 1");
             } catch (Throwable $e) {
                 $stmtTopping = null;
+                $stmtToppingMap = null;
             }
         }
 
@@ -314,21 +317,66 @@ class SharedCartService
             }
 
             $rawToppings = $it['selected_toppings'] ?? $it['toppings'] ?? [];
-            $toppingList = is_array($rawToppings) ? $rawToppings : [];
-            if ($stmtTopping && $toppingList) {
-                foreach ($toppingList as $top) {
-                    $topId = is_array($top) ? (int)($top['id'] ?? 0) : 0;
-                    if ($topId > 0) {
+            $toppingList = [];
+            if (is_array($rawToppings)) {
+                $seenTopIds = [];
+                foreach ($rawToppings as $top) {
+                    if (!is_array($top)) {
+                        continue;
+                    }
+                    $topId = (int)($top['id'] ?? 0);
+                    if ($topId <= 0 || isset($seenTopIds[$topId])) {
+                        continue;
+                    }
+
+                    if (array_key_exists('quantity', $top)) {
+                        $rawQty = $top['quantity'];
+                        if (is_int($rawQty)) {
+                            $topQty = $rawQty;
+                        } elseif (is_string($rawQty) && preg_match('/^-?[0-9]+$/D', trim($rawQty))) {
+                            $topQty = (int)trim($rawQty);
+                        } else {
+                            continue;
+                        }
+                        if ($topQty <= 0) {
+                            continue;
+                        }
+                        $topQty = min(10, $topQty);
+                    } else {
+                        $topQty = 1;
+                    }
+
+                    $topName = (string)($top['name'] ?? 'Topping');
+                    $topPrice = max(0.0, (float)($top['price'] ?? $top['extra_price'] ?? 0));
+
+                    if ($stmtTopping) {
                         try {
                             $stmtTopping->execute([$topId]);
                             $topRow = $stmtTopping->fetch();
-                            if ($topRow) {
-                                $price += (float)$topRow['price'];
+                            if (!$topRow || (int)$topRow['is_available'] !== 1) {
+                                continue;
                             }
+                            if ($stmtToppingMap) {
+                                $stmtToppingMap->execute([$mId, $topId]);
+                                if (!$stmtToppingMap->fetchColumn()) {
+                                    continue;
+                                }
+                            }
+                            $topName = (string)$topRow['name'];
+                            $topPrice = (float)$topRow['price'];
                         } catch (Throwable $e) {
-                            // Ignore missing topping lookup
+                            // Fallback if toppings/mapping tables unavailable
                         }
                     }
+
+                    $seenTopIds[$topId] = true;
+                    $price += ($topPrice * $topQty);
+                    $toppingList[] = [
+                        'id' => $topId,
+                        'name' => $topName,
+                        'price' => $topPrice,
+                        'quantity' => $topQty,
+                    ];
                 }
             }
             $cleanItems[] = [

@@ -9,6 +9,7 @@ use PDO;
 
 class ClientOrderController
 {
+    private const MAX_TOPPING_QUANTITY = 10;
     private bool $sqliteWriteTransaction = false;
 
     public function getSessionInfo(string $token): void
@@ -194,6 +195,19 @@ class ClientOrderController
                     }
                     $seenToppingIds[$topId] = true;
 
+                    $rawToppingQty = is_array($rawTopping) && array_key_exists('quantity', $rawTopping)
+                        ? $rawTopping['quantity']
+                        : 1;
+                    $toppingQty = $this->parsePositiveInteger($rawToppingQty);
+                    if ($toppingQty === null || $toppingQty > self::MAX_TOPPING_QUANTITY) {
+                        $this->rejectOrder($db, 422, 'INVALID_TOPPING_QUANTITY', 'Số lượng topping phải là số nguyên từ 1 đến 10', [
+                            'item_index' => $index,
+                            'topping_index' => $toppingIndex,
+                            'topping_id' => $topId,
+                        ]);
+                        return;
+                    }
+
                     $stmtTop->execute([$topId]);
                     $topRow = $stmtTop->fetch();
                     if (!$topRow) {
@@ -220,11 +234,12 @@ class ClientOrderController
                         return;
                     }
                     $toppingPrice = (float)$topRow['price'];
-                    $toppingExtra += $toppingPrice;
+                    $toppingExtra += $toppingPrice * $toppingQty;
                     $toppingSnapshots[] = [
                         'id' => (int)$topRow['id'],
                         'name' => $topRow['name'],
                         'unit_price' => $toppingPrice,
+                        'quantity' => $toppingQty,
                     ];
                 }
 
