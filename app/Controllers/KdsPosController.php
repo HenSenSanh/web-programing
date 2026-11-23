@@ -2,7 +2,10 @@
 
 namespace App\Controllers;
 
+require_once __DIR__ . '/../Services/AuditLogService.php';
+
 use App\Core\Database;
+use App\Services\AuditLogService;
 use App\Services\EtlService;
 use App\Services\OrderToppingSnapshotService;
 use App\Services\SharedCartService;
@@ -42,6 +45,10 @@ class KdsPosController
         }
 
         $db = Database::getConnection();
+        $stmtOld = $db->prepare("SELECT status FROM order_items WHERE id = ? LIMIT 1");
+        $stmtOld->execute([$itemId]);
+        $oldStatus = $stmtOld->fetchColumn();
+
         $completedAt = in_array($newStatus, ['READY', 'SERVED', 'COMPLETED']) ? date('Y-m-d H:i:s') : null;
 
         $stmt = $db->prepare("
@@ -50,6 +57,17 @@ class KdsPosController
             WHERE id = ?
         ");
         $stmt->execute([$newStatus, $chefId, $completedAt, $itemId]);
+
+        if ($oldStatus !== false && $oldStatus !== $newStatus) {
+            AuditLogService::record(
+                $db,
+                'kds_status_change',
+                'order_item',
+                $itemId,
+                ['status' => (string)$oldStatus],
+                ['status' => $newStatus, 'chef_id' => $chefId]
+            );
+        }
 
         echo json_encode([
             'status' => 'success',
@@ -266,6 +284,21 @@ class KdsPosController
             }
 
             $db->commit();
+
+            AuditLogService::record(
+                $db,
+                'pos_checkout',
+                'bill_payment',
+                $billId,
+                ['session_status' => 'ACTIVE'],
+                [
+                    'session_id' => $actualSessionId,
+                    'table_id' => (int)$session['table_id'],
+                    'invoice_code' => $invoiceCode,
+                    'final_amount' => $finalAmount,
+                    'payment_method' => $paymentMethod,
+                ]
+            );
 
             // Dọn giỏ hàng & tự động kích hoạt luồng ETL chuyển dữ liệu sang kho OLAP
             if (!empty($session['session_token'])) {

@@ -23,6 +23,8 @@ require_once __DIR__ . '/../Services/OrderToppingSnapshotService.php';
 require_once __DIR__ . '/../Services/SharedCartService.php';
 require_once __DIR__ . '/../Services/AprioriService.php';
 require_once __DIR__ . '/../Services/EtlService.php';
+require_once __DIR__ . '/../Services/RateLimiterService.php';
+require_once __DIR__ . '/../Services/AuditLogService.php';
 
 use App\Controllers\AdminCatalogController;
 use App\Controllers\ClientOrderController;
@@ -30,6 +32,7 @@ use App\Controllers\ClientCancellationController;
 use App\Controllers\KdsPosController;
 use App\Controllers\DataPipelineController;
 use App\Controllers\ServiceRequestController;
+use App\Services\RateLimiterService;
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -44,13 +47,33 @@ $kdsPos = new KdsPosController();
 $data = new DataPipelineController();
 $serviceRequests = new ServiceRequestController();
 
-// 0. Health check
+// 0. Health check (kiểm tra cả kết nối DB cho Render/Docker healthcheck)
 if (($path === '' || $path === '/' || $path === '/health') && $method === 'GET') {
-    echo json_encode(['status' => 'OK', 'runtime' => 'PHP ' . PHP_VERSION, 'app' => 'DineFlow']);
+    $dbOk = true;
+    try {
+        \App\Core\Database::getConnection()->query('SELECT 1');
+    } catch (\Throwable $e) {
+        $dbOk = false;
+    }
+    if (!$dbOk) {
+        http_response_code(503);
+    }
+    echo json_encode([
+        'status' => $dbOk ? 'OK' : 'DEGRADED',
+        'db' => $dbOk ? 'ok' : 'error',
+        'runtime' => 'PHP ' . PHP_VERSION,
+        'app' => 'DineFlow',
+        'timestamp' => gmdate('c'),
+    ]);
     exit;
 }
 
 // 1. Admin Tables & Catalog
+if ($path === '/admin/audit-logs' && $method === 'GET') {
+    requireApiPermission('data.manage');
+    $admin->getAuditLogs();
+    exit;
+}
 if ($path === '/admin/qr-public-url' && $method === 'GET') {
     requireApiPermission('tables.view');
     $admin->getQrPublicUrl();
@@ -136,6 +159,9 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/cart$#', $path, $m)) {
     exit;
 }
 if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/submit-order$#', $path, $m) && $method === 'POST') {
+    if (!RateLimiterService::enforce('client_submit_order', RateLimiterService::resolveClientIp() . ':' . $m[1], 15, 60)) {
+        exit;
+    }
     $client->submitOrder($m[1]);
     exit;
 }
@@ -144,6 +170,9 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/status$#', $path, $m) && $met
     exit;
 }
 if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/order-items/(\d+)/cancel$#', $path, $m) && $method === 'POST') {
+    if (!RateLimiterService::enforce('client_cancel_item', RateLimiterService::resolveClientIp() . ':' . $m[1], 15, 60)) {
+        exit;
+    }
     $clientCancellation->cancelItem($m[1], (int)$m[2]);
     exit;
 }
@@ -153,6 +182,9 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/service-requests$#', $path, $
         exit;
     }
     if ($method === 'POST') {
+        if (!RateLimiterService::enforce('client_service_request', RateLimiterService::resolveClientIp() . ':' . $m[1], 10, 60)) {
+            exit;
+        }
         $serviceRequests->createClientRequest($m[1]);
         exit;
     }
@@ -212,6 +244,9 @@ if (preg_match('#^/staff/pos/checkout/([a-zA-Z0-9_-]+)$#', $path, $m) && $method
 
 // 4. Data Pipeline & Live Ops
 if ($path === '/data/clickstream' && $method === 'POST') {
+    if (!RateLimiterService::enforce('client_clickstream', RateLimiterService::resolveClientIp(), 120, 60)) {
+        exit;
+    }
     $data->recordClickstream();
     exit;
 }

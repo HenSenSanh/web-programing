@@ -374,6 +374,52 @@ $staffPortalActive = 'live-ops';
             </div>
         </div>
 
+        <!-- Section 4: System Audit Logs -->
+        <div class="bg-white rounded-xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-slate-700"></span>
+                        <span>Nhật Ký Thao Tác Hệ Thống (Audit Logs)</span>
+                        <span id="auditLogsCountBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">0</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5">
+                        Ghi vết tự động các thao tác nhạy cảm: chốt thanh toán POS, đổi trạng thái bếp KDS, khách hủy món, cập nhật thực đơn &amp; topping.
+                    </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <select id="auditEntityFilter" onchange="loadAuditLogs()" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-slate-700 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-hidden">
+                        <option value="">Tất cả thao tác</option>
+                        <option value="bill_payment">Thanh toán POS</option>
+                        <option value="order_item">Bếp KDS / Hủy món</option>
+                        <option value="menu_item">Thực đơn món ăn</option>
+                        <option value="topping">Kho Topping</option>
+                    </select>
+                    <button type="button" onclick="loadAuditLogs()" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold transition">
+                        Làm mới log
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-80 overflow-y-auto">
+                <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-2.5 whitespace-nowrap">Thời gian</th>
+                            <th class="px-4 py-2.5 whitespace-nowrap">Người thực hiện</th>
+                            <th class="px-4 py-2.5 whitespace-nowrap">Hành động</th>
+                            <th class="px-4 py-2.5 whitespace-nowrap">Đối tượng</th>
+                            <th class="px-4 py-2.5">Chi tiết thay đổi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="auditLogsTableBody" class="divide-y divide-slate-100 text-slate-700">
+                        <tr>
+                            <td colspan="5" class="px-4 py-5 text-center text-slate-400">Đang tải nhật ký thao tác...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </main>
 
     <script src="live-ops.js"></script>

@@ -1,0 +1,44 @@
+name: DineFlow CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dineflow-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: PHP Lint & Automated Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure PHP extensions for SQLite & XLSX tests
+        run: |
+          php -v
+          php -m | grep -iE 'pdo_sqlite|zip|xml|mbstring' || true
+
+      - name: Install Composer dependencies
+        run: |
+          if [ -f composer.json ]; then
+            composer install --no-interaction --prefer-dist --no-progress
+          fi
+
+      - name: PHP syntax lint across app/
+        run: |
+          find app -type f -name '*.php' -not -path '*/vendor/*' -print0 | xargs -0 -n1 php -l
+
+      - name: Run Master Test Suite (tests/run_tests.php)
+        run: php tests/run_tests.php
+
+      - name: Run TV4 Core Test Suite (tests/test_tv4_core.php)
+        run: php tests/test_tv4_core.php

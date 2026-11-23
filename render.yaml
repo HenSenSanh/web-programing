@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: dineflow-qrdine
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./docker/php/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: APP_NAME
+        value: DineFlow QRDine
+      - key: APP_ENV
+        value: production
+      - key: SESSION_NAME
+        value: DINEFLOW_SESSION
+      - key: RATE_LIMIT_ENABLED
+        value: "1"
+      # Connect to external free MySQL 8 (e.g. Aiven Free MySQL or TiDB Cloud Serverless)
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "3306"
+      - key: DB_DATABASE
+        value: dineflow_db
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      # Dynamic VietQR bank details for POS & printed invoices
+      - key: VIETQR_BANK_ID
+        value: MB
+      - key: VIETQR_ACCOUNT_NO
+        value: "0905000000"
+      - key: VIETQR_ACCOUNT_NAME
+        value: DINEFLOW RESTAURANT
+      - key: VIETQR_TEMPLATE
+        value: compact2
+      # Optional Cloudinary unsigned upload preset (prevents image loss on free ephemeral disk)
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_UPLOAD_PRESET
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: dineflow/menu

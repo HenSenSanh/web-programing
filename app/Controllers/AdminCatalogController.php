@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+require_once __DIR__ . '/../Services/AuditLogService.php';
+
 use App\Core\Database;
 use PDO;
 
@@ -24,6 +26,7 @@ class AdminCatalogController
     {
         $config = require __DIR__ . '/../src/config.php';
         $envQrUrl = rtrim((string)($config['app']['qr_base_url'] ?? ''), '/');
+        $renderUrl = rtrim((string)($config['app']['render_external_url'] ?? ''), '/');
 
         $tunnelUrl = '';
         $logPaths = ['/var/log/cloudflared/tunnel.log'];
@@ -51,12 +54,28 @@ class AdminCatalogController
             }
         }
 
-        $effectiveUrl = $envQrUrl !== '' ? $envQrUrl : $tunnelUrl;
+        $effectiveUrl = $envQrUrl !== ''
+            ? $envQrUrl
+            : ($renderUrl !== '' ? $renderUrl : $tunnelUrl);
+
         echo json_encode([
             'tunnel_url' => $tunnelUrl,
+            'render_url' => $renderUrl,
             'env_qr_url' => $envQrUrl,
             'effective_url' => $effectiveUrl,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    public function getAuditLogs(): void
+    {
+        $db = Database::getConnection();
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 50;
+        $entityType = isset($_GET['entity_type']) ? trim((string)$_GET['entity_type']) : null;
+        $logs = \App\Services\AuditLogService::listRecent($db, $limit, $entityType ?: null);
+        echo json_encode([
+            'items' => $logs,
+            'count' => count($logs),
+        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 
     public function createTable(): void

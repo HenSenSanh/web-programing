@@ -4,6 +4,13 @@ require_once __DIR__ . '/../../../src/rbac.php';
 requireLogin();
 requirePermission('pos.view');
 $staffPortalActive = 'pos';
+$appConfig = require __DIR__ . '/../../../src/config.php';
+$vietQrConfig = $appConfig['vietqr'] ?? [
+    'bank_id' => 'MB',
+    'account_no' => '0905000000',
+    'account_name' => 'DINEFLOW RESTAURANT',
+    'template' => 'compact2',
+];
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -148,7 +155,8 @@ $staffPortalActive = 'pos';
           <div id="modal-qr-container" class="mb-3 d-none">
             <div class="p-3 border rounded bg-light d-inline-block shadow-sm">
               <img id="vietqr-img" src="" alt="Mã VietQR Thanh Toán" class="img-fluid rounded" style="max-width: 220px;">
-              <p class="small text-muted mt-2 mb-0 fw-semibold">Quét mã bằng ứng dụng Ngân hàng / MoMo</p>
+              <p id="vietqr-account-meta" class="small text-dark mt-2 mb-0 fw-bold"></p>
+              <p class="small text-muted mt-1 mb-0">Quét mã bằng ứng dụng Ngân hàng / MoMo</p>
             </div>
           </div>
 
@@ -178,6 +186,9 @@ $staffPortalActive = 'pos';
 
   <!-- Bootstrap JS Bundle -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    window.DINEFLOW_VIETQR = <?php echo json_encode($vietQrConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+  </script>
   <!-- JavaScript xử lý Thu ngân -->
   <script src="pos.js"></script>
 </body>

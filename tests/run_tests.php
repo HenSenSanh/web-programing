@@ -1663,6 +1663,148 @@ assertTest(
 );
 
 // -------------------------------------------------------------------------
+// NHÓM 10: NÂNG CẤP TẦNG 1 (RATE LIMIT, AUDIT LOG, VIETQR, CLOUDINARY, CI/CD, RENDER)
+// -------------------------------------------------------------------------
+echo "\n[NHÓM 10] Nâng cấp Tầng 1 (Rate Limit, Audit Log, VietQR, Cloudinary, CI/CD, Render):\n";
+
+require_once $appDir . '/Services/RateLimiterService.php';
+require_once $appDir . '/Services/AuditLogService.php';
+
+// T1-10.1: RateLimiterService sliding window blocks excess requests and resets after window
+$rlTempDir = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'dineflow_rl_test_' . bin2hex(random_bytes(4));
+\App\Services\RateLimiterService::setStorageDir($rlTempDir);
+$nowBase = 1700000000;
+$rl1 = \App\Services\RateLimiterService::check('test_bucket', '10.0.0.1:sess', 2, 60, $nowBase);
+$rl2 = \App\Services\RateLimiterService::check('test_bucket', '10.0.0.1:sess', 2, 60, $nowBase + 5);
+$rl3 = \App\Services\RateLimiterService::check('test_bucket', '10.0.0.1:sess', 2, 60, $nowBase + 10);
+$rlAfterWindow = \App\Services\RateLimiterService::check('test_bucket', '10.0.0.1:sess', 2, 60, $nowBase + 65);
+\App\Services\RateLimiterService::reset();
+@rmdir($rlTempDir);
+\App\Services\RateLimiterService::setStorageDir(null);
+
+assertTest(
+    "T1-10.1: RateLimiterService chặn vượt ngưỡng sliding window & mở lại sau khi hết cửa sổ",
+    $rl1['allowed'] === true && $rl1['remaining'] === 1
+        && $rl2['allowed'] === true && $rl2['remaining'] === 0
+        && $rl3['allowed'] === false && $rl3['retry_after'] >= 45
+        && $rlAfterWindow['allowed'] === true
+);
+
+// T1-10.2: AuditLogService records and lists structured audit events
+$auditRecorded = \App\Services\AuditLogService::record(
+    $db,
+    'pos_checkout',
+    'bill_payment',
+    9991,
+    ['session_status' => 'ACTIVE'],
+    ['invoice_code' => 'INV-TEST-9991', 'final_amount' => 150000],
+    1
+);
+$auditRows = \App\Services\AuditLogService::listRecent($db, 10, 'bill_payment');
+assertTest(
+    "T1-10.2: AuditLogService ghi nhận và truy vấn lịch sử thao tác nhạy cảm (JSON decoded)",
+    $auditRecorded === true
+        && count($auditRows) >= 1
+        && ($auditRows[0]['action'] ?? '') === 'pos_checkout'
+        && ($auditRows[0]['new_value']['invoice_code'] ?? '') === 'INV-TEST-9991'
+);
+
+// T1-10.3: AdminCatalogController::getAuditLogs returns JSON items + count
+$tier1Admin = new \App\Controllers\AdminCatalogController();
+$_GET['limit'] = '5';
+$_GET['entity_type'] = 'bill_payment';
+ob_start();
+$tier1Admin->getAuditLogs();
+$auditApiJson = json_decode(ob_get_clean(), true);
+unset($_GET['limit'], $_GET['entity_type']);
+assertTest(
+    "T1-10.3: GET /api/v1/admin/audit-logs trả danh sách audit_logs chuẩn JSON",
+    is_array($auditApiJson) && isset($auditApiJson['items']) && ($auditApiJson['count'] ?? 0) >= 1
+);
+
+// T1-10.4: AdminCatalogController::getQrPublicUrl detects RENDER_EXTERNAL_URL fallback
+$prevRenderUrl = getenv('RENDER_EXTERNAL_URL');
+$prevQrBaseUrl = getenv('QR_BASE_URL');
+putenv('QR_BASE_URL=');
+putenv('RENDER_EXTERNAL_URL=https://dineflow-demo.onrender.com');
+ob_start();
+$tier1Admin->getQrPublicUrl();
+$qrUrlJson = json_decode(ob_get_clean(), true);
+if ($prevRenderUrl === false) { putenv('RENDER_EXTERNAL_URL'); } else { putenv('RENDER_EXTERNAL_URL=' . $prevRenderUrl); }
+if ($prevQrBaseUrl === false) { putenv('QR_BASE_URL'); } else { putenv('QR_BASE_URL=' . $prevQrBaseUrl); }
+assertTest(
+    "T1-10.4: getQrPublicUrl tự động nhận diện RENDER_EXTERNAL_URL khi deploy trên Render",
+    is_array($qrUrlJson)
+        && ($qrUrlJson['render_url'] ?? '') === 'https://dineflow-demo.onrender.com'
+        && ($qrUrlJson['effective_url'] ?? '') === 'https://dineflow-demo.onrender.com'
+);
+
+// T1-10.5: config.php exposes vietqr and cloudinary blocks
+$tier1Config = require $appDir . '/src/config.php';
+assertTest(
+    "T1-10.5: config.php cấu hình đầy đủ nhóm vietqr & cloudinary đọc từ biến môi trường",
+    isset($tier1Config['vietqr']['bank_id'], $tier1Config['vietqr']['account_no'], $tier1Config['vietqr']['template'])
+        && array_key_exists('cloud_name', $tier1Config['cloudinary'] ?? [])
+        && array_key_exists('upload_preset', $tier1Config['cloudinary'] ?? [])
+);
+
+// T1-10.6: POS and printed invoice wire dynamic VietQR from config
+$posIndexSrc = file_get_contents($appDir . '/public/frontend/pos/index.php') ?: '';
+$posJsSrc = file_get_contents($appDir . '/public/frontend/pos/pos.js') ?: '';
+$documentsSrc = file_get_contents($appDir . '/public/documents.php') ?: '';
+assertTest(
+    "T1-10.6: POS và hóa đơn in (documents.php) sử dụng VietQR động đọc từ cấu hình",
+    strpos($posIndexSrc, 'window.DINEFLOW_VIETQR') !== false
+        && strpos($posJsSrc, 'buildVietQrUrl') !== false
+        && strpos($documentsSrc, 'buildInvoiceVietQrUrl') !== false
+        && strpos($documentsSrc, 'img.vietqr.io/image/') !== false
+);
+
+// T1-10.7: products.php includes Cloudinary upload UI + validation
+$productsSrcTier1 = file_get_contents($appDir . '/public/products.php') ?: '';
+assertTest(
+    "T1-10.7: products.php tích hợp nút tải ảnh lên Cloudinary kèm kiểm tra định dạng & dung lượng",
+    strpos($productsSrcTier1, 'cloudinary-upload-btn') !== false
+        && strpos($productsSrcTier1, 'api.cloudinary.com/v1_1/') !== false
+        && strpos($productsSrcTier1, '5 * 1024 * 1024') !== false
+);
+
+// T1-10.8: Compressed JPEG images <= 200KB + api_router rate-limit/audit/health wiring (+ repo CI/Render files when present)
+$jpgFiles = glob($appDir . '/public/frontend/img/*.jpg') ?: [];
+$allJpgLight = count($jpgFiles) >= 14;
+foreach ($jpgFiles as $jf) {
+    if (filesize($jf) > 204800) {
+        $allJpgLight = false;
+        break;
+    }
+}
+$apiRouterSrc = file_get_contents($appDir . '/public/api_router.php') ?: '';
+$repoInfraOk = true;
+if (is_dir(__DIR__ . '/../.github')) {
+    $repoInfraOk = is_file(__DIR__ . '/../.github/workflows/ci.yml')
+        && is_file(__DIR__ . '/../render.yaml')
+        && is_file(__DIR__ . '/../docker/php/entrypoint.sh')
+        && strpos((string)file_get_contents(__DIR__ . '/../docker/php/entrypoint.sh'), 'PORT_NUM') !== false;
+}
+assertTest(
+    "T1-10.8: 14 ảnh JPG đã nén nhẹ (<=200KB/ảnh), api_router bật Rate Limit/Audit/Health DB & đủ cấu hình CI/Render",
+    $allJpgLight
+        && strpos($apiRouterSrc, 'RateLimiterService::enforce') !== false
+        && strpos($apiRouterSrc, '/admin/audit-logs') !== false
+        && $repoInfraOk
+);
+
+// T1-10.9: Live Ops page renders visual Audit Logs table wired to /api/v1/admin/audit-logs
+$liveOpsHtmlSrc = file_get_contents($appDir . '/public/frontend/live-ops/index.php') ?: '';
+$liveOpsJsSrc = file_get_contents($appDir . '/public/frontend/live-ops/live-ops.js') ?: '';
+assertTest(
+    "T1-10.9: Trang Live Ops hiển thị bảng Nhật ký thao tác (Audit Logs) trực quan kèm bộ lọc",
+    strpos($liveOpsHtmlSrc, 'auditLogsTableBody') !== false
+        && strpos($liveOpsHtmlSrc, 'auditEntityFilter') !== false
+        && strpos($liveOpsJsSrc, '/api/v1/admin/audit-logs') !== false
+);
+
+// -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------
 $totalTests = $passCount + $failCount;

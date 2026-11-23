@@ -10,6 +10,25 @@ requireLogin();
 requirePermission('documents.print');
 $staffPortalActive = 'documents';
 
+$appConfig = require __DIR__ . '/../src/config.php';
+$vietQrConfig = $appConfig['vietqr'] ?? [
+    'bank_id' => 'MB',
+    'account_no' => '0905000000',
+    'account_name' => 'DINEFLOW RESTAURANT',
+    'template' => 'compact2',
+];
+
+function buildInvoiceVietQrUrl(array $cfg, float $amount, string $memo): string
+{
+    $bank = rawurlencode((string)($cfg['bank_id'] ?? 'MB'));
+    $acc = rawurlencode((string)($cfg['account_no'] ?? '0905000000'));
+    $tpl = rawurlencode((string)($cfg['template'] ?? 'compact2'));
+    $name = rawurlencode((string)($cfg['account_name'] ?? 'DINEFLOW RESTAURANT'));
+    $amt = max(0, (int)round($amount));
+    $info = rawurlencode($memo);
+    return "https://img.vietqr.io/image/{$bank}-{$acc}-{$tpl}.png?amount={$amt}&addInfo={$info}&accountName={$name}";
+}
+
 $pdo = getDatabaseConnection();
 $userId = (int)$_SESSION['user_id'];
 $message = "";
@@ -206,6 +225,24 @@ if ($ajaxAction === 'bill') {
                     </div>
                 </div>
 
+                <?php if ((float)$viewBill['final_amount'] > 0): ?>
+                    <?php
+                        $qrMemo = 'DineFlow ' . ($viewBill['table_number'] ?? 'Ban') . ' ' . $viewBill['invoice_code'];
+                        $qrImgUrl = buildInvoiceVietQrUrl($vietQrConfig, (float)$viewBill['final_amount'], $qrMemo);
+                    ?>
+                    <div class="mt-4 pt-4 border-t border-dashed border-slate-200 flex flex-col items-center text-center">
+                        <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Quét mã VietQR thanh toán</span>
+                        <img src="<?php echo htmlspecialchars($qrImgUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                             alt="Mã VietQR hóa đơn <?php echo htmlspecialchars($viewBill['invoice_code'], ENT_QUOTES, 'UTF-8'); ?>"
+                             class="mt-2 h-36 w-36 rounded-lg border border-slate-200 bg-white p-1"
+                             onerror="this.parentElement.style.display='none'">
+                        <p class="mt-1.5 text-[11px] font-semibold text-slate-700">
+                            <?php echo htmlspecialchars(($vietQrConfig['bank_id'] ?? 'MB') . ' · ' . ($vietQrConfig['account_no'] ?? '') . ' · ' . ($vietQrConfig['account_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>
+                        </p>
+                        <p class="text-[10px] text-slate-400">Nội dung: <?php echo htmlspecialchars($qrMemo, ENT_QUOTES, 'UTF-8'); ?></p>
+                    </div>
+                <?php endif; ?>
+
                 <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
                     <p class="font-semibold">Cảm ơn quý khách đã thưởng thức tại DineFlow!</p>
                     <p class="text-[10px] text-slate-400 mt-0.5">Hẹn gặp lại quý khách vào lần sau</p>
@@ -284,6 +321,15 @@ if ($ajaxAction === 'bill') {
             const billPreviewSection = document.getElementById('bill-preview-section');
             const billsTbody = document.getElementById('bills-tbody');
             const isEmbedded = new URLSearchParams(window.location.search).get('embed') === '1';
+            const vietQrCfg = <?php echo json_encode($vietQrConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
+            function buildVietQrUrl(amount, memo) {
+                const bank = encodeURIComponent(vietQrCfg.bank_id || 'MB');
+                const acc = encodeURIComponent(vietQrCfg.account_no || '0905000000');
+                const tpl = encodeURIComponent(vietQrCfg.template || 'compact2');
+                const name = encodeURIComponent(vietQrCfg.account_name || 'DINEFLOW RESTAURANT');
+                return `https://img.vietqr.io/image/${bank}-${acc}-${tpl}.png?amount=${Math.max(0, Math.round(Number(amount || 0)))}&addInfo=${encodeURIComponent(memo)}&accountName=${name}`;
+            }
 
             function escapeHtml(val) {
                 return String(val ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -370,6 +416,19 @@ if ($ajaxAction === 'bill') {
                                 <span class="font-semibold text-slate-700">${escapeHtml(bill.payment_method)}</span>
                             </div>
                         </div>
+                        ${Number(bill.final_amount || 0) > 0 ? (() => {
+                            const qrMemo = `DineFlow ${bill.table_number || 'Ban'} ${bill.invoice_code || ''}`.trim();
+                            const qrUrl = buildVietQrUrl(bill.final_amount, qrMemo);
+                            const accMeta = `${vietQrCfg.bank_id || 'MB'} · ${vietQrCfg.account_no || ''} · ${vietQrCfg.account_name || ''}`;
+                            return `
+                                <div class="mt-4 pt-4 border-t border-dashed border-slate-200 flex flex-col items-center text-center">
+                                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Quét mã VietQR thanh toán</span>
+                                    <img src="${escapeHtml(qrUrl)}" alt="Mã VietQR hóa đơn" class="mt-2 h-36 w-36 rounded-lg border border-slate-200 bg-white p-1" onerror="this.parentElement.style.display='none'">
+                                    <p class="mt-1.5 text-[11px] font-semibold text-slate-700">${escapeHtml(accMeta)}</p>
+                                    <p class="text-[10px] text-slate-400">Nội dung: ${escapeHtml(qrMemo)}</p>
+                                </div>
+                            `;
+                        })() : ''}
                         <div class="mt-6 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
                             <p class="font-semibold">Cảm ơn quý khách đã thưởng thức tại DineFlow!</p>
                             <p class="text-[10px] text-slate-400 mt-0.5">Hẹn gặp lại quý khách vào lần sau</p>

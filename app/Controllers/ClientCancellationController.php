@@ -2,6 +2,8 @@
 
 namespace App\Controllers;
 
+require_once __DIR__ . '/../Services/AuditLogService.php';
+
 use App\Core\Database;
 use PDO;
 use Throwable;
@@ -111,6 +113,14 @@ class ClientCancellationController
             }
 
             $this->commitWriteTransaction($db);
+            \App\Services\AuditLogService::record(
+                $db,
+                'client_cancel_item',
+                'order_item',
+                $orderItemId,
+                ['status' => $item['status'], 'subtotal' => (float)$item['subtotal']],
+                ['status' => 'CANCELLED', 'order_id' => (int)$item['order_id'], 'session_id' => $session['id']]
+            );
             $this->respond(200, [
                 'status' => 'success',
                 'order_item_id' => $orderItemId,

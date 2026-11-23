@@ -253,7 +253,17 @@ function loadSessionDetailsFromInput() {
   }
 }
 
-// 5. Bật/Tắt mã VietQR động chuẩn Napas 247 theo số tiền sau VAT 8%
+// 5. Bật/Tắt mã VietQR động chuẩn Napas 247 theo số tiền sau VAT 8% (đọc cấu hình từ .env)
+function buildVietQrUrl(amount, addInfoText) {
+  const cfg = window.DINEFLOW_VIETQR || {};
+  const bankId = encodeURIComponent(cfg.bank_id || 'MB');
+  const accountNo = encodeURIComponent(cfg.account_no || '0905000000');
+  const template = encodeURIComponent(cfg.template || 'compact2');
+  const accountName = encodeURIComponent(cfg.account_name || 'DINEFLOW RESTAURANT');
+  const addInfo = encodeURIComponent(addInfoText);
+  return `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${Math.max(0, Math.round(amount))}&addInfo=${addInfo}&accountName=${accountName}`;
+}
+
 function togglePaymentMethod() {
   const isVietQR = document.getElementById('payVietQR').checked;
   const qrContainer = document.getElementById('modal-qr-container');
@@ -262,9 +272,13 @@ function togglePaymentMethod() {
     qrContainer.classList.remove('d-none');
     const amount = Math.round(Number(currentBillData.final_amount || 0));
     const tableLabel = formatTableLabel(currentBillData.table_number, currentBillData.table_id);
-    const addInfo = encodeURIComponent(`DineFlow ${tableLabel} S${currentBillData.session_id}`);
-    document.getElementById('vietqr-img').src =
-      `https://img.vietqr.io/image/MB-0905000000-compact.png?amount=${amount}&addInfo=${addInfo}`;
+    const memo = `DineFlow ${tableLabel} S${currentBillData.session_id}`;
+    document.getElementById('vietqr-img').src = buildVietQrUrl(amount, memo);
+    const infoEl = document.getElementById('vietqr-account-meta');
+    if (infoEl) {
+      const cfg = window.DINEFLOW_VIETQR || {};
+      infoEl.textContent = `${cfg.bank_id || 'MB'} · ${cfg.account_no || '0905000000'} · ${cfg.account_name || 'DINEFLOW RESTAURANT'}`;
+    }
   } else {
     qrContainer.classList.add('d-none');
   }

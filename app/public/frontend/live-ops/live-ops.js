@@ -444,12 +444,96 @@ function toggleAutoRefresh() {
     updateCountdownUI();
 }
 
+function escapeAuditHtml(val) {
+    return String(val ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+}
+
+function formatAuditActionBadge(action) {
+    const map = {
+        pos_checkout: ['Chốt hóa đơn POS', 'bg-emerald-50 text-emerald-700 border-emerald-200'],
+        kds_status_change: ['Đổi trạng thái bếp', 'bg-amber-50 text-amber-700 border-amber-200'],
+        client_cancel_item: ['Khách hủy món', 'bg-rose-50 text-rose-700 border-rose-200'],
+        create: ['Tạo mới', 'bg-indigo-50 text-indigo-700 border-indigo-200'],
+        update: ['Cập nhật', 'bg-sky-50 text-sky-700 border-sky-200'],
+        toggle_availability: ['Đổi trạng thái bán', 'bg-purple-50 text-purple-700 border-purple-200'],
+        update_toppings: ['Cập nhật topping', 'bg-slate-100 text-slate-700 border-slate-200'],
+    };
+    const [label, cls] = map[action] || [action || 'Thao tác', 'bg-slate-100 text-slate-700 border-slate-200'];
+    return `<span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-semibold border ${cls}">${escapeAuditHtml(label)}</span>`;
+}
+
+function formatAuditSummary(log) {
+    const oldVal = log.old_value;
+    const newVal = log.new_value;
+    if (log.action === 'pos_checkout' && newVal && typeof newVal === 'object') {
+        const amt = Number(newVal.final_amount || 0).toLocaleString('vi-VN') + ' đ';
+        return `HĐ <strong>${escapeAuditHtml(newVal.invoice_code || '')}</strong> · ${escapeAuditHtml(amt)} · ${escapeAuditHtml(newVal.payment_method || 'CASH')}`;
+    }
+    if (log.action === 'kds_status_change' && newVal && typeof newVal === 'object') {
+        const fromSt = oldVal && typeof oldVal === 'object' ? (oldVal.status || '?') : '?';
+        return `<span class="font-mono">${escapeAuditHtml(fromSt)}</span> → <span class="font-mono font-bold text-slate-900">${escapeAuditHtml(newVal.status || '')}</span>`;
+    }
+    if (log.action === 'client_cancel_item' && newVal && typeof newVal === 'object') {
+        const sub = oldVal && typeof oldVal === 'object' ? Number(oldVal.subtotal || 0).toLocaleString('vi-VN') + ' đ' : '';
+        return `Hủy món PENDING → <strong>CANCELLED</strong>${sub ? ' (' + escapeAuditHtml(sub) + ')' : ''}`;
+    }
+    if (newVal && typeof newVal === 'object') {
+        const keys = Object.keys(newVal).slice(0, 4);
+        return keys.map((k) => `<span class="text-slate-500">${escapeAuditHtml(k)}:</span> <strong>${escapeAuditHtml(typeof newVal[k] === 'object' ? JSON.stringify(newVal[k]) : newVal[k])}</strong>`).join(' · ');
+    }
+    return escapeAuditHtml(typeof newVal === 'string' ? newVal : JSON.stringify(newVal ?? ''));
+}
+
+async function loadAuditLogs() {
+    const tbody = document.getElementById('auditLogsTableBody');
+    const badge = document.getElementById('auditLogsCountBadge');
+    const filterEl = document.getElementById('auditEntityFilter');
+    if (!tbody) return;
+
+    const entityType = filterEl ? filterEl.value : '';
+    const qs = new URLSearchParams({ limit: '40' });
+    if (entityType) qs.set('entity_type', entityType);
+
+    try {
+        const res = await fetch(`/api/v1/admin/audit-logs?${qs.toString()}`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        if (badge) badge.textContent = String(items.length);
+
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-5 text-center text-slate-400 italic">Chưa có nhật ký thao tác nào khớp bộ lọc.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = items.map((log) => {
+            const actor = log.actor_name || log.actor_email || (log.actor_id ? `User #${log.actor_id}` : 'Khách tại bàn');
+            const entityLabel = `${log.entity_type || ''} #${log.entity_id || ''}`;
+            return `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="px-4 py-2.5 whitespace-nowrap font-mono text-[11px] text-slate-500">${escapeAuditHtml(log.created_at || '')}</td>
+                    <td class="px-4 py-2.5 whitespace-nowrap font-semibold text-slate-800">${escapeAuditHtml(actor)}</td>
+                    <td class="px-4 py-2.5 whitespace-nowrap">${formatAuditActionBadge(log.action)}</td>
+                    <td class="px-4 py-2.5 whitespace-nowrap font-mono text-[11px] text-slate-600">${escapeAuditHtml(entityLabel)}</td>
+                    <td class="px-4 py-2.5 text-slate-700">${formatAuditSummary(log)}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-4 text-center text-rose-600">Không tải được nhật ký thao tác: ${escapeAuditHtml(err.message)}</td></tr>`;
+    }
+}
+
 async function manualRefresh() {
     const icon = document.getElementById('refreshIcon');
     if (icon) icon.classList.add('animate-spin');
     countdown = 5;
     updateCountdownUI();
-    await pollLiveOpsAndSla();
+    await Promise.all([pollLiveOpsAndSla(), loadAuditLogs()]);
     if (icon) {
         setTimeout(() => icon.classList.remove('animate-spin'), 600);
     }
@@ -474,12 +558,13 @@ function startAutoRefreshLoop() {
 // Initialize on page load
 (async function init() {
     await loadMenuDropdowns();
-    await pollLiveOpsAndSla();
+    await Promise.all([pollLiveOpsAndSla(), loadAuditLogs()]);
     startAutoRefreshLoop();
 })();
 
 window.addEventListener('message', (event) => {
     if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
         pollLiveOpsAndSla();
+        loadAuditLogs();
     }
 });

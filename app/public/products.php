@@ -9,6 +9,12 @@ requireLogin();
 requirePermission('products.view');
 $staffPortalActive = 'products';
 $canManageMenu = hasPermission((int)$_SESSION['user_id'], 'products.manage');
+$appConfig = require __DIR__ . '/../src/config.php';
+$cloudinaryConfig = $appConfig['cloudinary'] ?? [
+    'cloud_name' => '',
+    'upload_preset' => '',
+    'folder' => 'dineflow/menu',
+];
 
 $pdo = getDatabaseConnection();
 $keyword = trim($_GET['keyword'] ?? '');
@@ -396,10 +402,20 @@ if (($_GET['ajax'] ?? '') === 'table') {
                     </div>
                 </div>
                 <div>
-                    <label for="edit-image-url" class="mb-1 block text-xs font-semibold">Đường dẫn ảnh (tuỳ chọn)</label>
+                    <label for="edit-image-url" class="mb-1 block text-xs font-semibold">Ảnh món ăn (URL hoặc tải lên Cloudinary)</label>
                     <div class="flex items-center gap-3">
                         <div id="edit-image-preview" class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-slate-100 text-lg">🍽️</div>
-                        <input id="edit-image-url" name="image_url" maxlength="255" placeholder="VD: /frontend/img/mi_cay.jpg hoặc https://..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        <input id="edit-image-url" name="image_url" maxlength="255" placeholder="VD: /frontend/img/mi_cay.jpg hoặc https://res.cloudinary.com/..." class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    </div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2">
+                        <input id="cloudinary-file-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden">
+                        <button type="button" id="cloudinary-upload-btn"
+                                class="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
+                            ☁️ Tải ảnh lên Cloudinary
+                        </button>
+                        <span id="cloudinary-upload-status" class="text-[11px] text-slate-500">
+                            Hỗ trợ JPG/PNG/WebP (tối đa 5MB)
+                        </span>
                     </div>
                 </div>
                 <div>
@@ -900,6 +916,80 @@ if (($_GET['ajax'] ?? '') === 'table') {
                 dialog.showModal();
             });
             document.querySelectorAll('.close-menu-dialog').forEach((button) => button.addEventListener('click', () => dialog.close()));
+
+            const cloudinaryCfg = <?php echo json_encode($cloudinaryConfig, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+            const cloudUploadBtn = document.getElementById('cloudinary-upload-btn');
+            const cloudFileInput = document.getElementById('cloudinary-file-input');
+            const cloudStatusEl = document.getElementById('cloudinary-upload-status');
+
+            if (cloudUploadBtn && cloudFileInput) {
+                cloudUploadBtn.addEventListener('click', () => {
+                    if (!cloudinaryCfg.cloud_name || !cloudinaryCfg.upload_preset) {
+                        if (cloudStatusEl) {
+                            cloudStatusEl.textContent = 'Chưa cấu hình CLOUDINARY_CLOUD_NAME & CLOUDINARY_UPLOAD_PRESET trong .env (có thể dán trực tiếp link ảnh).';
+                            cloudStatusEl.className = 'text-[11px] font-semibold text-amber-700';
+                        }
+                        return;
+                    }
+                    cloudFileInput.value = '';
+                    cloudFileInput.click();
+                });
+
+                cloudFileInput.addEventListener('change', async () => {
+                    const file = cloudFileInput.files && cloudFileInput.files[0];
+                    if (!file) return;
+                    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        if (cloudStatusEl) {
+                            cloudStatusEl.textContent = 'Chỉ hỗ trợ ảnh JPG, PNG hoặc WebP.';
+                            cloudStatusEl.className = 'text-[11px] font-semibold text-rose-700';
+                        }
+                        return;
+                    }
+                    if (file.size > 5 * 1024 * 1024) {
+                        if (cloudStatusEl) {
+                            cloudStatusEl.textContent = 'Ảnh vượt quá giới hạn 5MB.';
+                            cloudStatusEl.className = 'text-[11px] font-semibold text-rose-700';
+                        }
+                        return;
+                    }
+
+                    cloudUploadBtn.disabled = true;
+                    if (cloudStatusEl) {
+                        cloudStatusEl.textContent = 'Đang tải ảnh lên Cloudinary…';
+                        cloudStatusEl.className = 'text-[11px] font-semibold text-indigo-700';
+                    }
+                    try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        fd.append('upload_preset', cloudinaryCfg.upload_preset);
+                        if (cloudinaryCfg.folder) {
+                            fd.append('folder', cloudinaryCfg.folder);
+                        }
+                        const uploadRes = await fetch(`https://api.cloudinary.com/v1_1/${encodeURIComponent(cloudinaryCfg.cloud_name)}/image/upload`, {
+                            method: 'POST',
+                            body: fd,
+                        });
+                        const uploadData = await uploadRes.json();
+                        if (!uploadRes.ok || !uploadData.secure_url) {
+                            throw new Error(uploadData?.error?.message || `Upload thất bại (HTTP ${uploadRes.status})`);
+                        }
+                        form.elements.image_url.value = uploadData.secure_url;
+                        updateImagePreview(uploadData.secure_url);
+                        if (cloudStatusEl) {
+                            cloudStatusEl.textContent = 'Đã tải ảnh lên Cloudinary thành công!';
+                            cloudStatusEl.className = 'text-[11px] font-semibold text-emerald-700';
+                        }
+                    } catch (err) {
+                        if (cloudStatusEl) {
+                            cloudStatusEl.textContent = err.message || 'Không thể tải ảnh lên Cloudinary.';
+                            cloudStatusEl.className = 'text-[11px] font-semibold text-rose-700';
+                        }
+                    } finally {
+                        cloudUploadBtn.disabled = false;
+                    }
+                });
+            }
 
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();

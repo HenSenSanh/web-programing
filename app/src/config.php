@@ -30,8 +30,10 @@ if (!function_exists('envValue')) {
 return [
     "app" => [
         "name" => envValue("APP_NAME", "DineFlow QRDine"),
-        "url" => envValue("APP_URL", "http://localhost:8080"),
+        "env" => envValue("APP_ENV", "local"),
+        "url" => rtrim(envValue("APP_URL", envValue("RENDER_EXTERNAL_URL", "http://localhost:8080")), '/'),
         "qr_base_url" => rtrim(envValue("QR_BASE_URL", ""), '/'),
+        "render_external_url" => rtrim(envValue("RENDER_EXTERNAL_URL", ""), '/'),
         "session_name" => envValue("SESSION_NAME", "DINEFLOW_SESSION"),
     ],
     "db" => [
@@ -40,6 +42,17 @@ return [
         "database" => envValue("DB_DATABASE", "dineflow_db"),
         "username" => envValue("DB_USERNAME", "dineflow"),
         "password" => envValue("DB_PASSWORD", "dineflow123"),
+    ],
+    "vietqr" => [
+        "bank_id" => preg_replace('/[^A-Za-z0-9]/', '', envValue("VIETQR_BANK_ID", "MB")) ?: "MB",
+        "account_no" => preg_replace('/[^A-Za-z0-9]/', '', envValue("VIETQR_ACCOUNT_NO", "0905000000")) ?: "0905000000",
+        "account_name" => trim(envValue("VIETQR_ACCOUNT_NAME", "DINEFLOW RESTAURANT")),
+        "template" => preg_replace('/[^A-Za-z0-9_-]/', '', envValue("VIETQR_TEMPLATE", "compact2")) ?: "compact2",
+    ],
+    "cloudinary" => [
+        "cloud_name" => preg_replace('/[^A-Za-z0-9_-]/', '', envValue("CLOUDINARY_CLOUD_NAME", "")),
+        "upload_preset" => trim(envValue("CLOUDINARY_UPLOAD_PRESET", "")),
+        "folder" => trim(envValue("CLOUDINARY_FOLDER", "dineflow/menu")),
     ],
     "smtp" => [
         "host" => envValue("SMTP_HOST", "smtp.gmail.com"),
