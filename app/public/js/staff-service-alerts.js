@@ -9,6 +9,7 @@
   let hasLoadedOnce = false;
   let popoverOpen = false;
   let requests = [];
+  let lastFetchedAt = Date.now();
   let toastContainer = null;
 
   function escapeHtml(value) {
@@ -17,11 +18,24 @@
     }[ch]));
   }
 
-  function formatRelativeTime(dateStr) {
-    if (!dateStr) return '';
-    const parsed = new Date(String(dateStr).replace(' ', 'T'));
-    if (Number.isNaN(parsed.getTime())) return String(dateStr);
-    const diffSec = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+  function formatRelativeTime(req) {
+    let diffSec = null;
+    if (req && typeof req.age_seconds === 'number' && Number.isFinite(req.age_seconds)) {
+      const elapsedSinceFetch = Math.max(0, Math.floor((Date.now() - lastFetchedAt) / 1000));
+      diffSec = Math.max(0, Math.floor(req.age_seconds) + elapsedSinceFetch);
+    } else if (req && req.created_at_iso) {
+      const parsedIso = new Date(req.created_at_iso);
+      if (!Number.isNaN(parsedIso.getTime())) {
+        diffSec = Math.max(0, Math.floor((Date.now() - parsedIso.getTime()) / 1000));
+      }
+    } else if (req && req.created_at) {
+      const raw = String(req.created_at).replace(' ', 'T');
+      const parsed = new Date(/[zZ]|[+-]\d{2}:\d{2}$/.test(raw) ? raw : `${raw}Z`);
+      if (!Number.isNaN(parsed.getTime())) {
+        diffSec = Math.max(0, Math.floor((Date.now() - parsed.getTime()) / 1000));
+      }
+    }
+    if (diffSec === null) return '';
     if (diffSec < 45) return 'Vừa xong';
     const mins = Math.floor(diffSec / 60);
     if (mins < 60) return `${mins} phút trước`;
@@ -126,7 +140,7 @@
             <span class="service-bell-type">${escapeHtml(req.request_label)}</span>
           </div>
           <p class="service-bell-msg">${escapeHtml(req.message)}</p>
-          <span class="service-bell-time">${escapeHtml(formatRelativeTime(req.created_at))}</span>
+          <span class="service-bell-time">${escapeHtml(formatRelativeTime(req))}</span>
         </div>
         <button type="button" class="service-bell-resolve" data-resolve-id="${Number(req.id)}">✓ Đã xử lý</button>
       </div>
@@ -152,6 +166,7 @@
 
       knownIds = new Set(nextList.map((item) => Number(item.id)));
       hasLoadedOnce = true;
+      lastFetchedAt = Date.now();
       requests = nextList;
       render();
     } catch (_) {

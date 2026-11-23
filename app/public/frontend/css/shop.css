@@ -1664,10 +1664,8 @@ body.panel-open {
     gap: 6px;
   }
 
-  .orders-toggle-label {
-    max-width: 48px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .orders-toggle-extra {
+    display: none;
   }
 
   .cart-bar {

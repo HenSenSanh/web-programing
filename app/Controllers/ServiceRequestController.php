@@ -140,6 +140,7 @@ class ServiceRequestController
                 $nowStr,
             ]);
             $requestId = (int)$db->lastInsertId();
+            $timeMeta = $this->buildTimeMeta($nowStr, $now);
 
             $this->respond(201, [
                 'status' => 'success',
@@ -153,6 +154,8 @@ class ServiceRequestController
                     'message' => $message,
                     'status' => 'PENDING',
                     'created_at' => $nowStr,
+                    'created_at_iso' => $timeMeta['created_at_iso'],
+                    'age_seconds' => $timeMeta['age_seconds'],
                 ],
                 'message' => 'Đã gửi yêu cầu hỗ trợ tới nhân viên!',
             ]);
@@ -183,18 +186,23 @@ class ServiceRequestController
         $stmt->execute([$session['id']]);
         $rows = [];
         $pendingCount = 0;
+        $now = time();
         foreach ($stmt->fetchAll() as $row) {
             $type = (string)($row['request_type'] ?? 'CALL_STAFF');
             if (($row['status'] ?? '') === 'PENDING') {
                 $pendingCount++;
             }
+            $createdAt = (string)$row['created_at'];
+            $timeMeta = $this->buildTimeMeta($createdAt, $now);
             $rows[] = [
                 'id' => (int)$row['id'],
                 'request_type' => $type,
                 'request_label' => self::REQUEST_LABELS[$type] ?? $type,
                 'message' => (string)$row['message'],
                 'status' => (string)$row['status'],
-                'created_at' => (string)$row['created_at'],
+                'created_at' => $createdAt,
+                'created_at_iso' => $timeMeta['created_at_iso'],
+                'age_seconds' => $timeMeta['age_seconds'],
                 'resolved_at' => $row['resolved_at'] ?? null,
             ];
         }
@@ -229,8 +237,11 @@ class ServiceRequestController
 
         $pendingCount = (int)$db->query("SELECT COUNT(*) FROM service_requests WHERE status = 'PENDING'")->fetchColumn();
         $rows = [];
+        $now = time();
         foreach (($stmt ? $stmt->fetchAll() : []) as $row) {
             $type = (string)($row['request_type'] ?? 'CALL_STAFF');
+            $createdAt = (string)$row['created_at'];
+            $timeMeta = $this->buildTimeMeta($createdAt, $now);
             $rows[] = [
                 'id' => (int)$row['id'],
                 'session_id' => (string)$row['session_id'],
@@ -240,7 +251,9 @@ class ServiceRequestController
                 'request_label' => self::REQUEST_LABELS[$type] ?? $type,
                 'message' => (string)$row['message'],
                 'status' => (string)$row['status'],
-                'created_at' => (string)$row['created_at'],
+                'created_at' => $createdAt,
+                'created_at_iso' => $timeMeta['created_at_iso'],
+                'age_seconds' => $timeMeta['age_seconds'],
                 'resolved_at' => $row['resolved_at'] ?? null,
                 'resolved_by_name' => $row['resolved_by_name'] ?: ($row['resolved_by_username'] ?: null),
             ];
@@ -331,6 +344,19 @@ class ServiceRequestController
         $stmt->execute([$cleanToken]);
         $row = $stmt->fetch();
         return is_array($row) ? $row : null;
+    }
+
+    private function buildTimeMeta(string $createdAt, ?int $now = null): array
+    {
+        $nowTs = $now ?? time();
+        $ts = strtotime($createdAt);
+        if ($ts === false) {
+            $ts = $nowTs;
+        }
+        return [
+            'created_at_iso' => date('c', $ts),
+            'age_seconds' => max(0, $nowTs - $ts),
+        ];
     }
 
     private function respond(int $statusCode, array $payload): void

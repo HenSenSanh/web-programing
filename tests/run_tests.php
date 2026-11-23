@@ -1597,6 +1597,71 @@ $db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$srSessId]);
 $db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$srTableId]);
 unset($_SESSION['user_id']);
 
+// Final Review Fix Pass Tests (RED -> GREEN)
+// UX-9.18: ServiceRequestController returns timezone-safe age_seconds & created_at_iso (prevents +7h skew)
+$tzSuffix = substr(uniqid('', true), 0, 8);
+$tzSessId = 'sess_tz_' . $tzSuffix;
+$tzTok = 'tok_tz_' . $tzSuffix;
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'OCCUPIED')")->execute(['Bàn TZ ' . $tzSuffix]);
+$tzTableId = (int)$db->lastInsertId();
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$tzSessId, $tzTableId, $tzTok]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")->execute([$tzSessId, $tzTableId]);
+
+ob_start();
+$srCtrl->createClientRequest($tzTok, ['request_type' => 'CALL_STAFF']);
+$tzCreateOut = json_decode(ob_get_clean(), true);
+$_SESSION['user_id'] = $matrixUserIds['ADMIN'];
+ob_start();
+$srCtrl->listStaffRequests('PENDING');
+$tzListOut = json_decode(ob_get_clean(), true);
+$tzRow = null;
+foreach (($tzListOut['requests'] ?? []) as $r) {
+    if (($r['session_id'] ?? '') === $tzSessId) { $tzRow = $r; break; }
+}
+$alertsJsSrc = file_get_contents($appDir . '/public/js/staff-service-alerts.js') ?: '';
+assertTest(
+    "UX-9.18: ServiceRequest trả về age_seconds (0..15s) và created_at_iso có múi giờ để tránh lệch 7 giờ",
+    isset($tzCreateOut['request']['age_seconds'], $tzCreateOut['request']['created_at_iso'])
+        && is_int($tzRow['age_seconds'] ?? null)
+        && $tzRow['age_seconds'] >= 0
+        && $tzRow['age_seconds'] <= 15
+        && preg_match('/([+-]\d{2}:\d{2}|Z)$/', (string)($tzRow['created_at_iso'] ?? '')) === 1
+        && strpos($alertsJsSrc, 'age_seconds') !== false
+);
+$db->prepare("DELETE FROM service_requests WHERE session_id = ?")->execute([$tzSessId]);
+$db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$tzSessId]);
+$db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$tzTableId]);
+unset($_SESSION['user_id']);
+
+// UX-9.19: menu.js checks live server cart before submitOrder & avoids redundant post-checkout POST /cart
+$menuJsSrc = file_get_contents($appDir . '/public/frontend/js/menu.js') ?: '';
+assertTest(
+    "UX-9.19: menu.js kiểm tra lại giỏ hàng từ server trước khi submitOrder và không ghi đè syncCart([]) sau checkout",
+    strpos($menuJsSrc, 'fetchLatestCartSnapshot') !== false
+        && preg_match('/await\s+syncCart\(\);\s*await\s+loadSentOrders\(\);/', $menuJsSrc) !== 1
+);
+
+// UX-9.20: products.php inline modal error banners, toppingCatalogLoaded guard & id assignment after create
+$productsPhpSrc = file_get_contents($appDir . '/public/products.php') ?: '';
+assertTest(
+    "UX-9.20: products.php có lỗi inline trong modal, bảo vệ toppingCatalogLoaded và gán id ngay sau tạo món",
+    strpos($productsPhpSrc, 'id="menu-dialog-error"') !== false
+        && strpos($productsPhpSrc, 'id="topping-dialog-error"') !== false
+        && strpos($productsPhpSrc, 'toppingCatalogLoaded') !== false
+        && strpos($productsPhpSrc, 'form.elements.id.value = String(targetItemId)') !== false
+);
+
+// UX-9.21: Mobile <=420px hides secondary part of 'Đơn đã gọi' cleanly instead of mid-word truncation
+$menuHtmlSrc = file_get_contents($appDir . '/public/frontend/menu/index.html') ?: '';
+$shopCssSrc = file_get_contents($appDir . '/public/frontend/css/shop.css') ?: '';
+assertTest(
+    "UX-9.21: Nút Đơn đã gọi trên mobile nhỏ rút gọn sạch thành 'Đơn' thay vì cắt cụt giữa chữ",
+    strpos($menuHtmlSrc, 'orders-toggle-extra') !== false
+        && strpos($shopCssSrc, '.orders-toggle-extra') !== false
+        && strpos($shopCssSrc, 'max-width: 48px') === false
+);
+
 // -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------

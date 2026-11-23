@@ -417,6 +417,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
                     </div>
                     <div id="modal-dish-toppings" class="grid grid-cols-1 gap-2 sm:grid-cols-2"></div>
                 </div>
+                <div id="menu-dialog-error" class="hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert"></div>
                 <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
                     <button type="button" class="close-menu-dialog rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">Hủy</button>
                     <button type="submit" id="menu-dialog-submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Lưu thay đổi</button>
@@ -440,8 +441,9 @@ if (($_GET['ajax'] ?? '') === 'table') {
                 </div>
                 <div>
                     <label for="topping-price-input" class="mb-1 block text-xs font-semibold">Giá thêm (đ)</label>
-                    <input id="topping-price-input" name="price" type="number" min="0" step="500" required placeholder="VD: 10000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                    <input id="topping-price-input" name="price" type="number" min="0" step="1" required placeholder="VD: 10000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
                 </div>
+                <div id="topping-dialog-error" class="hidden rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert"></div>
                 <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
                     <button type="button" class="close-topping-dialog rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200">Hủy</button>
                     <button type="submit" id="topping-dialog-submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Lưu topping</button>
@@ -473,7 +475,21 @@ if (($_GET['ajax'] ?? '') === 'table') {
         };
         let menuCatalogItems = [];
         let toppingCatalog = [];
+        let toppingCatalogLoaded = false;
+        let toppingCatalogPromise = null;
         let toastTimer;
+
+        function setDialogError(elementId, message = '') {
+            const box = document.getElementById(elementId);
+            if (!box) return;
+            if (!message) {
+                box.textContent = '';
+                box.classList.add('hidden');
+            } else {
+                box.textContent = message;
+                box.classList.remove('hidden');
+            }
+        }
 
         function escapeHtml(value) {
             return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -720,6 +736,10 @@ if (($_GET['ajax'] ?? '') === 'table') {
         function renderModalDishToppings(assignedIds = []) {
             const box = document.getElementById('modal-dish-toppings');
             if (!box) return;
+            if (!toppingCatalogLoaded) {
+                box.innerHTML = '<p class="text-xs text-amber-700 sm:col-span-2">Không tải được danh sách topping — hệ thống sẽ giữ nguyên topping cũ của món khi lưu.</p>';
+                return;
+            }
             if (!toppingCatalog.length) {
                 box.innerHTML = '<p class="text-xs text-slate-500 sm:col-span-2">Chưa có topping nào. Hãy thêm topping ở mục Kho Topping.</p>';
                 return;
@@ -748,27 +768,32 @@ if (($_GET['ajax'] ?? '') === 'table') {
         }
 
         async function loadToppings() {
-            try {
-                const response = await fetch(`${apiBase}/admin/menu-catalog`, { headers: { Accept: 'application/json' } });
-                const data = await readResponse(response);
-                toppingCatalog = data.available_toppings || [];
-                menuCatalogItems = (data.categories || []).flatMap((category) =>
-                    (category.items || []).map((item) => ({ ...item, category_name: category.name }))
-                );
-                const currentId = toppingMenuItemSelect.value;
-                toppingMenuItemSelect.innerHTML = menuCatalogItems.map((item) => {
-                    const count = Array.isArray(item.toppings) ? item.toppings.length : 0;
-                    return `<option value="${Number(item.id)}">${escapeHtml(item.category_name)} · ${escapeHtml(item.name)} (${count} topping)</option>`;
-                }).join('');
-                if (menuCatalogItems.some((item) => String(item.id) === currentId)) {
-                    toppingMenuItemSelect.value = currentId;
+            toppingCatalogPromise = (async () => {
+                try {
+                    const response = await fetch(`${apiBase}/admin/menu-catalog`, { headers: { Accept: 'application/json' } });
+                    const data = await readResponse(response);
+                    toppingCatalog = data.available_toppings || [];
+                    menuCatalogItems = (data.categories || []).flatMap((category) =>
+                        (category.items || []).map((item) => ({ ...item, category_name: category.name }))
+                    );
+                    toppingCatalogLoaded = true;
+                    const currentId = toppingMenuItemSelect.value;
+                    toppingMenuItemSelect.innerHTML = menuCatalogItems.map((item) => {
+                        const count = Array.isArray(item.toppings) ? item.toppings.length : 0;
+                        return `<option value="${Number(item.id)}">${escapeHtml(item.category_name)} · ${escapeHtml(item.name)} (${count} topping)</option>`;
+                    }).join('');
+                    if (menuCatalogItems.some((item) => String(item.id) === currentId)) {
+                        toppingMenuItemSelect.value = currentId;
+                    }
+                    renderToppingCatalogList();
+                    renderToppingsForSelectedItem();
+                } catch (error) {
+                    toppingCatalogLoaded = false;
+                    const container = document.getElementById('topping-list');
+                    if (container) container.innerHTML = `<p class="text-xs text-rose-700">Không tải được topping: ${escapeHtml(error.message)}</p>`;
                 }
-                renderToppingCatalogList();
-                renderToppingsForSelectedItem();
-            } catch (error) {
-                const container = document.getElementById('topping-list');
-                if (container) container.innerHTML = `<p class="text-xs text-rose-700">Không tải được topping: ${escapeHtml(error.message)}</p>`;
-            }
+            })();
+            return toppingCatalogPromise;
         }
 
         if (filterFormEl) {
@@ -829,25 +854,30 @@ if (($_GET['ajax'] ?? '') === 'table') {
             }
 
             if (openCreateBtn) {
-                openCreateBtn.addEventListener('click', () => {
+                openCreateBtn.addEventListener('click', async () => {
                     form.reset();
                     form.elements.id.value = '';
+                    setDialogError('menu-dialog-error', '');
                     if (menuCategories.length > 0) {
                         form.elements.category_id.value = menuCategories[0].id;
                     }
                     updateImagePreview('');
-                    renderModalDishToppings([]);
                     kicker.textContent = 'Thêm món mới';
                     title.textContent = 'Tạo món ăn mới trong thực đơn';
                     submitBtn.textContent = 'Tạo món';
+                    if (!toppingCatalogLoaded && toppingCatalogPromise) {
+                        await toppingCatalogPromise;
+                    }
+                    renderModalDishToppings([]);
                     dialog.showModal();
                 });
             }
 
-            document.addEventListener('click', (event) => {
+            document.addEventListener('click', async (event) => {
                 const button = event.target.closest('.edit-menu-item');
                 if (!button) return;
                 const item = JSON.parse(button.dataset.menuItem || '{}');
+                setDialogError('menu-dialog-error', '');
                 form.elements.id.value = item.id;
                 form.elements.name.value = item.name || '';
                 form.elements.category_id.value = item.category_id;
@@ -856,6 +886,9 @@ if (($_GET['ajax'] ?? '') === 'table') {
                 form.elements.description.value = item.description || '';
                 form.elements.is_hot.checked = Boolean(item.is_hot);
                 updateImagePreview(item.image_url || '');
+                if (!toppingCatalogLoaded) {
+                    await (toppingCatalogPromise || loadToppings());
+                }
                 const catalogMatch = menuCatalogItems.find((m) => Number(m.id) === Number(item.id));
                 const assignedIds = catalogMatch && Array.isArray(catalogMatch.toppings)
                     ? catalogMatch.toppings.map((t) => Number(t.id))
@@ -870,6 +903,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
 
             form.addEventListener('submit', async (event) => {
                 event.preventDefault();
+                setDialogError('menu-dialog-error', '');
                 const itemId = form.elements.id.value.trim();
                 const payload = {
                     name: form.elements.name.value.trim(),
@@ -894,6 +928,9 @@ if (($_GET['ajax'] ?? '') === 'table') {
                     const saved = await readResponse(response);
                     const targetItemId = Number(itemId || saved.id || 0);
                     if (targetItemId > 0) {
+                        form.elements.id.value = String(targetItemId);
+                    }
+                    if (targetItemId > 0 && toppingCatalogLoaded) {
                         const topRes = await fetch(`${apiBase}/admin/menu-items/${encodeURIComponent(targetItemId)}/toppings`, {
                             method: 'PATCH',
                             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -908,7 +945,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
                     ]);
                     showToast(itemId ? 'Đã cập nhật món và topping.' : 'Đã thêm món mới.');
                 } catch (error) {
-                    showToast(error.message, true);
+                    setDialogError('menu-dialog-error', error.message || 'Không thể lưu thông tin món ăn.');
                 } finally {
                     saveButton.disabled = false;
                 }
@@ -925,6 +962,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
                 openCreateToppingBtn.addEventListener('click', () => {
                     toppingForm.reset();
                     toppingForm.elements.id.value = '';
+                    setDialogError('topping-dialog-error', '');
                     toppingDialogTitle.textContent = 'Thêm topping mới';
                     toppingDialogSubmit.textContent = 'Tạo topping';
                     toppingDialog.showModal();
@@ -935,6 +973,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
                 const btn = event.target.closest('.edit-topping-btn');
                 if (!btn || !toppingDialog || !toppingForm) return;
                 const top = JSON.parse(btn.dataset.topping || '{}');
+                setDialogError('topping-dialog-error', '');
                 toppingForm.elements.id.value = top.id || '';
                 toppingForm.elements.name.value = top.name || '';
                 toppingForm.elements.price.value = top.price ?? 0;
@@ -950,6 +989,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
             if (toppingForm) {
                 toppingForm.addEventListener('submit', async (event) => {
                     event.preventDefault();
+                    setDialogError('topping-dialog-error', '');
                     const topId = toppingForm.elements.id.value.trim();
                     const payload = {
                         name: toppingForm.elements.name.value.trim(),
@@ -969,7 +1009,7 @@ if (($_GET['ajax'] ?? '') === 'table') {
                         await loadToppings();
                         showToast(topId ? 'Đã cập nhật topping.' : 'Đã thêm topping mới.');
                     } catch (error) {
-                        showToast(error.message, true);
+                        setDialogError('topping-dialog-error', error.message || 'Không thể lưu topping.');
                     } finally {
                         toppingDialogSubmit.disabled = false;
                     }

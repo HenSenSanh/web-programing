@@ -984,6 +984,15 @@
       return;
     }
 
+    // Đối chiếu lại giỏ hàng mới nhất từ server ngay trước khi chốt đơn để loại trừ khoảng hở giữa chu kỳ poll 4s
+    const latestRemoteCart = await fetchLatestCartSnapshot();
+    if (latestRemoteCart !== null && JSON.stringify(latestRemoteCart) !== fingerprint) {
+      cart = latestRemoteCart;
+      renderCartPanel();
+      toast("Giỏ hàng của bàn vừa được cập nhật từ thiết bị khác. Vui lòng kiểm tra lại trước khi gửi bếp.");
+      return;
+    }
+
     await submitOrder();
   }
 
@@ -1039,7 +1048,7 @@
       cart = [];
       pendingIdempotencyKey = null;
       sessionStorage.removeItem(idempotencyStorageKey);
-      await syncCart();
+      renderCartPanel();
       await loadSentOrders();
       closeCart();
       toast(wasAlreadyAccepted ? `Đơn #${result.order_id} đã được nhận trước đó.` : `Đã gửi đơn #${result.order_id} xuống bếp thành công!`);
@@ -1049,6 +1058,20 @@
       submitting = false;
       els.submit.disabled = false;
       els.submit.innerHTML = 'Gửi đơn đến bếp <span>→</span>';
+    }
+  }
+
+  async function fetchLatestCartSnapshot() {
+    if (!sessionToken) return null;
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/client/session/${encodeURIComponent(sessionToken)}/cart`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return cleanCart(data.items || []);
+    } catch (_) {
+      return null;
     }
   }
 
