@@ -492,10 +492,16 @@ class AdminCatalogController
         }
     }
 
-    public function toggleMenuItemAvailability(int $itemId): void
+    public function toggleMenuItemAvailability(int $itemId, ?array $payload = null): void
     {
         $db = Database::getConnection();
         $rawAvailability = $_GET['is_available'] ?? null;
+        if ($rawAvailability === null) {
+            $body = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+            if (is_array($body) && array_key_exists('is_available', $body)) {
+                $rawAvailability = $body['is_available'];
+            }
+        }
         $requestedAvailability = $rawAvailability === null
             ? null
             : filter_var($rawAvailability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
@@ -547,10 +553,16 @@ class AdminCatalogController
         }
     }
 
-    public function toggleToppingAvailability(int $toppingId): void
+    public function toggleToppingAvailability(int $toppingId, ?array $payload = null): void
     {
         $db = Database::getConnection();
         $rawAvailability = $_GET['is_available'] ?? null;
+        if ($rawAvailability === null) {
+            $body = $payload ?? (json_decode(file_get_contents('php://input') ?: '[]', true) ?: []);
+            if (is_array($body) && array_key_exists('is_available', $body)) {
+                $rawAvailability = $body['is_available'];
+            }
+        }
         $requestedAvailability = $rawAvailability === null
             ? null
             : filter_var($rawAvailability, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);

@@ -156,6 +156,21 @@ if ($path === '/staff/kds/item-status' && ($method === 'POST' || $method === 'PA
     $kdsPos->updateItemStatus();
     exit;
 }
+if ($path === '/staff/kds/stock-status' && $method === 'GET') {
+    requireApiPermission('kds.view');
+    $kdsPos->getKdsStockStatus();
+    exit;
+}
+if (preg_match('#^/staff/kds/menu-items/(\d+)/availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
+    requireApiPermission('kds.update');
+    $admin->toggleMenuItemAvailability((int)$m[1]);
+    exit;
+}
+if (preg_match('#^/staff/kds/toppings/(\d+)/availability$#', $path, $m) && ($method === 'PATCH' || $method === 'POST')) {
+    requireApiPermission('kds.update');
+    $admin->toggleToppingAvailability((int)$m[1]);
+    exit;
+}
 if ($path === '/staff/pos/active-tables' && $method === 'GET') {
     requireApiPermission('pos.view');
     $kdsPos->getActivePosTables();

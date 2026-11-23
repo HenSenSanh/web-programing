@@ -59,6 +59,61 @@ class KdsPosController
         ]);
     }
 
+    public function getKdsStockStatus(): void
+    {
+        $db = Database::getConnection();
+        $stmtItems = $db->query("
+            SELECT m.id, m.name, m.category_id, m.price, m.is_available, m.image_url, c.name AS category_name
+            FROM menu_items m
+            JOIN categories c ON c.id = m.category_id
+            ORDER BY m.is_available ASC, c.display_order ASC, m.id ASC
+        ");
+        $items = [];
+        $unavailableItems = 0;
+        foreach (($stmtItems ? $stmtItems->fetchAll() : []) as $row) {
+            $avail = (bool)$row['is_available'];
+            if (!$avail) {
+                $unavailableItems++;
+            }
+            $items[] = [
+                'id' => (int)$row['id'],
+                'name' => (string)$row['name'],
+                'category_id' => (int)$row['category_id'],
+                'category_name' => (string)$row['category_name'],
+                'price' => (float)$row['price'],
+                'is_available' => $avail,
+                'image_url' => (string)($row['image_url'] ?? ''),
+            ];
+        }
+
+        $stmtToppings = $db->query("
+            SELECT id, name, price, is_available
+            FROM toppings
+            ORDER BY is_available ASC, id ASC
+        ");
+        $toppings = [];
+        $unavailableToppings = 0;
+        foreach (($stmtToppings ? $stmtToppings->fetchAll() : []) as $row) {
+            $avail = (bool)$row['is_available'];
+            if (!$avail) {
+                $unavailableToppings++;
+            }
+            $toppings[] = [
+                'id' => (int)$row['id'],
+                'name' => (string)$row['name'],
+                'price' => (float)$row['price'],
+                'is_available' => $avail,
+            ];
+        }
+
+        echo json_encode([
+            'items' => $items,
+            'toppings' => $toppings,
+            'unavailable_items_count' => $unavailableItems,
+            'unavailable_toppings_count' => $unavailableToppings,
+        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
     public function getActivePosTables(): void
     {
         $db = Database::getConnection();

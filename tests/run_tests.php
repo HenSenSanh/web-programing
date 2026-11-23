@@ -1397,6 +1397,91 @@ $db->prepare("DELETE FROM audit_logs WHERE entity_type = 'topping' AND entity_id
 $db->prepare("DELETE FROM toppings WHERE id = ?")->execute([$createdTopId]);
 unset($_SESSION['user_id']);
 
+// Task 5: Kitchen (KDS) out-of-stock controls for dishes & toppings + RBAC
+$_SESSION['user_id'] = $matrixUserIds['KEEPER'];
+ob_start();
+$kdsPos->getKdsStockStatus();
+$kdsStockInitial = json_decode(ob_get_clean(), true);
+assertTest(
+    "UX-9.11: KdsPosController::getKdsStockStatus() trả về danh sách món, topping và số lượng tạm hết",
+    is_array($kdsStockInitial)
+        && !empty($kdsStockInitial['items'])
+        && !empty($kdsStockInitial['toppings'])
+        && array_key_exists('unavailable_items_count', $kdsStockInitial)
+        && array_key_exists('unavailable_toppings_count', $kdsStockInitial)
+);
+
+// KEEPER báo hết món #12 và hết topping #2 bằng payload JSON -> audit ghi actor KEEPER & khách đặt bị chặn 409
+ob_start();
+$adminCatalog->toggleMenuItemAvailability(12, ['is_available' => false]);
+$kdsDishOff = json_decode(ob_get_clean(), true);
+ob_start();
+$adminCatalog->toggleToppingAvailability(2, ['is_available' => false]);
+$kdsTopOff = json_decode(ob_get_clean(), true);
+
+ob_start();
+$kdsPos->getKdsStockStatus();
+$kdsStockAfterOff = json_decode(ob_get_clean(), true);
+
+$stmtKeeperAudit = $db->prepare("SELECT COUNT(*) FROM audit_logs WHERE actor_id = ? AND action = 'availability.update'");
+$stmtKeeperAudit->execute([$matrixUserIds['KEEPER']]);
+$keeperAuditCount = (int)$stmtKeeperAudit->fetchColumn();
+
+// Kiểm tra khách đặt món/topping vừa bị bếp báo hết bị chặn 409
+$kdsTestSuffix = substr(uniqid('', true), 0, 8);
+$kdsTestSessId = 'sess_kds_oos_' . $kdsTestSuffix;
+$kdsTestTok = 'tok_kds_oos_' . $kdsTestSuffix;
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'OCCUPIED')")->execute(['Bàn OOS ' . $kdsTestSuffix]);
+$kdsTestTableId = (int)$db->lastInsertId();
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$kdsTestSessId, $kdsTestTableId, $kdsTestTok]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")->execute([$kdsTestSessId, $kdsTestTableId]);
+
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = 'IDEM-OOS-DISH-' . $kdsTestSuffix;
+ob_start();
+$orderCtrl->submitOrder($kdsTestTok, ['items' => [['menu_item_id' => 12, 'quantity' => 1]]]);
+$oosDishRes = json_decode(ob_get_clean(), true);
+
+$_SERVER['HTTP_IDEMPOTENCY_KEY'] = 'IDEM-OOS-TOP-' . $kdsTestSuffix;
+ob_start();
+$orderCtrl->submitOrder($kdsTestTok, ['items' => [['menu_item_id' => 1, 'quantity' => 1, 'selected_toppings' => [['id' => 2, 'quantity' => 1]]]]]);
+$oosTopRes = json_decode(ob_get_clean(), true);
+unset($_SERVER['HTTP_IDEMPOTENCY_KEY']);
+
+assertTest(
+    "UX-9.12: Bếp (KEEPER) báo hết món & topping ghi audit và chặn khách đặt (MENU_ITEM_UNAVAILABLE / TOPPING_UNAVAILABLE)",
+    ($kdsDishOff['is_available'] ?? true) === false
+        && ($kdsTopOff['is_available'] ?? true) === false
+        && (int)($kdsStockAfterOff['unavailable_items_count'] ?? 0) >= 1
+        && (int)($kdsStockAfterOff['unavailable_toppings_count'] ?? 0) >= 1
+        && $keeperAuditCount >= 2
+        && ($oosDishRes['code'] ?? '') === 'MENU_ITEM_UNAVAILABLE'
+        && ($oosTopRes['code'] ?? '') === 'TOPPING_UNAVAILABLE'
+);
+
+// Khôi phục lại trạng thái mở bán cho món #12 và topping #2
+ob_start();
+$adminCatalog->toggleMenuItemAvailability(12, ['is_available' => true]);
+ob_end_clean();
+ob_start();
+$adminCatalog->toggleToppingAvailability(2, ['is_available' => true]);
+ob_end_clean();
+
+// RBAC boundary: CREATOR xem được kds.view (200) nhưng bị 403 kds.update; VIEWER bị 403 cả hai
+$creatorKdsView = apiPermissionDecision($matrixUserIds['CREATOR'], 'kds.view');
+$creatorKdsUpdate = apiPermissionDecision($matrixUserIds['CREATOR'], 'kds.update');
+$viewerKdsView = apiPermissionDecision($matrixUserIds['VIEWER'], 'kds.view');
+assertTest(
+    "UX-9.13: Phân quyền kho bếp KDS — KEEPER đủ quyền, CREATOR chỉ xem (403 khi sửa), VIEWER bị chặn 403",
+    $creatorKdsView['allowed'] === true
+        && $creatorKdsUpdate['http_status'] === 403
+        && $viewerKdsView['http_status'] === 403
+);
+
+$db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$kdsTestSessId]);
+$db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$kdsTestTableId]);
+unset($_SESSION['user_id']);
+
 // -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------

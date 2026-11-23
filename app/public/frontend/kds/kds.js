@@ -1,6 +1,20 @@
 const API_BASE = (location.protocol.startsWith('http') ? '' : 'http://localhost:8080') + '/api/v1';
+const KDS_CAN_UPDATE = window.KDS_CAN_UPDATE !== false;
 let allKdsItems = [];
 let currentFilter = 'ALL';
+let currentKdsMode = 'ORDERS';
+let stockFilter = 'ALL';
+let kdsStockData = { items: [], toppings: [], unavailable_items_count: 0, unavailable_toppings_count: 0 };
+let kdsToastTimer = null;
+
+function showKdsToast(message, isError = false) {
+  const el = document.getElementById('kds-toast');
+  if (!el) return;
+  el.textContent = message;
+  el.className = `position-fixed bottom-0 end-0 m-3 px-3 py-2 rounded-3 text-white fw-semibold small shadow ${isError ? 'bg-danger' : 'bg-success'}`;
+  clearTimeout(kdsToastTimer);
+  kdsToastTimer = setTimeout(() => el.classList.add('d-none'), 3000);
+}
 
 function escapeHtml(str) {
   return String(str ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -181,13 +195,222 @@ async function updateItemStatus(orderItemId, status) {
   }
 }
 
-// Tự động làm mới dữ liệu mỗi 5 giây
+// 6. Chuyển chế độ Đơn đang nấu / Báo hết món & Topping
+function setKdsMode(mode) {
+  currentKdsMode = mode === 'STOCK' ? 'STOCK' : 'ORDERS';
+  const ordersSection = document.getElementById('kds-orders-section');
+  const stockSection = document.getElementById('kds-stock-section');
+  const ordersFilters = document.getElementById('kds-orders-filters');
+  const btnOrders = document.getElementById('kds-mode-orders');
+  const btnStock = document.getElementById('kds-mode-stock');
+
+  if (ordersSection) ordersSection.classList.toggle('d-none', currentKdsMode !== 'ORDERS');
+  if (stockSection) stockSection.classList.toggle('d-none', currentKdsMode !== 'STOCK');
+  if (ordersFilters) ordersFilters.classList.toggle('d-none', currentKdsMode !== 'ORDERS');
+
+  if (btnOrders) {
+    btnOrders.classList.toggle('btn-dark', currentKdsMode === 'ORDERS');
+    btnOrders.classList.toggle('btn-outline-dark', currentKdsMode !== 'ORDERS');
+  }
+  if (btnStock) {
+    btnStock.classList.toggle('btn-danger', currentKdsMode === 'STOCK');
+    btnStock.classList.toggle('btn-outline-danger', currentKdsMode !== 'STOCK');
+  }
+
+  if (currentKdsMode === 'STOCK') {
+    fetchKdsStockStatus();
+  }
+}
+
+function setStockFilter(nextFilter) {
+  stockFilter = nextFilter === 'OUT' ? 'OUT' : 'ALL';
+  const btnAll = document.getElementById('stock-filter-all');
+  const btnOut = document.getElementById('stock-filter-out');
+  if (btnAll) {
+    btnAll.classList.toggle('btn-dark', stockFilter === 'ALL');
+    btnAll.classList.toggle('btn-outline-dark', stockFilter !== 'ALL');
+  }
+  if (btnOut) {
+    btnOut.classList.toggle('btn-danger', stockFilter === 'OUT');
+    btnOut.classList.toggle('btn-outline-danger', stockFilter !== 'OUT');
+  }
+  renderKdsStockUI();
+}
+
+async function fetchKdsStockStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/staff/kds/stock-status`, { headers: { Accept: 'application/json' } });
+    if (!res.ok) return;
+    const data = await res.json();
+    kdsStockData = {
+      items: Array.isArray(data.items) ? data.items : [],
+      toppings: Array.isArray(data.toppings) ? data.toppings : [],
+      unavailable_items_count: Number(data.unavailable_items_count || 0),
+      unavailable_toppings_count: Number(data.unavailable_toppings_count || 0),
+    };
+    const totalOut = kdsStockData.unavailable_items_count + kdsStockData.unavailable_toppings_count;
+    const badge = document.getElementById('kds-out-of-stock-badge');
+    if (badge) {
+      badge.textContent = String(totalOut);
+      badge.classList.toggle('d-none', totalOut === 0);
+    }
+    if (currentKdsMode === 'STOCK') {
+      renderKdsStockUI();
+    }
+  } catch (err) {
+    console.error('Lỗi tải kho bếp KDS:', err);
+  }
+}
+
+function renderKdsStockUI() {
+  const query = String(document.getElementById('kds-stock-search')?.value || '').trim().toLowerCase();
+  const topContainer = document.getElementById('kds-stock-toppings');
+  const dishContainer = document.getElementById('kds-stock-dishes');
+  const topSummary = document.getElementById('kds-toppings-summary');
+  const dishSummary = document.getElementById('kds-dishes-summary');
+
+  const filteredTops = kdsStockData.toppings.filter((top) => {
+    const matchOut = stockFilter === 'ALL' || !top.is_available;
+    const matchQ = !query || String(top.name || '').toLowerCase().includes(query);
+    return matchOut && matchQ;
+  });
+
+  const filteredDishes = kdsStockData.items.filter((dish) => {
+    const matchOut = stockFilter === 'ALL' || !dish.is_available;
+    const matchQ = !query
+      || String(dish.name || '').toLowerCase().includes(query)
+      || String(dish.category_name || '').toLowerCase().includes(query);
+    return matchOut && matchQ;
+  });
+
+  if (topSummary) {
+    topSummary.textContent = `${kdsStockData.unavailable_toppings_count} hết / ${kdsStockData.toppings.length} topping`;
+    topSummary.className = kdsStockData.unavailable_toppings_count > 0 ? 'badge bg-danger' : 'badge bg-success';
+  }
+  if (dishSummary) {
+    dishSummary.textContent = `${kdsStockData.unavailable_items_count} hết / ${kdsStockData.items.length} món`;
+    dishSummary.className = kdsStockData.unavailable_items_count > 0 ? 'badge bg-danger' : 'badge bg-success';
+  }
+
+  if (topContainer) {
+    topContainer.innerHTML = filteredTops.length
+      ? filteredTops.map((top) => {
+          const avail = Boolean(top.is_available);
+          const actionHtml = KDS_CAN_UPDATE
+            ? `<button type="button"
+                       class="btn btn-sm w-100 fw-semibold ${avail ? 'btn-outline-danger' : 'btn-success'}"
+                       onclick="toggleKdsToppingAvailability(${Number(top.id)}, ${avail ? 'false' : 'true'}, this)">
+                   ${avail ? '<i class="bi bi-x-circle"></i> Báo hết' : '<i class="bi bi-check-circle"></i> Mở lại'}
+               </button>`
+            : `<span class="badge ${avail ? 'bg-success' : 'bg-danger'}">${avail ? 'Còn hàng' : 'Hết hàng'}</span>`;
+          return `
+            <div class="col">
+              <div class="card h-100 shadow-sm ${avail ? 'border-light' : 'border-danger bg-danger-subtle bg-opacity-10'}">
+                <div class="card-body p-3 d-flex flex-column justify-content-between gap-2">
+                  <div>
+                    <div class="d-flex justify-content-between align-items-start gap-1">
+                      <strong class="small text-dark">${escapeHtml(top.name)}</strong>
+                      <span class="badge ${avail ? 'bg-success-subtle text-success' : 'bg-danger text-white'}">${avail ? 'Còn' : 'Hết'}</span>
+                    </div>
+                    <div class="text-muted" style="font-size: 11px;">+${Number(top.price || 0).toLocaleString('vi-VN')} đ</div>
+                  </div>
+                  ${actionHtml}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')
+      : '<div class="col-12 text-muted small py-2">Không có topping phù hợp.</div>';
+  }
+
+  if (dishContainer) {
+    dishContainer.innerHTML = filteredDishes.length
+      ? filteredDishes.map((dish) => {
+          const avail = Boolean(dish.is_available);
+          const thumb = dish.image_url
+            ? `<img src="${escapeHtml(dish.image_url)}" alt="${escapeHtml(dish.name)}" style="width:46px;height:46px;object-fit:cover;border-radius:8px;flex-shrink:0;" onerror="this.style.display='none'">`
+            : '';
+          const actionHtml = KDS_CAN_UPDATE
+            ? `<button type="button"
+                       class="btn btn-sm fw-semibold flex-shrink-0 ${avail ? 'btn-outline-danger' : 'btn-success'}"
+                       onclick="toggleKdsDishAvailability(${Number(dish.id)}, ${avail ? 'false' : 'true'}, this)">
+                   ${avail ? '<i class="bi bi-slash-circle"></i> Báo hết món' : '<i class="bi bi-check2-circle"></i> Mở bán lại'}
+               </button>`
+            : `<span class="badge ${avail ? 'bg-success' : 'bg-danger'}">${avail ? 'Đang bán' : 'Hết món'}</span>`;
+          return `
+            <div class="col">
+              <div class="card h-100 shadow-sm ${avail ? 'border-light' : 'border-danger border-2'}">
+                <div class="card-body p-3 d-flex align-items-center justify-content-between gap-2">
+                  <div class="d-flex align-items-center gap-2 min-w-0">
+                    ${thumb}
+                    <div class="min-w-0">
+                      <div class="fw-bold text-dark small text-truncate" title="${escapeHtml(dish.name)}">${escapeHtml(dish.name)}</div>
+                      <div class="text-muted" style="font-size: 11px;">
+                        ${escapeHtml(dish.category_name)} ·
+                        <span class="fw-semibold ${avail ? 'text-success' : 'text-danger'}">${avail ? 'Đang bán' : 'Tạm hết'}</span>
+                      </div>
+                    </div>
+                  </div>
+                  ${actionHtml}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')
+      : '<div class="col-12 text-muted small py-3 text-center">Không có món ăn phù hợp.</div>';
+  }
+}
+
+async function toggleKdsDishAvailability(itemId, nextAvailable, btn) {
+  if (!KDS_CAN_UPDATE) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API_BASE}/staff/kds/menu-items/${encodeURIComponent(itemId)}/availability`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ is_available: Boolean(nextAvailable) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    await fetchKdsStockStatus();
+    showKdsToast(nextAvailable ? 'Đã mở bán lại món trên thực đơn khách.' : 'Đã báo HẾT MÓN — thực đơn khách sẽ tự khóa món này.');
+  } catch (err) {
+    showKdsToast(`Lỗi cập nhật món: ${err.message}`, true);
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function toggleKdsToppingAvailability(toppingId, nextAvailable, btn) {
+  if (!KDS_CAN_UPDATE) return;
+  if (btn) btn.disabled = true;
+  try {
+    const res = await fetch(`${API_BASE}/staff/kds/toppings/${encodeURIComponent(toppingId)}/availability`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ is_available: Boolean(nextAvailable) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    await fetchKdsStockStatus();
+    showKdsToast(nextAvailable ? 'Đã mở lại topping.' : 'Đã báo HẾT TOPPING — thực đơn khách sẽ tự ẩn topping này.');
+  } catch (err) {
+    showKdsToast(`Lỗi cập nhật topping: ${err.message}`, true);
+    if (btn) btn.disabled = false;
+  }
+}
+
+// Tự động làm mới dữ liệu mỗi 5 giây (đơn) và 15 giây (kho bếp)
 setInterval(fetchKdsItems, 5000);
+setInterval(fetchKdsStockStatus, 15000);
 
 // Chạy ngay khi trang được tải xong hoặc khi chuyển tab mượt trong Portal
-document.addEventListener('DOMContentLoaded', fetchKdsItems);
+document.addEventListener('DOMContentLoaded', () => {
+  fetchKdsItems();
+  fetchKdsStockStatus();
+});
 window.addEventListener('message', (event) => {
   if (event.origin === window.location.origin && event.data?.type === 'dineflow:tab-activated') {
     fetchKdsItems();
+    fetchKdsStockStatus();
   }
 });
