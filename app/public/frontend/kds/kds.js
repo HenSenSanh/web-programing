@@ -86,7 +86,10 @@ function renderKdsUI() {
     const note = item.notes || item.note || 'Không có';
     const toppingDetails = item.topping_details_recorded
       ? (Array.isArray(item.toppings) && item.toppings.length
-        ? item.toppings.map(topping => escapeHtml(topping.name)).join(', ')
+        ? item.toppings.map(topping => {
+            const qty = Math.max(1, Number(topping.quantity || 1));
+            return qty > 1 ? `${escapeHtml(topping.name)} x${qty}` : escapeHtml(topping.name);
+          }).join(', ')
         : 'Không chọn topping')
       : 'Đơn cũ chưa lưu chi tiết topping';
     const isPending = item.status === 'PENDING';

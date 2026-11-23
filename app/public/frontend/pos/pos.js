@@ -32,7 +32,12 @@ function formatBillToppings(item) {
     return 'Không chọn topping';
   }
   return 'Topping: ' + toppings
-    .map(t => `${escapeHtml(t.name)} (+${Number(t.unit_price || 0).toLocaleString('vi-VN')} đ)`)
+    .map(t => {
+      const qty = Math.max(1, Number(t.quantity || 1));
+      const linePrice = Number(t.unit_price || 0) * qty;
+      const qtySuffix = qty > 1 ? ` x${qty}` : '';
+      return `${escapeHtml(t.name)}${qtySuffix} (+${linePrice.toLocaleString('vi-VN')} đ)`;
+    })
     .join(', ');
 }
 

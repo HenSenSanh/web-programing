@@ -161,11 +161,16 @@ if ($ajaxAction === 'bill') {
                                                 Topping:
                                                 <?php
                                                 $toppingLabels = array_map(
-                                                    static fn(array $topping): string => htmlspecialchars(
-                                                        $topping['name'] . ' (+' . number_format((float)$topping['unit_price'], 0, ',', '.') . ' đ)',
-                                                        ENT_QUOTES,
-                                                        'UTF-8'
-                                                    ),
+                                                    static function (array $topping): string {
+                                                        $qty = max(1, (int)($topping['quantity'] ?? 1));
+                                                        $linePrice = (float)($topping['unit_price'] ?? 0) * $qty;
+                                                        $qtySuffix = $qty > 1 ? (' x' . $qty) : '';
+                                                        return htmlspecialchars(
+                                                            ($topping['name'] ?? 'Topping') . $qtySuffix . ' (+' . number_format($linePrice, 0, ',', '.') . ' đ)',
+                                                            ENT_QUOTES,
+                                                            'UTF-8'
+                                                        );
+                                                    },
                                                     $item['toppings']
                                                 );
                                                 echo implode(', ', $toppingLabels);
@@ -298,7 +303,12 @@ if ($ajaxAction === 'bill') {
                         const toppings = Array.isArray(item.toppings) ? item.toppings : [];
                         toppingText = toppings.length === 0
                             ? 'Không chọn topping'
-                            : 'Topping: ' + toppings.map((t) => `${escapeHtml(t.name)} (+${formatVnd(t.unit_price)})`).join(', ');
+                            : 'Topping: ' + toppings.map((t) => {
+                                const qty = Math.max(1, Number(t.quantity || 1));
+                                const linePrice = Number(t.unit_price || 0) * qty;
+                                const qtySuffix = qty > 1 ? ` x${qty}` : '';
+                                return `${escapeHtml(t.name)}${qtySuffix} (+${formatVnd(linePrice)})`;
+                            }).join(', ');
                     }
                     return `
                         <tr>
