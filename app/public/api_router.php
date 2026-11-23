@@ -18,6 +18,7 @@ require_once __DIR__ . '/../Controllers/ClientOrderController.php';
 require_once __DIR__ . '/../Controllers/ClientCancellationController.php';
 require_once __DIR__ . '/../Controllers/KdsPosController.php';
 require_once __DIR__ . '/../Controllers/DataPipelineController.php';
+require_once __DIR__ . '/../Controllers/ServiceRequestController.php';
 require_once __DIR__ . '/../Services/OrderToppingSnapshotService.php';
 require_once __DIR__ . '/../Services/SharedCartService.php';
 require_once __DIR__ . '/../Services/AprioriService.php';
@@ -28,6 +29,7 @@ use App\Controllers\ClientOrderController;
 use App\Controllers\ClientCancellationController;
 use App\Controllers\KdsPosController;
 use App\Controllers\DataPipelineController;
+use App\Controllers\ServiceRequestController;
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -40,6 +42,7 @@ $client = new ClientOrderController();
 $clientCancellation = new ClientCancellationController();
 $kdsPos = new KdsPosController();
 $data = new DataPipelineController();
+$serviceRequests = new ServiceRequestController();
 
 // 0. Health check
 if (($path === '' || $path === '/' || $path === '/health') && $method === 'GET') {
@@ -144,8 +147,28 @@ if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/order-items/(\d+)/cancel$#', 
     $clientCancellation->cancelItem($m[1], (int)$m[2]);
     exit;
 }
+if (preg_match('#^/client/session/([a-zA-Z0-9_-]+)/service-requests$#', $path, $m)) {
+    if ($method === 'GET') {
+        $serviceRequests->listClientRequests($m[1]);
+        exit;
+    }
+    if ($method === 'POST') {
+        $serviceRequests->createClientRequest($m[1]);
+        exit;
+    }
+}
 
-// 3. Staff KDS & POS
+// 3. Staff KDS, POS & Service Support Alerts
+if ($path === '/staff/service-requests' && $method === 'GET') {
+    requireAnyApiPermission(['tables.view', 'pos.view', 'data.manage']);
+    $serviceRequests->listStaffRequests();
+    exit;
+}
+if (preg_match('#^/staff/service-requests/(\d+)/resolve$#', $path, $m) && ($method === 'POST' || $method === 'PATCH')) {
+    requireAnyApiPermission(['tables.view', 'pos.view', 'data.manage']);
+    $serviceRequests->resolveStaffRequest((int)$m[1]);
+    exit;
+}
 if ($path === '/staff/kds/active-items' && $method === 'GET') {
     requireApiPermission('kds.view');
     $kdsPos->getKdsActiveItems();

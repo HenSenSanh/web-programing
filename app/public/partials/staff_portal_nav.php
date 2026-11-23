@@ -9,6 +9,7 @@ $staffPortalActive = $staffPortalActive ?? '';
 $staffPortalShellHref = $staffPortalActive !== ''
     ? '/portal.php?tab=' . rawurlencode((string)$staffPortalActive)
     : '/' . ltrim(getStaffPortalEntryPath($staffPortalUserId), '/');
+$staffCanSeeServiceAlerts = hasAnyPermission($staffPortalUserId, ['tables.view', 'pos.view', 'data.manage']);
 ?>
 <header class="staff-portal-nav">
     <a class="staff-portal-brand"
@@ -23,6 +24,9 @@ $staffPortalShellHref = $staffPortalActive !== ''
                 <?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>
             </a>
         <?php endforeach; ?>
+        <?php if ($staffCanSeeServiceAlerts): ?>
+            <span id="staff-service-bell-root"></span>
+        <?php endif; ?>
         <a class="staff-portal-link"
            href="<?php echo htmlspecialchars($staffPortalShellHref, ENT_QUOTES, 'UTF-8'); ?>"
            style="border-color: #c7d2fe; color: #4338ca;">
@@ -31,3 +35,6 @@ $staffPortalShellHref = $staffPortalActive !== ''
         <a class="staff-portal-logout" href="/logout.php">Đăng xuất</a>
     </nav>
 </header>
+<?php if ($staffCanSeeServiceAlerts): ?>
+    <script src="/js/staff-service-alerts.js" defer></script>
+<?php endif; ?>

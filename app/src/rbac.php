@@ -141,6 +141,59 @@ function getStaffPortalNavigation(int $userId): array
     ));
 }
 
+function hasAnyPermission(int $userId, array $permissionCodes): bool
+{
+    foreach ($permissionCodes as $permissionCode) {
+        if (hasPermission($userId, (string)$permissionCode)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function apiAnyPermissionDecision(?int $userId, array $permissionCodes): array
+{
+    if ($userId === null || $userId <= 0) {
+        return [
+            'allowed' => false,
+            'http_status' => 401,
+            'error' => 'Authentication required',
+        ];
+    }
+
+    if (!hasAnyPermission($userId, $permissionCodes)) {
+        return [
+            'allowed' => false,
+            'http_status' => 403,
+            'error' => 'Permission denied',
+        ];
+    }
+
+    return [
+        'allowed' => true,
+        'http_status' => 200,
+        'error' => null,
+    ];
+}
+
+function requireAnyApiPermission(array $permissionCodes): void
+{
+    $sessionUserId = filter_var($_SESSION['user_id'] ?? null, FILTER_VALIDATE_INT);
+    $userId = is_int($sessionUserId) && $sessionUserId > 0 ? $sessionUserId : null;
+    $decision = apiAnyPermissionDecision($userId, $permissionCodes);
+
+    if ($decision['allowed']) {
+        return;
+    }
+
+    http_response_code($decision['http_status']);
+    echo json_encode([
+        'error' => $decision['error'],
+        'permissions' => array_values($permissionCodes),
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 function requireApiPermission(string $permissionCode): void
 {
     $sessionUserId = filter_var($_SESSION['user_id'] ?? null, FILTER_VALIDATE_INT);

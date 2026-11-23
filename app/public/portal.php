@@ -24,6 +24,7 @@ if (!isset($itemsByKey[$defaultTab])) {
 $requestedTab = trim((string)($_GET['tab'] ?? ''));
 $activeTab = isset($itemsByKey[$requestedTab]) ? $requestedTab : $defaultTab;
 $username = (string)($_SESSION['username'] ?? 'Nhân viên');
+$canSeeServiceAlerts = hasAnyPermission($userId, ['tables.view', 'pos.view', 'data.manage']);
 ?>
 <!DOCTYPE html>
 <html lang="vi">
@@ -61,6 +62,9 @@ $username = (string)($_SESSION['username'] ?? 'Nhân viên');
                     <?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>
                 </button>
             <?php endforeach; ?>
+            <?php if ($canSeeServiceAlerts): ?>
+                <span id="staff-service-bell-root"></span>
+            <?php endif; ?>
             <button type="button" id="portal-refresh-btn" class="portal-refresh-btn" title="Làm mới tab hiện tại">
                 🔄 Làm mới tab
             </button>
@@ -216,5 +220,8 @@ $username = (string)($_SESSION['username'] ?? 'Nhân viên');
             history.replaceState({ tab: currentTab }, '', `/portal.php?tab=${encodeURIComponent(currentTab)}`);
         })();
     </script>
+    <?php if ($canSeeServiceAlerts): ?>
+        <script src="/js/staff-service-alerts.js" defer></script>
+    <?php endif; ?>
 </body>
 </html>

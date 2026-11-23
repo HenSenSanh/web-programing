@@ -251,6 +251,20 @@ class KdsPosController
             $stmtTable = $db->prepare("UPDATE dining_tables SET status = 'AVAILABLE', current_session_id = NULL WHERE id = ?");
             $stmtTable->execute([$session['table_id']]);
 
+            // Tự động đóng các yêu cầu gọi nhân viên đang chờ của phiên bàn vừa thanh toán
+            try {
+                $actorId = filter_var($_SESSION['user_id'] ?? null, FILTER_VALIDATE_INT);
+                $resolvedBy = (is_int($actorId) && $actorId > 0) ? $actorId : null;
+                $stmtResolveSr = $db->prepare("
+                    UPDATE service_requests
+                    SET status = 'RESOLVED', resolved_at = ?, resolved_by = COALESCE(resolved_by, ?)
+                    WHERE session_id = ? AND status = 'PENDING'
+                ");
+                $stmtResolveSr->execute([$closedAt, $resolvedBy, $actualSessionId]);
+            } catch (\Throwable $e) {
+                // Bỏ qua nếu bảng service_requests chưa khởi tạo trong môi trường tối giản
+            }
+
             $db->commit();
 
             // Dọn giỏ hàng & tự động kích hoạt luồng ETL chuyển dữ liệu sang kho OLAP

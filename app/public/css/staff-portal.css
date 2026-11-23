@@ -154,6 +154,218 @@
     color: #0f172a;
 }
 
+.service-bell-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.service-bell-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    background: #fff;
+    color: #334155;
+    font: 600 12px/1.3 Inter, "Segoe UI", sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+
+.service-bell-btn:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.service-bell-btn.has-pending {
+    background: #fff1f2;
+    border-color: #fecdd3;
+    color: #be123c;
+}
+
+.service-bell-badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #e11d48;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.service-bell-badge[hidden],
+.service-bell-popover[hidden] {
+    display: none;
+}
+
+.service-bell-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(360px, calc(100vw - 24px));
+    max-height: 420px;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, .18);
+    z-index: 1200;
+    overflow: hidden;
+}
+
+.service-bell-popover-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-size: 13px;
+    color: #0f172a;
+}
+
+.service-bell-refresh {
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    color: #334155;
+    width: 28px;
+    height: 28px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.service-bell-list {
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.service-bell-empty {
+    margin: 0;
+    padding: 20px 10px;
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+}
+
+.service-bell-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid #fecdd3;
+    border-radius: 9px;
+    background: #fff8f8;
+}
+
+.service-bell-item-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.service-bell-item-top {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
+    color: #0f172a;
+}
+
+.service-bell-type {
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #ffe4e6;
+    color: #be123c;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.service-bell-msg {
+    margin: 4px 0 3px;
+    font-size: 12px;
+    color: #334155;
+    word-break: break-word;
+}
+
+.service-bell-time {
+    font-size: 10px;
+    color: #64748b;
+}
+
+.service-bell-resolve {
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 7px;
+    padding: 7px 10px;
+    background: #059669;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.service-bell-resolve:hover {
+    background: #047857;
+}
+
+.service-bell-resolve:disabled {
+    opacity: .6;
+    cursor: wait;
+}
+
+.service-alert-toast-stack {
+    position: fixed;
+    top: 66px;
+    right: 16px;
+    z-index: 1500;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: min(340px, calc(100vw - 24px));
+}
+
+.service-alert-toast {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #9f1239;
+    color: #fff;
+    box-shadow: 0 12px 30px rgba(159, 18, 57, .3);
+    font: 500 12px/1.4 Inter, "Segoe UI", sans-serif;
+}
+
+.service-alert-toast-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+}
+
+.service-alert-toast-close {
+    border: 0;
+    background: transparent;
+    color: #ffe4e6;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+}
+
 @keyframes portalTabFadeIn {
     from { opacity: 0; transform: translateY(3px); }
     to { opacity: 1; transform: translateY(0); }

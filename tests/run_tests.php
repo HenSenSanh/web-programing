@@ -1482,6 +1482,121 @@ $db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$kdsTestSessId
 $db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$kdsTestTableId]);
 unset($_SESSION['user_id']);
 
+// Task 6: Call Staff / Support APIs, RBAC, Anti-spam & Checkout auto-resolve
+$srPerms = ['tables.view', 'pos.view', 'data.manage'];
+$srAnon = apiAnyPermissionDecision(null, $srPerms);
+$srKeeper = apiAnyPermissionDecision($matrixUserIds['KEEPER'], $srPerms);
+$srCreator = apiAnyPermissionDecision($matrixUserIds['CREATOR'], $srPerms);
+$srViewer = apiAnyPermissionDecision($matrixUserIds['VIEWER'], $srPerms);
+$srAdmin = apiAnyPermissionDecision($matrixUserIds['ADMIN'], $srPerms);
+assertTest(
+    "UX-9.14: RBAC hỗ trợ bàn — ẩn danh 401, KEEPER 403, CREATOR/VIEWER/ADMIN 200",
+    $srAnon['http_status'] === 401
+        && $srKeeper['http_status'] === 403
+        && $srCreator['allowed'] === true
+        && $srViewer['allowed'] === true
+        && $srAdmin['allowed'] === true
+);
+
+require_once $appDir . '/Controllers/ServiceRequestController.php';
+$srCtrl = new \App\Controllers\ServiceRequestController();
+
+$srSuffix = substr(uniqid('', true), 0, 8);
+$srSessId = 'sess_sr_' . $srSuffix;
+$srTok = 'tok_sr_' . $srSuffix;
+$db->prepare("INSERT INTO dining_tables (table_number, status) VALUES (?, 'OCCUPIED')")->execute(['Bàn SR ' . $srSuffix]);
+$srTableId = (int)$db->lastInsertId();
+$db->prepare("INSERT INTO table_sessions (id, table_id, session_token, status, total_amount) VALUES (?, ?, ?, 'ACTIVE', 0)")
+    ->execute([$srSessId, $srTableId, $srTok]);
+$db->prepare("UPDATE dining_tables SET current_session_id = ? WHERE id = ?")->execute([$srSessId, $srTableId]);
+
+ob_start();
+$srCtrl->createClientRequest($srTok, ['request_type' => 'CALL_STAFF', 'message' => '']);
+$srCreated = json_decode(ob_get_clean(), true);
+$srId1 = (int)($srCreated['request']['id'] ?? 0);
+
+ob_start();
+$srCtrl->createClientRequest($srTok, ['request_type' => 'OTHER', 'message' => '   ']);
+$srEmptyOther = json_decode(ob_get_clean(), true);
+
+ob_start();
+$srCtrl->createClientRequest($srTok, ['request_type' => 'CALL_STAFF', 'message' => 'Gọi lại liền']);
+$srSpam = json_decode(ob_get_clean(), true);
+
+ob_start();
+$srCtrl->createClientRequest('invalid-closed-token-' . $srSuffix, ['request_type' => 'CALL_STAFF']);
+$srBadToken = json_decode(ob_get_clean(), true);
+
+assertTest(
+    "UX-9.15: createClientRequest tạo yêu cầu hợp lệ, chặn OTHER rỗng, chặn spam 30s (TOO_MANY_REQUESTS) và chặn token sai",
+    ($srCreated['status'] ?? '') === 'success'
+        && $srId1 > 0
+        && !empty($srCreated['request']['message'])
+        && !empty($srEmptyOther['error'])
+        && ($srSpam['code'] ?? '') === 'TOO_MANY_REQUESTS'
+        && !empty($srBadToken['error'])
+);
+
+$_SESSION['user_id'] = $matrixUserIds['CREATOR'];
+ob_start();
+$srCtrl->listStaffRequests('PENDING');
+$srStaffList = json_decode(ob_get_clean(), true);
+$foundSr1 = false;
+foreach (($srStaffList['requests'] ?? []) as $row) {
+    if ((int)($row['id'] ?? 0) === $srId1 && ($row['table_number'] ?? '') === 'Bàn SR ' . $srSuffix) {
+        $foundSr1 = true;
+        break;
+    }
+}
+
+ob_start();
+$srCtrl->resolveStaffRequest($srId1);
+$srResolved1 = json_decode(ob_get_clean(), true);
+
+ob_start();
+$srCtrl->resolveStaffRequest($srId1);
+$srResolvedRetry = json_decode(ob_get_clean(), true);
+
+assertTest(
+    "UX-9.16: Nhân viên nhận danh sách yêu cầu đúng số bàn và xử lý (resolve) idempotent",
+    $foundSr1
+        && ($srResolved1['status'] ?? '') === 'success'
+        && ($srResolved1['already_resolved'] ?? true) === false
+        && ($srResolvedRetry['status'] ?? '') === 'success'
+        && ($srResolvedRetry['already_resolved'] ?? false) === true
+);
+
+// Tạo thêm 1 yêu cầu WATER_ICE rồi checkout bàn -> tự động chuyển sang RESOLVED
+ob_start();
+$srCtrl->createClientRequest($srTok, ['request_type' => 'WATER_ICE', 'message' => 'Xin 2 ly đá']);
+$srCreated2 = json_decode(ob_get_clean(), true);
+$srId2 = (int)($srCreated2['request']['id'] ?? 0);
+
+ob_start();
+$kdsPos->checkout($srSessId);
+ob_end_clean();
+
+$stmtSr2Status = $db->prepare("SELECT status FROM service_requests WHERE id = ?");
+$stmtSr2Status->execute([$srId2]);
+$sr2StatusAfterCheckout = (string)$stmtSr2Status->fetchColumn();
+
+ob_start();
+$srCtrl->createClientRequest($srTok, ['request_type' => 'PAYMENT']);
+$srAfterCheckout = json_decode(ob_get_clean(), true);
+
+assertTest(
+    "UX-9.17: Checkout bàn tự động RESOLVED yêu cầu hỗ trợ đang chờ và từ chối yêu cầu mới sau khi đóng phiên",
+    $srId2 > 0
+        && $sr2StatusAfterCheckout === 'RESOLVED'
+        && !empty($srAfterCheckout['error'])
+);
+
+$db->prepare("DELETE FROM service_requests WHERE session_id = ?")->execute([$srSessId]);
+$db->prepare("DELETE FROM bill_payments WHERE session_id = ?")->execute([$srSessId]);
+$db->prepare("DELETE FROM table_sessions WHERE id = ?")->execute([$srSessId]);
+$db->prepare("DELETE FROM dining_tables WHERE id = ?")->execute([$srTableId]);
+unset($_SESSION['user_id']);
+
 // -------------------------------------------------------------------------
 // TỔNG KẾT BỘ KIỂM THỬ
 // -------------------------------------------------------------------------
