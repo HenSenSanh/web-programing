@@ -1,0 +1,22 @@
+-- Idempotent migration: switch dishes #15..#35 from SVG placeholders to compressed real photos (.jpg / .webp)
+UPDATE menu_items SET image_url = '/frontend/img/nuoc_ep_dua_hau.jpg' WHERE id = 15 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/tra_vai.jpg' WHERE id = 16 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/mi_udon.jpg' WHERE id = 17 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/com_rang_dua_bo.jpg' WHERE id = 18 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/takoyaki.jpg' WHERE id = 19 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/xuc_xich_duc.jpg' WHERE id = 20 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/tra_chanh.jpg' WHERE id = 21 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/sinh_to_bo.webp' WHERE id = 22 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/bun_dau.webp' WHERE id = 23 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/bo_bit_tet.jpg' WHERE id = 24 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/banh_mi_bo_toi.jpg' WHERE id = 25 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/salad.jpg' WHERE id = 26 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/ca_phe_sua.jpg' WHERE id = 27 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/tra_xoai.jpg' WHERE id = 28 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/sup_ga.jpg' WHERE id = 29 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/chao_ech.jpg' WHERE id = 30 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/ngo_chien.jpg' WHERE id = 31 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/banh_goi.jpg' WHERE id = 32 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/che_dua_dam.jpg' WHERE id = 33 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/tau_hu.webp' WHERE id = 34 AND image_url LIKE '%.svg';
+UPDATE menu_items SET image_url = '/frontend/img/combo_lau_nuong.jpg' WHERE id = 35 AND image_url LIKE '%.svg';

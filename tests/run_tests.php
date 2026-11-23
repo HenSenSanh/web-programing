@@ -1769,12 +1769,16 @@ assertTest(
         && strpos($productsSrcTier1, '5 * 1024 * 1024') !== false
 );
 
-// T1-10.8: Compressed JPEG images <= 200KB + api_router rate-limit/audit/health wiring (+ repo CI/Render files when present)
-$jpgFiles = glob($appDir . '/public/frontend/img/*.jpg') ?: [];
-$allJpgLight = count($jpgFiles) >= 14;
-foreach ($jpgFiles as $jf) {
-    if (filesize($jf) > 204800) {
-        $allJpgLight = false;
+// T1-10.8: All 35 menu dish photos are real compressed JPG/WebP (<= 200KB each, 0 SVG) + api_router & CI/Render wiring
+$photoFiles = array_merge(
+    glob($appDir . '/public/frontend/img/*.jpg') ?: [],
+    glob($appDir . '/public/frontend/img/*.webp') ?: []
+);
+$svgFiles = glob($appDir . '/public/frontend/img/*.svg') ?: [];
+$allPhotosLight = count($photoFiles) >= 35 && count($svgFiles) === 0;
+foreach ($photoFiles as $pf) {
+    if (filesize($pf) > 204800) {
+        $allPhotosLight = false;
         break;
     }
 }
@@ -1787,8 +1791,8 @@ if (is_dir(__DIR__ . '/../.github')) {
         && strpos((string)file_get_contents(__DIR__ . '/../docker/php/entrypoint.sh'), 'PORT_NUM') !== false;
 }
 assertTest(
-    "T1-10.8: 14 ảnh JPG đã nén nhẹ (<=200KB/ảnh), api_router bật Rate Limit/Audit/Health DB & đủ cấu hình CI/Render",
-    $allJpgLight
+    "T1-10.8: Đủ 35 ảnh thật (.jpg/.webp <=200KB/ảnh, 0 SVG), api_router bật Rate Limit/Audit/Health DB & đủ cấu hình CI/Render",
+    $allPhotosLight
         && strpos($apiRouterSrc, 'RateLimiterService::enforce') !== false
         && strpos($apiRouterSrc, '/admin/audit-logs') !== false
         && $repoInfraOk
